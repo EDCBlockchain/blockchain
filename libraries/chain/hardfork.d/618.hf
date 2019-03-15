@@ -1,0 +1,4 @@
+// Proof of online
+#ifndef HARDFORK_618_TIME
+#define HARDFORK_618_TIME (fc::time_point_sec( 1491217200 ))
+#endif

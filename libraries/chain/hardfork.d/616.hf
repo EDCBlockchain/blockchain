@@ -1,0 +1,5 @@
+// #616 new referral bonuses algorithm. changed maintenance time
+#ifndef HARDFORK_616_TIME
+#define HARDFORK_616_TIME (fc::time_point_sec( 1481788800 )) 
+#define HARDFORK_616_MAINTENANCE_CHANGE_TIME (fc::time_point_sec( 1481760000 ))
+#endif

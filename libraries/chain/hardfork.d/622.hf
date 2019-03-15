@@ -1,0 +1,4 @@
+// funds (5 mar. 2019)
+#ifndef HARDFORK_622_TIME
+#define HARDFORK_622_TIME (fc::time_point_sec( 1551744000 ))
+#endif

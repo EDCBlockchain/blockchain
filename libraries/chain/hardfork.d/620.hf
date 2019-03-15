@@ -1,0 +1,4 @@
+#ifndef HARDFORK_620_TIME
+#define HARDFORK_620_TIME (fc::time_point_sec( 1498129200 ))
+#define HARDFORK_620_FIX_TIME (fc::time_point_sec( 1498474800 ))
+#endif

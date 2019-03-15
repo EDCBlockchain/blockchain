@@ -1,0 +1,4 @@
+// disable referrals bonuses (13 feb. 2019)
+#ifndef HARDFORK_621_TIME
+#define HARDFORK_621_TIME (fc::time_point_sec( 1550016000 ))
+#endif

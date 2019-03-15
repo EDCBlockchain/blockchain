@@ -1,0 +1,4 @@
+// rework bonuses with coin maturity
+#ifndef HARDFORK_617_TIME
+#define HARDFORK_617_TIME (fc::time_point_sec( 1488276000 ))
+#endif
