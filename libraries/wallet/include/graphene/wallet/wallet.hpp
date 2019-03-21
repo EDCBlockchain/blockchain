@@ -161,7 +161,7 @@ struct wallet_data
                      [](const account_object& ao) { return ao.id; });
       return ids;
    }
-   /// Add acct to @ref my_accounts, or update it if it is already in @ref my_accounts
+   /// Add acct to @ref my_accounts, or update it if it is already in @ref my_account
    /// @return true if the account was get_account_history_partly inserted; false if it was only updated
    bool update_account(const account_object& acct)
    {

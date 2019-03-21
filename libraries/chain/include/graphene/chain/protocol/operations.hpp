@@ -49,61 +49,61 @@ namespace graphene { namespace chain {
     * Defines the set of valid operations as a discriminated union type.
     */
    typedef fc::static_variant<
-            transfer_operation,
+            transfer_operation,            // [idx: 0]
             limit_order_create_operation,
             limit_order_cancel_operation,
-            call_order_update_operation,
+            call_order_update_operation,   // [idx: 3]
             fill_order_operation,           // VIRTUAL
             account_create_operation,
-            account_update_operation,
+            account_update_operation,      // [idx: 6]
             account_whitelist_operation,
             account_upgrade_operation,
-            account_transfer_operation,
+            account_transfer_operation,    // [idx: 9]
             asset_create_operation,
             asset_update_operation,
-            asset_update_bitasset_operation,
+            asset_update_bitasset_operation, // [idx: 12]
             asset_update_feed_producers_operation,
             asset_issue_operation,
-            asset_reserve_operation,
+            asset_reserve_operation,         // [idx: 15]
             asset_fund_fee_pool_operation,
             asset_settle_operation,
-            asset_global_settle_operation,
+            asset_global_settle_operation,   // [idx: 18]
             asset_publish_feed_operation,
             witness_create_operation,
-            witness_update_operation,
+            witness_update_operation,        // [idx: 21]
             proposal_create_operation,
             proposal_update_operation,
-            proposal_delete_operation,
+            proposal_delete_operation,       // [idx: 24]
             withdraw_permission_create_operation,
             withdraw_permission_update_operation,
-            withdraw_permission_claim_operation,
+            withdraw_permission_claim_operation,  // [idx: 27]
             withdraw_permission_delete_operation,
             committee_member_create_operation,
-            committee_member_update_operation,
+            committee_member_update_operation,    // [idx: 30]
             committee_member_update_global_parameters_operation,
             vesting_balance_create_operation,
-            vesting_balance_withdraw_operation,
+            vesting_balance_withdraw_operation,   // [idx: 33]
             worker_create_operation,
             custom_operation,
-            assert_operation,
+            assert_operation,                     // [idx: 36]
             balance_claim_operation,
             override_transfer_operation,
-            transfer_to_blind_operation,
+            transfer_to_blind_operation,          // [idx: 39]
             blind_transfer_operation,
             transfer_from_blind_operation,
-            asset_settle_cancel_operation,     // VIRTUAL
+            asset_settle_cancel_operation,     // VIRTUAL, // [idx: 42]
             asset_claim_fees_operation,
             fba_distribute_operation,          // VIRTUAL
-            bonus_operation,
+            bonus_operation,                   // [idx: 45]
             daily_issue_operation,             // coin maturing
             referral_issue_operation,
-            edc_asset_fund_fee_pool_operation,
+            edc_asset_fund_fee_pool_operation, // [idx: 48]
             account_restrict_operation,        // restrict account money_in, money_out, bonuses
             account_allow_referrals_operation, // account can create other accounts
-            set_online_time_operation,
+            set_online_time_operation,         // [idx: 51]
             set_verification_is_required_operation,
             allow_create_asset_operation,
-            add_address_operation,
+            add_address_operation,             // [idx: 54]
             /**
              * we can't edit old 'asset_update_operation' because of
              * backward compatibility
@@ -115,10 +115,10 @@ namespace graphene { namespace chain {
             fund_refill_operation,    // [idx: 58]
             fund_deposit_operation,
             fund_withdrawal_operation,
-            fund_payment_operation,
-            fund_set_enable_operation, // [idx: 62]
+            fund_payment_operation,   // [idx: 61]
+            fund_set_enable_operation,
             fund_deposit_set_enable_operation,
-            fund_remove_operation
+            fund_remove_operation     // [idx: 64]
          > operation;
 
    /// @} // operations group

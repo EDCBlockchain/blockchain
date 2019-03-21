@@ -122,8 +122,8 @@ void database::adjust_balance(account_id_type account, asset delta )
       });
 
       // disable maturity for EDC
-      if ( ((delta.asset_id != EDINAR_ASSET)
-            || ((delta.asset_id == EDINAR_ASSET) && (head_block_time() < HARDFORK_622_TIME))) )
+      if ( ((delta.asset_id != EDC_ASSET)
+            || ((delta.asset_id == EDC_ASSET) && (head_block_time() < HARDFORK_622_TIME))) )
       {
          create<account_mature_balance_object>(
          [this, account, delta, &interval_part](account_mature_balance_object& b) {
@@ -173,7 +173,7 @@ void database::adjust_bonus_balance(account_id_type account, asset delta)
    if (bonus_balances_itr == index.end())
    {
       // disable for EDC
-      if ( (head_block_time() > HARDFORK_622_TIME) && (delta.asset_id == EDINAR_ASSET) ) { return; }
+      if ( (head_block_time() > HARDFORK_622_TIME) && (delta.asset_id == EDC_ASSET) ) { return; }
 
       create<bonus_balances_object>([&](bonus_balances_object& bbo) {
          bbo.owner = account;
@@ -219,7 +219,7 @@ void database::process_bonus_balances(account_id_type account_id)
                         : head_block_time() - fc::days(3);
    const std::vector<bonus_balances_object::bonus_balances_info>& matured_balances = bonus_balances_itr->balances_before_date(check_time);
 
-   const auto edc_asset = get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+   const auto edc_asset = get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
    auto edc_balance = get_balance(account_id, edc_asset->get_id()).amount;
 
    transaction_evaluation_state eval(this);
@@ -313,7 +313,7 @@ void database::consider_mining_old()
    auto& online_info = get( accounts_online_id_type() ).online_info;
    if (!online_info.size()) return;
    const auto& account_idx = get_index_type<chain::account_index>();
-   const auto asset = get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+   const auto asset = get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
    account_idx.inspect_all_objects( [&](const chain::object& obj) {
       const chain::account_object& account = static_cast<const chain::account_object&>(obj);
       uint16_t mined_minutes = 0;
@@ -344,7 +344,7 @@ asset database::check_supply_overflow( asset value )
 void database::issue_referral()
 {
    const auto& idx = get_index_type<chain::account_index>();
-   const auto edc_asset = get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+   const auto edc_asset = get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
    const auto& bal_idx = get_index_type<account_balance_index>();
    auto& mat_bal_idx = get_index_type<account_mature_balance_index>();   
    auto& issuer_list = edc_asset->issuer( *this ).blacklisted_accounts;

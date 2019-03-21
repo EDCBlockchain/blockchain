@@ -2118,9 +2118,11 @@ void database_api_impl::on_objects_changed(const vector<object_id_type>& ids)
    map< pair<asset_id_type, asset_id_type>,  vector<variant> > market_broadcast_queue;
    for(auto id : ids)
    {
-      if (id == ALPHA_ACCOUNT_ID ||
-          id == EDINAR_ACCOUNT_ID  )
-         continue;
+      if (id == ALPHA_ACCOUNT_ID) continue;
+
+      const vector<optional<asset_object>>& assets = get_assets({EDC_ASSET});
+      if ( (assets.size() > 0) && assets[0].valid() && (assets[0]->issuer == id) ) { continue; }
+
       const object* obj = nullptr;
       if( _subscribe_callback )
       {
@@ -2231,7 +2233,7 @@ ref_info database_api::get_referrals_by_id(string account_name_or_id) {
 }
 ref_info database_api_impl::get_referrals_by_id( optional<account_object> account ) const {
     const auto& idx = _db.get_index_type<chain::account_index>();
-    auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+    auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
     auto& bal_idx = _db.get_index_type<account_balance_index>();
     referral_tree rtree( idx, bal_idx, asset->id, account->id );
     rtree.form_old();
@@ -2252,7 +2254,7 @@ Unit database_api::get_referrals(string account_name_or_id) {
 }
 Unit database_api_impl::get_referrals( optional<account_object> account ) const {
     const auto& idx = _db.get_index_type<chain::account_index>();
-    auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+    auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
     Unit start(account->get_id(), account->name, _db.get_balance(account->id, asset->id).amount.value);
     std::map<account_id_type, Unit*> search;
     search.emplace(account->get_id(), &start);
@@ -2350,7 +2352,7 @@ vector<SimpleUnit> database_api_impl::get_accounts_info(vector<optional<account_
       }
       if (found) continue;
       const auto& db_idx = _db.get_index_type<chain::account_index>();
-      auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+      auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
       auto& bal_idx = _db.get_index_type<account_balance_index>();
       referral_set.push_back(referral_tree( db_idx, bal_idx, asset->id, acc_obj.get_id() ));
       referral_set.back().form_old();
@@ -2383,7 +2385,7 @@ fc::variant_object database_api_impl::get_user_count_by_ranks() const
    mapres.emplace("F", 0);
    mapres.emplace("G", 0);
    const auto& idx = _db.get_index_type<chain::account_index>();
-   auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+   auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
    auto& bal_idx = _db.get_index_type<account_balance_index>();
    referral_tree rtree( idx, bal_idx, asset->id );
    rtree.form_old();
@@ -2415,7 +2417,7 @@ int64_t database_api::get_user_count_with_balances(std::vector<fc::time_point_se
 int64_t database_api_impl::get_user_count_with_balances(fc::time_point_sec start, fc::time_point_sec end) const 
 {
    const auto& idx = _db.get_index_type<chain::account_index>().indices().get<by_id>();
-   auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+   auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
    int64_t users_count = 0;
    if (start == fc::time_point_sec() && end == fc::time_point_sec()) {
       for (auto account = ++idx.begin(); account != idx.end(); account++) {

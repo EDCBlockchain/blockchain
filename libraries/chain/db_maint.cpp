@@ -1004,7 +1004,7 @@ void database::issue_bonuses_before_620()
       consider_mining_old();
       
    const auto& idx = get_index_type<chain::account_index>();
-   const auto asset = get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+   const auto asset = get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
    const auto& bal_idx = get_index_type<account_balance_index>();
    auto& mat_bal_idx = get_index_type<account_mature_balance_index>();
    transaction_evaluation_state eval(this);
@@ -1085,7 +1085,7 @@ void database::issue_bonuses_before_620()
 
 void database::issue_bonuses_old() {
    const auto& idx = get_index_type<chain::account_index>();
-   const auto asset = get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+   const auto asset = get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
    const auto& bal_idx = get_index_type<account_balance_index>();
 
    transaction_evaluation_state eval(this);

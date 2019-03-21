@@ -134,7 +134,7 @@ void bonus_balances_object::adjust_balance(const asset& delta, time_point_sec ti
     if (!balances_by_date.size() || pos == -1)
     {
        if ( (db->head_block_time() <= HARDFORK_622_TIME)
-             || ((db->head_block_time() > HARDFORK_622_TIME) && (delta.asset_id != EDINAR_ASSET)) )
+             || ((db->head_block_time() > HARDFORK_622_TIME) && (delta.asset_id != EDC_ASSET)) )
        {
           balances_by_date.insert(balances_by_date.begin(), bonus_balances_info(time_point));
           balances_by_date[0].balances.emplace(delta.asset_id, delta.amount);

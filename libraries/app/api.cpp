@@ -158,7 +158,7 @@ namespace graphene { namespace app {
        FC_ASSERT(itr != accounts_by_name.end());
 
        const auto& assets_by_symbol = db.get_index_type<asset_index>().indices().get<by_symbol>();
-       auto iter_asset = assets_by_symbol.find(EDINAR_ASSET_SYMBOL);
+       auto iter_asset = assets_by_symbol.find(EDC_ASSET_SYMBOL);
        FC_ASSERT(iter_asset != assets_by_symbol.end());
 
        const asset_object& asst = *iter_asset;

@@ -977,9 +977,19 @@ void application::startup()
       throw;
    }
    if (key_string.empty()) return;
-   p_key = graphene::utilities::wif_to_key(key_string);
-   from_account = my->_chain_db->get<account_object>(EDINAR_ACCOUNT_ID);
-   bonus_schedule();
+
+   const auto& edc_asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
+   if (edc_asset != my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().end())
+   {
+      const auto& acc_idx = my->_chain_db->get_index_type<account_index>().indices().get<by_id>();
+      auto itr_acc = acc_idx.find(edc_asset->issuer);
+      if (itr_acc != acc_idx.end())
+      {
+         p_key = graphene::utilities::wif_to_key(key_string);
+         from_account = *itr_acc;
+         bonus_schedule();
+      }
+   }
 }
 
 int minutes(fc::time_point now) {
@@ -1029,7 +1039,7 @@ void application::bonus_schedule_loop()
     }
     bonus_storage.push_back(op_info(from_account, 1000, "Daily mining reward", true));
     auto& idx = d.get_index_type<chain::account_index>();
-    const auto asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+    const auto asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
     idx.inspect_all_objects( [&d,this,&asset](const chain::object& obj){
         const chain::account_object& account = static_cast<const chain::account_object&>(obj);
 
@@ -1054,7 +1064,7 @@ void application::issue_from_storage() {
     const auto SEND_STRANSACTION_EVERY = fc::milliseconds(71); //ms
     if (!bonus_storage.size()) return;
 
-    auto asset = *my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+    auto asset = *my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
     auto elem = bonus_storage.back();
     bonus_storage.pop_back();
     if (elem.is_core_transfer) {
@@ -1076,7 +1086,7 @@ void application::referrer_bonus()
         return;
     }
     bonus_storage.push_back(op_info(from_account, 1000, "Referral reward", true));
-    const auto asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+    const auto asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
     idx.inspect_all_objects( [&](const chain::object& obj) {
         const chain::account_object& account = static_cast<const chain::account_object&>(obj);
 
@@ -1232,7 +1242,7 @@ std::tuple<std::vector<account_object>, int> application::get_referrers(account_
     const auto& idx = d.get_index_type<chain::account_index>();
     std::vector<account_object> result;
     int count = 0;
-    auto asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+    auto asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
     idx.inspect_all_objects( [&d,this,&account_id,&result,&asset,&count](const chain::object& obj){
         const account_object& account = static_cast<const chain::account_object&>(obj);
         auto balance = d.get_balance(account.id, asset->id).amount.value;
@@ -1306,7 +1316,7 @@ vector<transfer_operation> application::get_core_transfers(std::string with_memo
 
 void application::issue_bonus(const chain::account_object& to_account, long long quant, std::string with_memo)
 {
-    auto asst = *my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+    auto asst = *my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
     
     chain::signed_transaction trx;
     chain::asset_issue_operation op;

@@ -500,7 +500,7 @@ public:
 
    void set_operation_fees( signed_transaction& tx, const fee_schedule& s  )
    {
-      asset_object edc_asset = get_asset(EDINAR_ASSET_SYMBOL);
+      asset_object edc_asset = get_asset(EDC_ASSET_SYMBOL);
       for( auto& op : tx.operations )
          s.set_fee( op, edc_asset.options.core_exchange_rate );
    }
@@ -1441,7 +1441,7 @@ public:
       optional<asset_object> asset_to_fund = find_asset(symbol);
       if (!asset_to_fund)
         FC_THROW("No asset with that symbol exists!");
-      asset_object edc_asset = get_asset(EDINAR_ASSET_SYMBOL);
+      asset_object edc_asset = get_asset(EDC_ASSET_SYMBOL);
 
       edc_asset_fund_fee_pool_operation fund_op;
       fund_op.from_account = from_account.id;

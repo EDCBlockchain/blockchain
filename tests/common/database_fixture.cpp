@@ -1127,7 +1127,7 @@ void database_fixture::make_fund(
    fco.fee      = asset();
    fco.name     = fund_name;
    fco.owner    = owner;
-   fco.asset_id = EDINAR_ASSET;
+   fco.asset_id = EDC_ASSET;
    fco.options  = options;
 
    set_expiration(db, trx);

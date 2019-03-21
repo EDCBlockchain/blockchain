@@ -59,7 +59,7 @@ BOOST_AUTO_TEST_CASE( test_bonus_balances )
       INVOKE(create_edc);
 
       //const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find("EDC");
-      const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDINAR_ASSET_SYMBOL);
+      const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
       issue_uia(alice_id, asset(300000, edc_asset.id));
 
       generate_blocks(fc::time_point_sec(HARDFORK_620_TIME) + fc::minutes(10));

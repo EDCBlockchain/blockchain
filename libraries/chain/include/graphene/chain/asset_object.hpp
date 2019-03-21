@@ -90,7 +90,7 @@ namespace graphene { namespace chain {
          /// @return true if this is a market-issued asset; false otherwise.
          bool is_market_issued()const
          {
-            if (symbol == EDINAR_ASSET_SYMBOL) return false;
+            if (symbol == EDC_ASSET_SYMBOL) return false;
             return bitasset_data_id.valid(); 
          }
          /// @return true if users may request force-settlement of this market-issued asset; false otherwise

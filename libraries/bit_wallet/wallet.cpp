@@ -511,7 +511,7 @@ public:
 
    void set_operation_fees( signed_transaction& tx, const fee_schedule& s  )
    {
-      asset_object edc_asset = get_asset(EDINAR_ASSET_SYMBOL);
+      asset_object edc_asset = get_asset(EDC_ASSET_SYMBOL);
       for( auto& op : tx.operations )
          s.set_fee( op, edc_asset.options.core_exchange_rate );
    }

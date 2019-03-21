@@ -1,4 +1,4 @@
-// funds (5 mar. 2019)
+// funds (22 mar. 2019), disabling EDC bonuses (except current maturing)
 #ifndef HARDFORK_622_TIME
-#define HARDFORK_622_TIME (fc::time_point_sec( 1551744000 ))
+#define HARDFORK_622_TIME (fc::time_point_sec( 1553212800 ))
 #endif

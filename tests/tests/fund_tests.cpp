@@ -150,8 +150,8 @@ BOOST_AUTO_TEST_CASE( fund_refill_test )
 
       create_edc();
 
-      issue_uia(alice_id, asset(10000000, EDINAR_ASSET));
-      BOOST_CHECK(get_balance(alice_id, EDINAR_ASSET) == 10000000);
+      issue_uia(alice_id, asset(10000000, EDC_ASSET));
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 10000000);
 
       // payments to fund
       fund_options::fund_rate fr;
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE( fund_refill_test )
 
       // check fund & alice balances after refilling...
       BOOST_CHECK(fund.get_balance() == 10000);
-      BOOST_CHECK(get_balance(alice_id, EDINAR_ASSET) == 9990000);
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 9990000);
 
    } FC_LOG_AND_RETHROW()
 }
@@ -216,8 +216,8 @@ BOOST_AUTO_TEST_CASE( fund_deposit_test )
 
       create_edc();
 
-      issue_uia(alice_id, asset(10000000, EDINAR_ASSET));
-      BOOST_CHECK(get_balance(alice_id, EDINAR_ASSET) == 10000000);
+      issue_uia(alice_id, asset(10000000, EDC_ASSET));
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 10000000);
 
       // payments to fund
       fund_options::fund_rate fr;
@@ -257,7 +257,7 @@ BOOST_AUTO_TEST_CASE( fund_deposit_test )
 
       // check fund & alice balances after deposit...
       BOOST_CHECK(fund.get_balance() == 10000);
-      BOOST_CHECK(get_balance(alice_id, EDINAR_ASSET) == 9990000);
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 9990000);
 
    } FC_LOG_AND_RETHROW()
 }
@@ -352,11 +352,11 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
 
       create_edc();
 
-      issue_uia(alice, asset(10000, EDINAR_ASSET));
-      BOOST_CHECK(get_balance(alice_id, EDINAR_ASSET) == 10000);
+      issue_uia(alice, asset(10000, EDC_ASSET));
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 10000);
 
-      issue_uia(bob, asset(10000, EDINAR_ASSET));
-      BOOST_CHECK(get_balance(bob_id, EDINAR_ASSET) == 10000);
+      issue_uia(bob, asset(10000, EDC_ASSET));
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 10000);
 
       generate_blocks(HARDFORK_622_TIME);
 
@@ -392,7 +392,7 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
       PUSH_TX(db, trx, ~0);
       trx.clear();
       BOOST_CHECK(fund.get_balance() == 10000);
-      BOOST_CHECK(get_balance(alice_id, EDINAR_ASSET) == 0);
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 0);
 
       // bob: deposit
       fund_deposit_operation fdo;
@@ -405,16 +405,16 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
       PUSH_TX(db, trx, ~0);
       trx.clear();
       BOOST_CHECK(fund.get_balance() == 20000);
-      BOOST_CHECK(get_balance(bob_id, EDINAR_ASSET) == 0);
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 0);
 
       // first maintenance_time
       generate_blocks(db.get_dynamic_global_properties().next_maintenance_time);
 
-      // std::cout << "========= 1 alice's balance: " << get_balance(alice_id, EDINAR_ASSET) << std::endl;
-      // std::cout << "========= 1 bob's balance: " << get_balance(bob_id, EDINAR_ASSET) << std::endl;
+      // std::cout << "========= 1 alice's balance: " << get_balance(alice_id, EDC_ASSET) << std::endl;
+      // std::cout << "========= 1 bob's balance: " << get_balance(bob_id, EDC_ASSET) << std::endl;
 
-      BOOST_CHECK(get_balance(alice_id, EDINAR_ASSET) == 160);
-      BOOST_CHECK(get_balance(bob_id, EDINAR_ASSET) == 40);
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 160);
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 40);
 
 //      fc::time_point_sec h_time = db.head_block_time();
 //
@@ -424,7 +424,7 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
 //            generate_block();
 //         }
 //         h_time = db.head_block_time();
-//         std::cout << "day #" << ii << "========= 2 alice's balance: " << get_balance(alice_id, EDINAR_ASSET) << std::endl;
+//         std::cout << "day #" << ii << "========= 2 alice's balance: " << get_balance(alice_id, EDC_ASSET) << std::endl;
 //      }
 
       // until bob's deposit is actual
@@ -433,25 +433,25 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
          generate_block();
       }
 
-      // std::cout << "========= 2 alice's balance: " << get_balance(alice_id, EDINAR_ASSET) << std::endl;
-      // std::cout << "========= 2 bob's balance: " << get_balance(bob_id, EDINAR_ASSET) << std::endl;
+      // std::cout << "========= 2 alice's balance: " << get_balance(alice_id, EDC_ASSET) << std::endl;
+      // std::cout << "========= 2 bob's balance: " << get_balance(bob_id, EDC_ASSET) << std::endl;
 
       // fund has paid 10.000 EDC & percent to bob, because his deposit has already finished
-      BOOST_CHECK(get_balance(bob_id, EDINAR_ASSET) == 12000);
-      BOOST_CHECK(get_balance(alice_id, EDINAR_ASSET) == 5550);
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 12000);
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 5550);
 
       h_time = db.head_block_time();
       while (db.head_block_time() < (h_time + fc::days(50))) {
          generate_block();
       }
 
-      // std::cout << "========= 3 alice's balance: " << get_balance(alice_id, EDINAR_ASSET) << std::endl;
-      // std::cout << "========= 3 bob's balance: " << get_balance(bob_id, EDINAR_ASSET) << std::endl;
+      // std::cout << "========= 3 alice's balance: " << get_balance(alice_id, EDC_ASSET) << std::endl;
+      // std::cout << "========= 3 bob's balance: " << get_balance(bob_id, EDC_ASSET) << std::endl;
 
       // bob still has old balance
-      BOOST_CHECK(get_balance(bob_id, EDINAR_ASSET) == 12000);
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 12000);
       // alice has fund amount + percent
-      BOOST_CHECK(get_balance(alice_id, EDINAR_ASSET) == 16825);
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 16825);
 
       BOOST_CHECK(!fund.enabled);
       BOOST_CHECK(fund.get_balance() == 0);

@@ -169,12 +169,10 @@
 #define GRAPHENE_PROXY_TO_SELF_ACCOUNT (graphene::chain::account_id_type(5))
 // alpha account
 #define ALPHA_ACCOUNT_ID (graphene::chain::account_id_type(18))
-// edinar account
-#define EDINAR_ACCOUNT_ID (graphene::chain::account_id_type(20))
-// edinar asset id (EDC)
-#define EDINAR_ASSET (chain::asset_id_type(1))
-// edinar symbol
-#define EDINAR_ASSET_SYMBOL "EDC"
+// EDC asset id
+#define EDC_ASSET (chain::asset_id_type(1))
+// edc symbol
+#define EDC_ASSET_SYMBOL "EDC"
 
 /// Sentinel value used in the scheduler.
 #define GRAPHENE_NULL_WITNESS (graphene::chain::witness_id_type(0))
