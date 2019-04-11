@@ -27,7 +27,7 @@
 
 namespace graphene { namespace chain {
 
-class account_create_evaluator : public evaluator<account_create_evaluator>
+class account_create_evaluator: public evaluator<account_create_evaluator>
 {
 public:
    typedef account_create_operation operation_type;
@@ -36,7 +36,7 @@ public:
    object_id_type do_apply( const account_create_operation& o ) ;
 };
 
-class account_update_evaluator : public evaluator<account_update_evaluator>
+class account_update_evaluator: public evaluator<account_update_evaluator>
 {
 public:
    typedef account_update_operation operation_type;
@@ -47,16 +47,18 @@ public:
    const account_object* acnt;
 };
 
-class add_address_evaluator : public evaluator<add_address_evaluator>
+class add_address_evaluator: public evaluator<add_address_evaluator>
 {
 public:
    typedef add_address_operation operation_type;
 
    void_result do_evaluate(const add_address_operation& o);
    void_result do_apply(const add_address_operation& o);
+
+   const account_object* account_ptr;
 };
 
-class account_upgrade_evaluator : public evaluator<account_upgrade_evaluator>
+class account_upgrade_evaluator: public evaluator<account_upgrade_evaluator>
 {
 public:
    typedef account_upgrade_operation operation_type;
@@ -67,7 +69,7 @@ public:
    const account_object* account;
 };
 
-class account_whitelist_evaluator : public evaluator<account_whitelist_evaluator>
+class account_whitelist_evaluator: public evaluator<account_whitelist_evaluator>
 {
 public:
    typedef account_whitelist_operation operation_type;
@@ -78,7 +80,7 @@ public:
    const account_object* listed_account;
 };
 
-class account_restrict_evaluator : public evaluator<account_restrict_evaluator>
+class account_restrict_evaluator: public evaluator<account_restrict_evaluator>
 {
 public:
    typedef account_restrict_operation operation_type;
@@ -90,7 +92,7 @@ public:
    const restricted_account_object* restricted_account = nullptr;
 };
 
-class account_allow_create_asset_evaluator : public evaluator<account_allow_create_asset_evaluator>
+class account_allow_create_asset_evaluator: public evaluator<account_allow_create_asset_evaluator>
 {
 public:
    typedef allow_create_asset_operation operation_type;
@@ -101,7 +103,7 @@ public:
    const allow_create_asset_object* allow_create_asset_account = nullptr;
 };
 
-class account_allow_referrals_evaluator : public evaluator<account_allow_referrals_evaluator>
+class account_allow_referrals_evaluator: public evaluator<account_allow_referrals_evaluator>
 {
 public:
    typedef account_allow_referrals_operation operation_type;
@@ -111,7 +113,7 @@ public:
 
 };
 
-class set_online_time_evaluator : public evaluator<set_online_time_evaluator>
+class set_online_time_evaluator: public evaluator<set_online_time_evaluator>
 {
 public:
    typedef set_online_time_operation operation_type;
@@ -121,7 +123,7 @@ public:
 
 };
 
-class set_verification_is_required_evaluator : public evaluator<set_verification_is_required_evaluator>
+class set_verification_is_required_evaluator: public evaluator<set_verification_is_required_evaluator>
 {
 public:
    typedef set_verification_is_required_operation operation_type;
@@ -130,5 +132,18 @@ public:
    void_result do_apply( const set_verification_is_required_operation& o);
 
 };
+
+class allow_create_addresses_evaluator: public evaluator<allow_create_addresses_evaluator>
+{
+public:
+   typedef allow_create_addresses_operation operation_type;
+
+   void_result do_evaluate(const allow_create_addresses_operation& o);
+   void_result do_apply(const allow_create_addresses_operation& o);
+
+   const account_object* account_ptr;
+
+};
+
 
 } } // graphene::chain

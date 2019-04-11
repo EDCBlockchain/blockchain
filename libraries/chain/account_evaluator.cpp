@@ -420,14 +420,28 @@ void_result account_update_evaluator::do_apply( const account_update_operation& 
 
 void_result add_address_evaluator::do_evaluate(const add_address_operation& o) 
 {
+   database& d = db();
+
+   const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
+   auto itr = idx.find(o.to_account);
+
+   FC_ASSERT(itr != idx.end(), "Account with ID ${id} not exists!", ("a", o.to_account));
+
+   account_ptr = &*itr;
+
+   FC_ASSERT(account_ptr->can_create_addresses, "Account ${a} can't create addresses (restricted by committee)!", ("a", account_ptr->name));
+
    return void_result();
 }
+
 void_result add_address_evaluator::do_apply(const add_address_operation& o)
 {
    database& d = db();
+
    address addr = d.get_address();
-   d.modify(o.to_account(d), [&](account_object& ao) {
-      ao.addresses.emplace(addr);
+
+   d.modify(*account_ptr, [&](account_object& ao) {
+      ao.addresses.emplace_back(addr);
    });
    return void_result();
 }
@@ -666,6 +680,31 @@ void_result set_verification_is_required_evaluator::do_apply(const set_verificat
    d.modify(o.target(d), [&](account_object& obj) {
       obj.verification_is_required = o.verification_is_required;
    });
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (o) ) }
+
+void_result allow_create_addresses_evaluator::do_evaluate(const allow_create_addresses_operation& o)
+{ try {
+   database& d = db();
+
+   const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
+   auto itr = idx.find(o.account_id);
+
+   FC_ASSERT(itr != idx.end(), "Account with ID ${id} not exists!", ("a", o.account_id));
+
+   account_ptr = &*itr;
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (o) ) }
+
+void_result allow_create_addresses_evaluator::do_apply(const allow_create_addresses_operation& o)
+{ try {
+   database& d = db();
+
+   d.modify<account_object>(*account_ptr, [&](account_object& acc) {
+      acc.can_create_addresses = o.allow;
+   } );
 
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }

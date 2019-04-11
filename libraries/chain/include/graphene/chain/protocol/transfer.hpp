@@ -56,6 +56,7 @@ namespace graphene { namespace chain {
       account_id_type  from;
       /// Account to transfer asset to
       account_id_type  to;
+
       /// The amount of asset to transfer from @ref from to @ref to
       asset            amount;
 

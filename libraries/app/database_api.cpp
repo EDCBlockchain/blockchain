@@ -33,6 +33,7 @@
 #include <boost/range/iterator_range.hpp>
 #include <boost/rational.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 #include <cctype>
 
@@ -112,7 +113,8 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
 
       // Funds
       vector<fund_object>             list_funds() const;
-      fund_object                     get_fund(const std::string& fund_name_or_id) const;
+      const fund_object*              get_fund_by_name_or_id(const std::string& fund_name_or_id) const;
+      const fund_object               get_fund(const std::string& fund_name_or_id) const;
       fund_object                     get_fund_by_owner(const std::string& account_name_or_id) const;
       vector<fund_deposit_object>     get_fund_deposits(const std::string& fund_name_or_id, uint32_t start, uint32_t limit) const;
       pair<vector<fund_deposit_object>, uint32_t>
@@ -608,12 +610,11 @@ vector<optional<account_object>> database_api_impl::get_accounts(const vector<ac
    return result;
 }
 
-std::map<string,full_account> database_api::get_full_accounts( const vector<string>& names_or_ids, bool subscribe )
-{
-   return my->get_full_accounts( names_or_ids, subscribe );
+std::map<string,full_account> database_api::get_full_accounts(const vector<string>& names_or_ids, bool subscribe) {
+   return my->get_full_accounts(names_or_ids, subscribe);
 }
 
-std::map<std::string, full_account> database_api_impl::get_full_accounts( const vector<std::string>& names_or_ids, bool subscribe)
+std::map<std::string, full_account> database_api_impl::get_full_accounts(const vector<std::string>& names_or_ids, bool subscribe)
 {
    idump((names_or_ids));
    std::map<std::string, full_account> results;
@@ -630,8 +631,7 @@ std::map<std::string, full_account> database_api_impl::get_full_accounts( const 
          if (itr != idx.end())
             account = &*itr;
       }
-      if (account == nullptr)
-         continue;
+      if (account == nullptr) { continue; }
 
       if( subscribe )
       {
@@ -1005,13 +1005,9 @@ vector<fund_object> database_api::list_funds() const {
    return my->list_funds();
 }
 
-fund_object database_api::get_fund(const std::string& fund_name_or_id) const {
-   return my->get_fund(fund_name_or_id);
-}
-
-fund_object database_api_impl::get_fund(const std::string& fund_name_or_id) const
+const fund_object* database_api_impl::get_fund_by_name_or_id(const std::string& fund_name_or_id) const
 {
-   FC_ASSERT( fund_name_or_id.size() > 0);
+   FC_ASSERT(fund_name_or_id.size() > 0);
    const fund_object* fund_ptr = nullptr;
 
    if (std::isdigit(fund_name_or_id[0])) {
@@ -1027,6 +1023,16 @@ fund_object database_api_impl::get_fund(const std::string& fund_name_or_id) cons
    }
    FC_ASSERT( fund_ptr, "No such fund '${fund}'!", ("fund", fund_name_or_id) );
 
+   return fund_ptr;
+}
+
+fund_object database_api::get_fund(const std::string& fund_name_or_id) const {
+   return my->get_fund(fund_name_or_id);
+}
+
+const fund_object database_api_impl::get_fund(const std::string& fund_name_or_id) const
+{
+   const fund_object* fund_ptr = get_fund_by_name_or_id(fund_name_or_id);
    return *fund_ptr;
 }
 
@@ -1090,32 +1096,21 @@ vector<fund_deposit_object> database_api::get_fund_deposits(const std::string& f
 
 vector<fund_deposit_object> database_api_impl::get_fund_deposits(const std::string& fund_name_or_id, uint32_t start, uint32_t limit) const
 {
-   FC_ASSERT( fund_name_or_id.size() > 0);
-   const fund_object* fund_ptr = nullptr;
+   FC_ASSERT( limit <= 100 );
 
-   if (std::isdigit(fund_name_or_id[0])) {
-      fund_ptr = _db.find(fc::variant(fund_name_or_id).as<fund_id_type>());
-   }
-   else
-   {
-      const auto& idx = _db.get_index_type<fund_index>().indices().get<by_name>();
-      auto itr = idx.find(fund_name_or_id);
-      if (itr != idx.end()) {
-         fund_ptr = &*itr;
-      }
-   }
-   FC_ASSERT( fund_ptr, "No such fund '${fund}'!", ("fund", fund_name_or_id) );
+   const fund_object* fund_ptr = get_fund_by_name_or_id(fund_name_or_id);
 
    vector<fund_deposit_object> result;
-   result.reserve(100);
+   result.reserve(limit);
 
-   const auto& range = _db.get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(fund_ptr->get_id());;
+   const auto& range = _db.get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(fund_ptr->get_id());
    uint32_t i = 0;
-   for (const fund_deposit_object& item: boost::make_iterator_range(range.first, range.second))
+   for (const fund_deposit_object& item: boost::make_iterator_range(range.first, range.second) | boost::adaptors::reversed)
    {
-      if ( (i >= start) && (i < limit) ) {
+      if ( (i >= start) && (result.size() < limit) ) {
          result.emplace_back(item);
       }
+      if (result.size() == limit) { break; }
       ++i;
    }
 
@@ -1163,7 +1158,7 @@ asset database_api_impl::get_fund_deposits_amount_by_account(fund_id_type fund_i
    const fund_object* fund_ptr = _db.find(fc::variant(fund_id).as<fund_id_type>());
    FC_ASSERT( fund_ptr, "No such fund '${fund}'!", ("fund", fund_id) );
 
-   const auto& stats_obj = fund_id(_db).statistics(_db);
+   const auto& stats_obj = fund_id(_db).statistics_id(_db);
    auto iter = stats_obj.users_deposits.find(account_id);
    if (iter != stats_obj.users_deposits.end()) {
       return asset(iter->second, fund_ptr->get_asset_id());

@@ -1435,7 +1435,7 @@ class wallet_api
                                                     vector<string> addresses, 
                                                     int count = 100 );
 
-       set<address>     get_account_addresses( string name_or_id );
+       vector<address>     get_account_addresses( string name_or_id );
       
       /** Set your vote for the number of witnesses and committee_members in the system.
        *

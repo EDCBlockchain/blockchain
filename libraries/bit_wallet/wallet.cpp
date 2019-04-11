@@ -3775,7 +3775,7 @@ signed_transaction wallet_api::propose_parameter_change(
 }
 
 
-set<address> wallet_api::get_account_addresses(string account) 
+vector<address> wallet_api::get_account_addresses(string account)
 {
 return get_account(account).addresses;
 }

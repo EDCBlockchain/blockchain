@@ -112,17 +112,19 @@ int main(int argc, char** argv) {
          // get the basic options
          bpo::store(bpo::parse_config_file<char>(config_ini_path.preferred_string().c_str(), cfg_options, true), options);
 
-         // try to get logging options from the config file.
-         try
-         {
-            fc::optional<fc::logging_config> logging_config = load_logging_config_from_ini_file(config_ini_path);
-            if (logging_config)
-               fc::configure_logging(*logging_config);
-         }
-         catch (const fc::exception&)
-         {
-            wlog("Error parsing logging config from config file ${config}, using default config", ("config", config_ini_path.preferred_string()));
-         }
+//         // try to get logging options from the config file.
+//         try
+//         {
+//            fc::optional<fc::logging_config> logging_config = load_logging_config_from_ini_file(config_ini_path);
+//            if (logging_config)
+//               fc::configure_logging(*logging_config);
+//         }
+//         catch (const fc::exception& ex)
+//         {
+//            wlog("Error parsing logging config from config file ${config}, using default config. Exception: ${ex}"
+//                 , ("config", config_ini_path.preferred_string())
+//                   ("ex", ex.what()) );
+//         }
       }
       else 
       {

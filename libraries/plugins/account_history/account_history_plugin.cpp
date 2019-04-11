@@ -174,12 +174,12 @@ void account_history_plugin_impl::update_account_histories(const signed_block& b
       app::operation_get_impacted_accounts(op.op, impacted_acc_tmp, impacted_funds);
 
       if (op.op.which() == operation::tag<fund_create_operation>::value) {
-         impacted_funds.insert( oho.result.get<object_id_type>() );
+         impacted_funds.insert(oho.result.get<object_id_type>());
       }
 
       for (const fund_id_type& fund_id: impacted_funds)
       {
-         const auto& stats_obj = fund_id(db).statistics(db);
+         const auto& stats_obj = fund_id(db).statistics_id(db);
          const auto& ath = db.create<fund_transaction_history_object>([&](fund_transaction_history_object& obj)
          {
             obj.operation_id = oho.id;
@@ -188,7 +188,7 @@ void account_history_plugin_impl::update_account_histories(const signed_block& b
             obj.next         = stats_obj.most_recent_op;
             obj.block_time   = b.timestamp;
          });
-         db.modify(stats_obj, [&]( fund_statistics_object& obj)
+         db.modify(stats_obj, [&](fund_statistics_object& obj)
          {
             obj.most_recent_op = ath.id;
             obj.total_ops = ath.sequence;

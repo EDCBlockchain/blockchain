@@ -51,7 +51,11 @@ object_id_type fund_create_evaluator::do_apply( const fund_create_operation& op 
       o.fund_rates                = op.options.fund_rates;
 
       // fund statistics
-      o.statistics = db().create<fund_statistics_object>([&](fund_statistics_object& s) {s.owner = o.id;}).id;
+      o.statistics_id = db().create<fund_statistics_object>([&](fund_statistics_object& s) {s.owner = o.id;}).id;
+
+      // fund history
+      o.history_id = db().create<fund_history_object>([&](fund_history_object& s) {s.owner = o.id;}).id;
+
    });
 
    FC_ASSERT(new_fund.id == next_fund_id);
@@ -179,6 +183,8 @@ void_result fund_deposit_evaluator::do_evaluate( const fund_deposit_operation& o
    const asset_object& asset_obj = fund_obj.asset_id(d);
    const account_object& from_acc = op.from_account(d);
 
+   FC_ASSERT( not_restricted_account( d, from_acc, directionality_type::payer), "account ${a} restricted by committee", ("a", from_acc.name) );
+
    bool insufficient_balance = (d.get_balance( from_acc, asset_obj ).amount >= op.amount);
    FC_ASSERT( insufficient_balance,
               "Insufficient balance: ${balance}, user: {$user}, fund: '${fund}'. Unable to create deposit.",
@@ -220,20 +226,24 @@ object_id_type fund_deposit_evaluator::do_apply( const fund_deposit_operation& o
    asset asst(op.amount, fund->get_asset_id());
 
    // fund statistics
-   const auto& stats_obj = op.id(d).statistics(d);
+   const auto& stats_obj = op.id(d).statistics_id(d);
    auto iter = stats_obj.users_deposits.find(op.from_account);
    if (iter != stats_obj.users_deposits.end())
    {
-      d.modify(stats_obj, [&]( fund_statistics_object& obj) {
+      d.modify(stats_obj, [&](fund_statistics_object& obj) {
          obj.users_deposits[op.from_account] += op.amount;
       });
    }
    else
    {
-      d.modify(stats_obj, [&]( fund_statistics_object& obj) {
+      d.modify(stats_obj, [&](fund_statistics_object& obj) {
          obj.users_deposits[op.from_account] = op.amount;
       });
    }
+   // fund: increasing deposit count
+   d.modify(stats_obj, [&](fund_statistics_object& obj) {
+      ++obj.deposit_count;
+   });
 
    // user
    d.adjust_balance( op.from_account, -asst );
@@ -416,11 +426,14 @@ void_result fund_remove_evaluator::do_apply( const fund_remove_operation& op )
    const chain::fund_statistics_object& fund_stat = d.get<chain::fund_statistics_object>(fund.get_statistics_id());
    d.remove(fund_stat);
 
+   // remove history object
+   const chain::fund_history_object& history_obj = d.get<chain::fund_history_object>(fund.get_history_id());
+   d.remove(history_obj);
+
    // remove fund
    d.remove(fund);
 
    // remove fund deposits
-   std::vector<fund_deposit_object> v;
    auto range = db().get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(op.id);
    std::for_each(range.first, range.second, [&](const fund_deposit_object& dep) {
       d.remove(dep);

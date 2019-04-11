@@ -97,6 +97,9 @@ void fund_object::process(database& db) const
     */
    share_type old_balance = balance;
 
+   fund_history_object::history_item h_item;
+   h_item.create_datetime = db.head_block_time();
+
    // find own fund deposits
    auto range = db.get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(get_id());
    std::for_each(range.first, range.second, [&](const fund_deposit_object& dep)
@@ -115,7 +118,7 @@ void fund_object::process(database& db) const
                const asset& asst_quantity = db.check_supply_overflow(asst.amount(quantity));
 
                chain::fund_payment_operation op;
-               op.issuer = asst.issuer;
+               op.issuer     = asst.issuer;
                op.fund_id    = get_id();
                op.deposit_id = dep.get_id();
                op.asset_to_issue = asst_quantity;
@@ -165,6 +168,9 @@ void fund_object::process(database& db) const
       share_type fund_day_profit = std::roundl((long double)old_balance.value * get_rate_percent(*p_rate, db));
       if (fund_day_profit > 0)
       {
+         h_item.fund_day_profit = fund_day_profit;
+         h_item.fund_deposits_sum = fund_deposits_sum;
+
          share_type owner_profit = fund_day_profit - fund_deposits_sum;
          const asset& asst_owner_quantity = db.check_supply_overflow(asst.amount(owner_profit));
 
@@ -174,7 +180,7 @@ void fund_object::process(database& db) const
 
          chain::fund_payment_operation op;
          op.issuer = asst.issuer;
-         op.fund_id = get_id();         
+         op.fund_id = get_id();
          op.asset_to_issue = asst_owner_quantity;
          op.issue_to_account = owner;
          try
@@ -184,6 +190,11 @@ void fund_object::process(database& db) const
          } catch (fc::assert_exception& e) { }
       }
    }
+
+   const auto& hist_obj = history_id(db);
+   db.modify(hist_obj, [&](fund_history_object& o) {
+      o.items.emplace_back(std::move(h_item));
+   });
 }
 
 void fund_object::finish(database& db) const

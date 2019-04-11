@@ -701,7 +701,7 @@ operation_result asset_settle_evaluator::do_apply(const asset_settle_evaluator::
       const auto& mia_dyn = asset_to_settle->dynamic_asset_data_id(d);
 
       d.modify( mia_dyn, [&]( asset_dynamic_data_object& obj ){
-                obj.current_supply -= op.amount.amount;
+                   obj.current_supply -= op.amount.amount;
                 });
 
       return settled_amount;

@@ -206,7 +206,8 @@ namespace graphene { namespace chain {
       impl_bonus_balances_object_type,
       impl_fund_deposit_object_type,
       impl_fund_statistics_object_type,
-      impl_fund_transaction_history_object_type
+      impl_fund_transaction_history_object_type,
+      impl_fund_history_object_type
    };
 
    class global_property_object;
@@ -231,6 +232,7 @@ namespace graphene { namespace chain {
    class fund_deposit_object;
    class fund_statistics_object;
    class fund_transaction_history_object;
+   class fund_history_object;
 
    typedef object_id<implementation_ids, impl_global_property_object_type,         global_property_object>         global_property_id_type;
    typedef object_id<implementation_ids, impl_dynamic_global_property_object_type, dynamic_global_property_object> dynamic_global_property_id_type;
@@ -258,6 +260,7 @@ namespace graphene { namespace chain {
    typedef object_id<implementation_ids, impl_fund_deposit_object_type,             fund_deposit_object>                fund_deposit_id_type;
    typedef object_id<implementation_ids, impl_fund_statistics_object_type,          fund_statistics_object>             fund_statistics_id_type;
    typedef object_id<implementation_ids, impl_fund_transaction_history_object_type, fund_transaction_history_object>    fund_transaction_history_id_type;
+   typedef object_id<implementation_ids, impl_fund_history_object_type,             fund_history_object>                fund_history_id_type;
 
    typedef fc::array<char, GRAPHENE_MAX_ASSET_SYMBOL_LENGTH> symbol_type;
    typedef fc::ripemd160                                     block_id_type;
@@ -401,6 +404,7 @@ FC_REFLECT_ENUM( graphene::chain::impl_object_type,
                  (impl_fund_deposit_object_type)
                  (impl_fund_statistics_object_type)
                  (impl_fund_transaction_history_object_type)
+                 (impl_fund_history_object_type)
                )
 
 FC_REFLECT_TYPENAME( graphene::chain::share_type )

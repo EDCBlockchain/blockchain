@@ -25,6 +25,7 @@
 #include <graphene/chain/database.hpp>
 
 #include <graphene/chain/account_object.hpp>
+#include <graphene/chain/balance_object.hpp>
 #include <graphene/chain/asset_object.hpp>
 #include <graphene/chain/market_object.hpp>
 #include <graphene/chain/vesting_balance_object.hpp>
@@ -41,14 +42,16 @@ void database::debug_dump()
    const auto& db = *this;
    const asset_dynamic_data_object& core_asset_data = db.get_core_asset().dynamic_asset_data_id(db);
 
-   const auto& balance_index = db.get_index_type<account_balance_index>().indices();
+   const auto& acc_balance_index = db.get_index_type<account_balance_index>().indices();
+   const auto& bal_index = db.get_index_type<balance_index>().indices();
    const simple_index<account_statistics_object>& statistics_index = db.get_index_type<simple_index<account_statistics_object>>();
+
    map<asset_id_type,share_type> total_balances;
    map<asset_id_type,share_type> total_debts;
    share_type core_in_orders;
    share_type reported_core_in_orders;
 
-   for( const account_balance_object& a : balance_index )
+   for( const account_balance_object& a : acc_balance_index )
    {
     //  idump(("balance")(a));
       total_balances[a.asset_type] += a.balance;
@@ -65,12 +68,14 @@ void database::debug_dump()
       if( for_sale.asset_id == asset_id_type() ) core_in_orders += for_sale.amount;
       total_balances[for_sale.asset_id] += for_sale.amount;
    }
-   for( const call_order_object& o : db.get_index_type<call_order_index>().indices() )
+   for (const call_order_object& o : db.get_index_type<call_order_index>().indices())
    {
 //      idump(("call_order")(o));
       auto col = o.get_collateral();
-      if( col.asset_id == asset_id_type() ) core_in_orders += col.amount;
-      total_balances[col.asset_id] += col.amount;
+      if (col.asset_id == asset_id_type()) core_in_orders += col.amount;
+      if (col.amount > -1) {
+         total_balances[col.asset_id] += col.amount;
+      }
       total_debts[o.get_debt().asset_id] += o.get_debt().amount;
    }
    for( const asset_object& asset_obj : db.get_index_type<asset_index>().indices() )
@@ -80,11 +85,17 @@ void database::debug_dump()
 //      edump((total_balances[asset_obj.id])(asset_obj.dynamic_asset_data_id(db).current_supply ) );
    }
 
-   if( total_balances[asset_id_type()].value != core_asset_data.current_supply.value )
+   // db_init.cpp:database::init_genesis() applies initial balances, we must take it into account too
+   for (const balance_object& item: bal_index)
    {
-      edump( (total_balances[asset_id_type()].value)(core_asset_data.current_supply.value ));
+      if (item.asset_type() == asset_id_type()) {
+         total_balances[asset_id_type()] += (item.balance.amount - 1);
+      }
    }
 
+   if (total_balances[asset_id_type()].value != core_asset_data.current_supply.value) {
+      edump((total_balances[asset_id_type()].value)(core_asset_data.current_supply.value));
+   }
 
    /*
    const auto& vbidx = db.get_index_type<simple_index<vesting_balance_object>>();

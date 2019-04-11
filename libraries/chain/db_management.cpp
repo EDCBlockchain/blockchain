@@ -102,10 +102,15 @@ void database::reindex(fc::path data_dir, const genesis_state_type& initial_allo
 void database::wipe(const fc::path& data_dir, bool include_blocks)
 {
    ilog("Wiping database", ("include_blocks", include_blocks));
-   close();
+
+   if (_opened) {
+      close();
+   }
+
    object_database::wipe(data_dir);
-   if( include_blocks )
-      fc::remove_all( data_dir / "database" );
+   if (include_blocks) {
+      fc::remove_all(data_dir / "database");
+   }
 }
 
 void database::open(
@@ -118,19 +123,20 @@ void database::open(
 
       _block_id_to_block.open(data_dir / "database" / "block_num_to_block");
 
-      if( !find(global_property_id_type()) )
+      if (!find(global_property_id_type())) {
          init_genesis(genesis_loader());
+      }
 
       fc::optional<signed_block> last_block = _block_id_to_block.last();
-      if( last_block.valid() )
+      if (last_block.valid())
       {
-         _fork_db.start_block( *last_block );
+         _fork_db.start_block(*last_block);
          idump((last_block->id())(last_block->block_num()));
-         if( last_block->id() != head_block_id() )
-         {
+         if (last_block->id() != head_block_id()) {
               FC_ASSERT( head_block_num() == 0, "last block ID does not match current chain state" );
          }
       }
+      _opened = true;
       //idump((head_block_id())(head_block_num()));
    }
    FC_CAPTURE_LOG_AND_RETHROW( (data_dir) )
@@ -138,6 +144,8 @@ void database::open(
 
 void database::close(bool rewind)
 {
+   if (!_opened) { return; }
+
    // TODO:  Save pending tx's on close()
    clear_pending();
 
@@ -164,9 +172,7 @@ void database::close(bool rewind)
             }
          }
       }
-      catch (...)
-      {
-      }
+      catch (...) { }
    }
 
    // Since pop_block() will move tx's in the popped blocks into pending,
@@ -177,10 +183,13 @@ void database::close(bool rewind)
    object_database::flush();
    object_database::close();
 
-   if( _block_id_to_block.is_open() )
+   if (_block_id_to_block.is_open()) {
       _block_id_to_block.close();
+   }
 
    _fork_db.reset();
+
+   _opened = false;
 }
 
 } }

@@ -94,36 +94,49 @@ namespace graphene { namespace app {
           * @param start ID of the most recent operation to retrieve
           * @return A list of operations performed by account, ordered from most recent to oldest.
           */
-         vector<operation_history_object> get_account_history(account_id_type account,
-                                                              operation_history_id_type stop = operation_history_id_type(),
-                                                              unsigned limit = 100,
-                                                              operation_history_id_type start = operation_history_id_type())const;
+         vector<operation_history_object> get_account_history(account_id_type account
+                                                              , operation_history_id_type stop = operation_history_id_type()
+                                                              , unsigned limit = 100
+                                                              , operation_history_id_type start = operation_history_id_type())const;
 
-         vector<listtransactions_result> listtransactions(  account_id_type account, 
-                                                       vector<string> addresses, 
-                                                       int count = 100 )const;
+         vector<listtransactions_result> listtransactions(account_id_type account
+                                                          , vector<string> addresses
+                                                          , int count = 100) const;
 
-         vector<operation_history_object> get_account_operation_history(account_id_type account,
-                                                              unsigned operation_type,
-                                                              unsigned limit = 100) const;
+         vector<operation_history_object> get_account_operation_history(
+                                                            account_id_type account
+                                                            , unsigned operation_type
+                                                            , unsigned limit = 100) const;
 
-         vector<operation_history_object> get_account_operation_history2(account_id_type account,
-                                                              operation_history_id_type stop = operation_history_id_type(),
-                                                              unsigned limit = 100,
-                                                              operation_history_id_type start = operation_history_id_type(),
-                                                              unsigned operation_type = 0) const;
+         vector<operation_history_object> get_account_operation_history2(
+                                                              account_id_type account
+                                                              , operation_history_id_type stop = operation_history_id_type()
+                                                              , unsigned limit = 100
+                                                              , operation_history_id_type start = operation_history_id_type()
+                                                              , unsigned operation_type = 0) const;
+
          vector<operation_history_object> get_account_operation_history3(
                                                               account_id_type account
                                                               , operation_history_id_type stop = operation_history_id_type()
                                                               , unsigned limit = 100
                                                               , operation_history_id_type start = operation_history_id_type()
                                                               , const vector<uint16_t>& operation_types = vector<uint16_t>()) const;
+
+         // available operations: [transfer_operation(0), ...]
+         vector<operation_history_object> get_account_operation_history4(
+                                                              account_id_type account
+                                                              , operation_history_id_type start = operation_history_id_type()
+                                                              , unsigned limit = 100
+                                                              , const vector<uint16_t>& operation_types = vector<uint16_t>()) const;
          // funds
-         vector<operation_history_object> get_fund_history(fund_id_type fund,
-                                                           operation_history_id_type stop = operation_history_id_type(),
-                                                           unsigned limit = 100,
-                                                           operation_history_id_type start = operation_history_id_type(),
-                                                           const vector<uint16_t>& operation_types = vector<uint16_t>()) const;
+         vector<operation_history_object> get_fund_history(fund_id_type fund_id
+                                                           , operation_history_id_type stop = operation_history_id_type()
+                                                           , unsigned limit = 100
+                                                           , operation_history_id_type start = operation_history_id_type()
+                                                           , const vector<uint16_t>& operation_types = vector<uint16_t>()) const;
+
+         // contains information about fund's payments (whole and to users)
+         vector<fund_history_object::history_item> get_fund_payments_history(fund_id_type fund_id, uint32_t start, uint32_t limit) const;
 
          /**
           * @breif Get operations relevant to the specified account referenced
@@ -351,7 +364,9 @@ FC_API(graphene::app::history_api,
        (get_account_operation_history)
        (get_account_operation_history2)
        (get_account_operation_history3)
+       (get_account_operation_history4)
        (get_fund_history)
+       (get_fund_payments_history)
        (get_relative_account_history)
        (get_fill_order_history)
        (get_market_history)

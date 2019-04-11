@@ -357,10 +357,11 @@ bool database::fill_order( const call_order_object& order, const asset& pays, co
 
    const asset_dynamic_data_object& mia_ddo = mia.dynamic_asset_data_id(*this);
 
-   modify( mia_ddo, [&]( asset_dynamic_data_object& ao ){
+   modify( mia_ddo, [&]( asset_dynamic_data_object& ao )
+   {
        //idump((receives));
         ao.current_supply -= receives.amount;
-      });
+   });
 
    const account_object& borrower = order.borrower(*this);
    if( collateral_freed || pays.asset_id == asset_id_type() )

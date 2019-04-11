@@ -36,14 +36,13 @@ namespace detail {
 
 bool _is_authorized_asset(const database& d, const account_object& acct, const asset_object& asset_obj);
 
-}
+} // ns detail
 
 enum directionality_type
 {
    receiver = 0x2,
    payer = 0x4,
 };
-
 
 inline bool not_restricted_account(const database& d, const account_object& acct, uint8_t type)
 {
@@ -69,8 +68,6 @@ inline bool not_restricted_account(const database& d, const account_object& acct
 
 inline bool is_authorized_asset(const database& d, const account_object& acct, const asset_object& asset_obj)
 {
-
-
    bool fast_check = !(asset_obj.options.flags & white_list);
    fast_check &= !(acct.allowed_assets.valid());
 

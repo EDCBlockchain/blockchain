@@ -193,6 +193,7 @@ void database::initialize_evaluators()
    register_evaluator<fund_set_enable_evaluator>();
    register_evaluator<fund_deposit_set_enable_evaluator>();
    register_evaluator<fund_remove_evaluator>();
+   register_evaluator<allow_create_addresses_evaluator>();
 }
 
 void database::initialize_indexes()
@@ -200,7 +201,7 @@ void database::initialize_indexes()
    reset_indexes();
    _undo_db.set_max_size( GRAPHENE_MIN_UNDO_HISTORY );
 
-   //Protocol object indexes
+   // protocol object indexes
    add_index<primary_index<asset_index>>();
    add_index<primary_index<force_settlement_index>>();
    add_index<primary_index<fund_index>>();
@@ -225,7 +226,7 @@ void database::initialize_indexes()
    add_index<primary_index<balance_index>>();
    add_index<primary_index<blinded_balance_index>>();
 
-   //Implementation object indexes
+   // implementation object indexes
    add_index<primary_index<transaction_index                            >>();
    add_index<primary_index<account_balance_index                        >>();
    add_index<primary_index<account_mature_balance_index                 >>();
@@ -245,8 +246,8 @@ void database::initialize_indexes()
    add_index<primary_index<simple_index<fba_accumulator_object    >>>();
    add_index<primary_index<simple_index<account_properties_object >>>();
    add_index<primary_index<simple_index<accounts_online_object    >>>();
-
    add_index<primary_index<simple_index<fund_statistics_object    >>>();
+   add_index<primary_index<simple_index<fund_history_object    >>>();
 }
 
 void database::init_genesis(const genesis_state_type& genesis_state)

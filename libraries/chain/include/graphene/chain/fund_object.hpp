@@ -10,6 +10,114 @@
 namespace graphene { namespace chain {
 
    /**
+    * @class fund_history_object
+    * @ingroup object
+    * @ingroup implementation
+    *
+    * This object contains historical data about a fund.
+    */
+   class fund_history_object: public db::abstract_object<fund_history_object>
+   {
+   public:
+      static const uint8_t space_id = implementation_ids;
+      static const uint8_t type_id = impl_fund_history_object_type;
+
+      fund_id_type owner;
+
+      // new item will be added on each maintenance time
+      struct history_item
+      {
+         fc::time_point create_datetime;
+         share_type fund_day_profit;
+         share_type fund_deposits_sum;
+      };
+
+      std::vector<history_item> items;
+
+   }; // fund_history_object
+
+   /////////////////////////////////////////////////////////////////////////////////////////////////
+
+   /**
+    * @class fund_statistics_object
+    * @ingroup object
+    * @ingroup implementation
+    *
+    * This object contains regularly updated statistical data about a fund.
+    */
+   class fund_statistics_object: public db::abstract_object<fund_statistics_object>
+   {
+   public:
+      static const uint8_t space_id = implementation_ids;
+      static const uint8_t type_id = impl_fund_statistics_object_type;
+
+      fund_id_type owner;
+
+      /**
+       * Keep the most recent operation as a root pointer to a linked list of the transaction history.
+       */
+      fund_transaction_history_id_type most_recent_op;
+      uint32_t total_ops = 0;
+
+      // second of pair: sum of all deposits of user
+      flat_map<account_id_type, share_type> users_deposits;
+
+      // count of all deposits
+      int64_t deposit_count = 0;
+
+   }; // fund_statistics_object
+
+   /////////////////////////////////////////////////////////////////////////////////////////////////
+
+   /**
+    *  @brief a node in a linked list of operation_history_objects
+    *  @ingroup implementation
+    *  @ingroup object
+    *
+    *  Contains information of fund's operation
+    */
+   class fund_transaction_history_object: public db::abstract_object<fund_transaction_history_object>
+   {
+   public:
+      static const uint8_t space_id = implementation_ids;
+      static const uint8_t type_id  = impl_fund_transaction_history_object_type;
+
+      fund_id_type                     fund;
+      operation_history_id_type        operation_id;
+      uint32_t                         sequence = 0; // the operation position within the given fund
+      fund_transaction_history_id_type next;
+      fc::time_point_sec               block_time;
+
+   }; // fund_transaction_history_object
+
+   struct by_id;
+   struct by_seq;
+   struct by_op;
+
+   typedef multi_index_container<
+      fund_transaction_history_object,
+      indexed_by<
+         ordered_unique<tag<by_id>, member<object, object_id_type, &object::id>>,
+         ordered_unique<tag<by_seq>,
+            composite_key<fund_transaction_history_object,
+               member<fund_transaction_history_object, fund_id_type, &fund_transaction_history_object::fund>,
+               member<fund_transaction_history_object, uint32_t, &fund_transaction_history_object::sequence>
+            >
+         >,
+         ordered_unique<tag<by_op>,
+            composite_key<fund_transaction_history_object,
+               member<fund_transaction_history_object, fund_id_type, &fund_transaction_history_object::fund>,
+               member<fund_transaction_history_object, operation_history_id_type, &fund_transaction_history_object::operation_id>
+            >
+         >
+      >
+   > fund_transaction_history_multi_index_type;
+
+   typedef generic_index<fund_transaction_history_object, fund_transaction_history_multi_index_type> fund_transaction_history_index;
+
+   /////////////////////////////////////////////////////////////////////////////////////////////////
+
+   /**
     * @class fund_deposit_object
     * @ingroup object
     * @ingroup implementation
@@ -52,88 +160,12 @@ namespace graphene { namespace chain {
             ordered_non_unique<tag<by_fund_id>, member<fund_deposit_object, fund_id_type, &fund_deposit_object::fund_id>>,
             ordered_non_unique<tag<by_period>, member<fund_deposit_object, uint32_t, &fund_deposit_object::period>>
          >
-    > fund_deposit_object_index_type;
+   > fund_deposit_object_index_type;
 
    /**
     * @ingroup object_index
     */
    typedef generic_index<fund_deposit_object, fund_deposit_object_index_type> fund_deposit_index;
-
-   /////////////////////////////////////////////////////////////////////////////////////////////////
-
-   /**
-    * @class fund_statistics_object
-    * @ingroup object
-    * @ingroup implementation
-    *
-    * This object contains regularly updated statistical data about a fund.
-    */
-   class fund_statistics_object: public graphene::db::abstract_object<fund_statistics_object>
-   {
-   public:
-      static const uint8_t space_id = implementation_ids;
-      static const uint8_t type_id = impl_fund_statistics_object_type;
-
-      fund_id_type owner;
-
-      /**
-       * Keep the most recent operation as a root pointer to a linked list of the transaction history.
-       */
-      fund_transaction_history_id_type most_recent_op;
-      uint32_t total_ops = 0;
-
-      // second of pair: sum of all deposits of user
-      flat_map<account_id_type, share_type> users_deposits;
-
-   }; // fund_statistics_object
-
-   /////////////////////////////////////////////////////////////////////////////////////////////////
-
-   /**
-    *  @brief a node in a linked list of operation_history_objects
-    *  @ingroup implementation
-    *  @ingroup object
-    *
-    *  Contains information of fund's operation
-    */
-   class fund_transaction_history_object: public abstract_object<fund_transaction_history_object>
-   {
-   public:
-      static const uint8_t space_id = implementation_ids;
-      static const uint8_t type_id  = impl_fund_transaction_history_object_type;
-
-      fund_id_type                     fund;
-      operation_history_id_type        operation_id;
-      uint32_t                         sequence = 0; // the operation position within the given fund
-      fund_transaction_history_id_type next;
-      fc::time_point_sec               block_time;
-
-   }; // fund_history_object
-
-   struct by_id;
-   struct by_seq;
-   struct by_op;
-
-   typedef multi_index_container<
-      fund_transaction_history_object,
-      indexed_by<
-         ordered_unique<tag<by_id>, member<object, object_id_type, &object::id>>,
-         ordered_unique<tag<by_seq>,
-            composite_key<fund_transaction_history_object,
-               member<fund_transaction_history_object, fund_id_type, &fund_transaction_history_object::fund>,
-               member<fund_transaction_history_object, uint32_t, &fund_transaction_history_object::sequence>
-            >
-         >,
-         ordered_unique<tag<by_op>,
-            composite_key<fund_transaction_history_object,
-               member<fund_transaction_history_object, fund_id_type, &fund_transaction_history_object::fund>,
-               member<fund_transaction_history_object, operation_history_id_type, &fund_transaction_history_object::operation_id>
-            >
-         >
-      >
-   > fund_transaction_history_multi_index_type;
-
-   typedef generic_index<fund_transaction_history_object, fund_transaction_history_multi_index_type> fund_transaction_history_index;
 
    /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -159,7 +191,8 @@ namespace graphene { namespace chain {
       const fc::time_point_sec&     get_datetime_begin() const { return datetime_begin; }
       const fc::time_point_sec&     get_datetime_end() const { return datetime_end; }
       const fc::time_point_sec&     get_prev_maintenance_time_on_creation() const { return prev_maintenance_time_on_creation; }
-      const fund_statistics_id_type get_statistics_id() const { return statistics; }
+      const fund_statistics_id_type get_statistics_id() const { return statistics_id; }
+      const fund_history_id_type    get_history_id() const { return history_id; }
 
       // percent according to appropriate 'fund_rate' item
       double get_rate_percent(const fund_options::fund_rate& f_item, const database& db) const;
@@ -199,7 +232,10 @@ namespace graphene { namespace chain {
 
       // The reference implementation records the fund's statistics in a separate object. This field contains the
       // ID of that object.
-      fund_statistics_id_type statistics;
+      fund_statistics_id_type statistics_id;
+
+      // ID of history object
+      fund_history_id_type history_id;
 
       /**
        * @brief Payment percents to user according to its
@@ -237,6 +273,32 @@ namespace graphene { namespace chain {
 
 }}
 
+FC_REFLECT( graphene::chain::fund_history_object::history_item,
+            (create_datetime)
+            (fund_day_profit)
+            (fund_deposits_sum) );
+
+FC_REFLECT_DERIVED( graphene::chain::fund_history_object,
+                    (graphene::chain::object),
+                    (owner)
+                    (items) );
+
+FC_REFLECT_DERIVED( graphene::chain::fund_statistics_object,
+                    (graphene::chain::object),
+                    (owner)
+                    (most_recent_op)
+                    (total_ops)
+                    (users_deposits)
+                    (deposit_count) );
+
+FC_REFLECT_DERIVED( graphene::chain::fund_transaction_history_object,
+                    (graphene::chain::object),
+                    (fund)
+                    (operation_id)
+                    (sequence)
+                    (next)
+                    (block_time) );
+
 FC_REFLECT_DERIVED( graphene::chain::fund_deposit_object,
                     (graphene::db::object),
                     (fund_id)
@@ -247,21 +309,6 @@ FC_REFLECT_DERIVED( graphene::chain::fund_deposit_object,
                     (datetime_end)
                     (prev_maintenance_time_on_creation)
                     (period) );
-
-FC_REFLECT_DERIVED( graphene::chain::fund_statistics_object,
-                    (graphene::chain::object),
-                    (owner)
-                    (most_recent_op)
-                    (total_ops)
-                    (users_deposits) );
-
-FC_REFLECT_DERIVED( graphene::chain::fund_transaction_history_object,
-                    (graphene::chain::object),
-                    (fund)
-                    (operation_id)
-                    (sequence)
-                    (next)
-                    (block_time) );
 
 FC_REFLECT_DERIVED( graphene::chain::fund_object,
                     (graphene::db::object),
@@ -278,7 +325,8 @@ FC_REFLECT_DERIVED( graphene::chain::fund_object,
                     (rates_reduction_per_month)
                     (period)
                     (min_deposit)
-                    (statistics)
+                    (statistics_id)
+                    (history_id)
                     (payment_rates)
                     (fund_rates) );
 

@@ -410,6 +410,12 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
       // first maintenance_time
       generate_blocks(db.get_dynamic_global_properties().next_maintenance_time);
 
+      // history
+      BOOST_CHECK(fund.get_history_id()(db).items.size() == 1);
+      BOOST_CHECK(fund.get_history_id()(db).items[0].create_datetime.sec_since_epoch() == db.head_block_time().sec_since_epoch());
+      BOOST_CHECK(fund.get_history_id()(db).items[0].fund_day_profit.value == 200);
+      BOOST_CHECK(fund.get_history_id()(db).items[0].fund_deposits_sum.value == 40);
+
       // std::cout << "========= 1 alice's balance: " << get_balance(alice_id, EDC_ASSET) << std::endl;
       // std::cout << "========= 1 bob's balance: " << get_balance(bob_id, EDC_ASSET) << std::endl;
 
@@ -432,6 +438,9 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
       while (db.head_block_time() < (h_time + fc::days(49))) {
          generate_block();
       }
+
+      // history
+      BOOST_CHECK(fund.get_history_id()(db).items.size() == 50);
 
       // std::cout << "========= 2 alice's balance: " << get_balance(alice_id, EDC_ASSET) << std::endl;
       // std::cout << "========= 2 bob's balance: " << get_balance(bob_id, EDC_ASSET) << std::endl;

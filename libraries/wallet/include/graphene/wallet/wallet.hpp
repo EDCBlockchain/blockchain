@@ -382,11 +382,17 @@ class wallet_api
 
       vector<operation_detail>  get_account_operation_history(string name, int op_type, int limit)const;
 
-      vector<operation_history_object>  get_account_operation_history2(account_id_type account,
-                                                                       operation_history_id_type stop = operation_history_id_type(),
-                                                                       int limit = 100,
-                                                                       operation_history_id_type start = operation_history_id_type(),
-                                                                       int operation_type = 0) const;
+      vector<operation_history_object>  get_account_operation_history2(account_id_type account
+                                                                       , operation_history_id_type stop = operation_history_id_type()
+                                                                       , int limit = 100
+                                                                       , operation_history_id_type start = operation_history_id_type()
+                                                                       , int operation_type = 0) const;
+
+      // from old to new entities
+      vector<operation_history_object>  get_account_operation_history4(account_id_type account
+                                                                       , operation_history_id_type start = operation_history_id_type()
+                                                                       , unsigned limit = 100
+                                                                       , const vector<uint16_t>& operation_types = vector<uint16_t>()) const;
 
       vector<bucket_object>             get_market_history(string symbol, string symbol2, uint32_t bucket)const;
       vector<limit_order_object>        get_limit_orders(string a, string b, uint32_t limit)const;
@@ -669,7 +675,7 @@ class wallet_api
       bool import_account_keys( string filename, string password, string src_account_name, string dest_account_name );
 
       /**
-       * This call will construct transaction(s) that will claim all balances controled
+       * This call will construct transaction(s) that will claim all balances controlled
        * by wif_keys and deposit them into the given account.
        */
       vector< signed_transaction > import_balance( string account_name_or_id, const vector<string>& wif_keys, bool broadcast );
@@ -1430,7 +1436,8 @@ class wallet_api
                                           optional<string> voting_account,
                                           bool broadcast = false);
 
-      set<address>     get_account_addresses( string name_or_id );
+      signed_transaction generate_address(const string& account_id_or_name);
+      vector<address>     get_account_addresses( string name_or_id );
 
       /** Set your vote for the number of witnesses and committee_members in the system.
        *
@@ -1540,6 +1547,8 @@ class wallet_api
                                                     fc::time_point_sec expiration_time, bool broadcast = true);
       signed_transaction propose_allow_create_asset(const string& initiator, const string& target, bool allow,
                                                     fc::time_point_sec expiration_time, bool broadcast = true);
+      signed_transaction propose_allow_create_addresses(const string& initiator, const string& target, bool allow,
+                                                        fc::time_point_sec expiration_time, bool broadcast = true);
 
       void dbg_make_uia(string creator, string symbol);
       void dbg_make_mia(string creator, string symbol);
@@ -1697,6 +1706,7 @@ FC_API( graphene::wallet::wallet_api,
         (propose_account_restriction)
         (propose_account_referrals_permission)
         (propose_allow_create_asset)
+        (propose_allow_create_addresses)
         (create_committee_member)
         (get_witness)
         (get_committee_member)
@@ -1727,6 +1737,7 @@ FC_API( graphene::wallet::wallet_api,
         (get_account_history_part)
         (get_account_operation_history)
         (get_account_operation_history2)
+        (get_account_operation_history4)
         (get_market_history)
         (get_global_properties)
         (get_dynamic_global_properties)
@@ -1769,5 +1780,6 @@ FC_API( graphene::wallet::wallet_api,
         (blind_history)
         (receive_blind_transfer)
         (get_order_book)
+        (generate_address)
         (get_account_addresses)
       )

@@ -262,8 +262,7 @@ void database::process_bonus_balances(account_id_type account_id)
    });
 }
 
-address database::get_address() 
-{
+address database::get_address() {
     return address(_current_block_num, _current_trx_in_block);
 }
 

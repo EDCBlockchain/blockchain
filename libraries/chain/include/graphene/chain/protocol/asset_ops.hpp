@@ -177,7 +177,7 @@ namespace graphene { namespace chain {
       extensions_type         extensions;
       bool                    value = false;
 
-      account_id_type fee_payer()const { return account_id_type(); /*ALPHA_ACCOUNT_ID;*/ }
+      account_id_type fee_payer()const { return GRAPHENE_COMMITTEE_ACCOUNT; /*ALPHA_ACCOUNT_ID;*/ }
       void            validate()const {};
       share_type      calculate_fee( const fee_parameters_type& k )const;
    };
@@ -330,9 +330,6 @@ namespace graphene { namespace chain {
       optional<account_id_type>   new_issuer;
       asset_options               new_options;
       extensions_type             extensions;
-
-      // custom parameters
-      //asset_parameters           new_params;
 
       account_id_type fee_payer()const { return issuer; }
       void            validate()const;

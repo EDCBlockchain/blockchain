@@ -65,7 +65,7 @@ namespace graphene { namespace chain {
    /**
     *  @ingroup operations
     */
-   struct account_create_operation : public base_operation
+   struct account_create_operation: public base_operation
    {
       struct ext
       {
@@ -120,7 +120,7 @@ namespace graphene { namespace chain {
     * This operation is used to update an existing account. It can be used to update the authorities, or adjust the options on the account.
     * See @ref account_object::options_type for the options which may be updated.
     */
-   struct account_update_operation : public base_operation
+   struct account_update_operation: public base_operation
    {
       struct ext
       {
@@ -162,10 +162,9 @@ namespace graphene { namespace chain {
       { if( !is_owner_update() ) a.insert( account ); }
    };
 
-   struct add_address_operation : public base_operation
+   struct add_address_operation: public base_operation
    {
-      struct fee_parameters_type
-      {
+      struct fee_parameters_type {
          share_type fee             = 0;
       };
       
@@ -197,7 +196,7 @@ namespace graphene { namespace chain {
     * This operation requires authorizing_account's signature, but not account_to_list's. The fee is paid by
     * authorizing_account.
     */
-   struct account_whitelist_operation : public base_operation
+   struct account_whitelist_operation: public base_operation
    {
       struct fee_parameters_type { share_type fee = 300000; };
       enum account_listing {
@@ -222,7 +221,7 @@ namespace graphene { namespace chain {
       void validate()const { FC_ASSERT( fee.amount >= 0 ); FC_ASSERT(new_listing < 0x4); }
    };
    
-    struct account_restrict_operation : public base_operation
+    struct account_restrict_operation: public base_operation
     {
         struct fee_parameters_type { uint64_t fee = 0; };
 
@@ -248,7 +247,7 @@ namespace graphene { namespace chain {
         }
     };
 
-    struct account_allow_referrals_operation : public base_operation
+    struct account_allow_referrals_operation: public base_operation
     {
         struct fee_parameters_type { uint64_t fee = 0; };
 
@@ -267,7 +266,7 @@ namespace graphene { namespace chain {
         void validate()const { FC_ASSERT( target != account_id_type() ); FC_ASSERT(action); FC_ASSERT(action == 0x1 || action == 0x2);}
     };
 
-    struct set_online_time_operation : public base_operation
+    struct set_online_time_operation: public base_operation
     {
         struct fee_parameters_type { uint64_t fee = 0; };
 
@@ -279,7 +278,7 @@ namespace graphene { namespace chain {
         void            validate( )const { };
     };
 
-    struct set_verification_is_required_operation : public base_operation
+    struct set_verification_is_required_operation: public base_operation
     {
         struct fee_parameters_type { uint64_t fee = 0; };
 
@@ -306,7 +305,7 @@ namespace graphene { namespace chain {
     * Any account may use this operation to become a lifetime member by setting @ref upgrade_to_lifetime_member to
     * true. Once an account has become a lifetime member, it may not use this operation anymore.
     */
-   struct account_upgrade_operation : public base_operation
+   struct account_upgrade_operation: public base_operation
    {
       struct fee_parameters_type { 
          uint64_t membership_annual_fee   =  2000 * GRAPHENE_BLOCKCHAIN_PRECISION;
@@ -338,7 +337,7 @@ namespace graphene { namespace chain {
     *
     * This operation will clear the account's whitelist statuses, but not the blacklist statuses.
     */
-   struct account_transfer_operation : public base_operation
+   struct account_transfer_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 500 * GRAPHENE_BLOCKCHAIN_PRECISION; };
 
@@ -349,6 +348,19 @@ namespace graphene { namespace chain {
 
       account_id_type fee_payer()const { return account_id; }
       void        validate()const;
+   };
+
+   struct allow_create_addresses_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset           fee;
+      account_id_type account_id;
+      bool            allow = true;
+      extensions_type extensions;
+
+      account_id_type fee_payer( )const { return GRAPHENE_COMMITTEE_ACCOUNT; }
+      void            validate( )const { };
    };
 
 } } // graphene::chain
@@ -399,5 +411,12 @@ FC_REFLECT( graphene::chain::account_update_operation::fee_parameters_type, (fee
 FC_REFLECT( graphene::chain::add_address_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::account_upgrade_operation::fee_parameters_type, (membership_annual_fee)(membership_lifetime_fee) )
 FC_REFLECT( graphene::chain::account_transfer_operation::fee_parameters_type, (fee) )
-
 FC_REFLECT( graphene::chain::account_transfer_operation, (fee)(account_id)(new_owner)(extensions) )
+
+FC_REFLECT( graphene::chain::allow_create_addresses_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::chain::allow_create_addresses_operation, (fee)(account_id)(allow)(extensions) )
+
+
+
+
+

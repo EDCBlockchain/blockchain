@@ -8,7 +8,7 @@ System requirements:
 First of all you need to install gcc-7/g++-7 compilers and dependencies:
 
 ```bash
-user@user:~$ sudo apt-get install gcc-7 g++-7 make cmake zlib1g-dev libbz2-dev libdb++-dev libdb-dev libssl-dev openssl libreadline-dev autoconf libtool libncurses5-dev automake
+user@user:~$ sudo apt-get install gcc-7 g++-7 make cmake zlib1g-dev libbz2-dev libdb++-dev libdb-dev libssl-dev openssl libreadline-dev autoconf libtool libncurses5-dev automake python-dev
 ```
 
 Then build these libraries (using compilers above):

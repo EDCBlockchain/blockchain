@@ -27,6 +27,7 @@
 #include <fc/crypto/base58.hpp>
 #include <algorithm>
 #include <string>
+#include <iostream>
 
 namespace graphene {
   namespace chain {
@@ -49,14 +50,14 @@ namespace graphene {
       if( base58str.substr( 0, prefix_len ) != prefix )
           return false;
       std::vector<char> v;
-      try
-      {
-		  v = fc::from_base58( base58str.substr( prefix_len ) );
-	  }
-	  catch( const fc::parse_error_exception& e )
-	  {
-		  return false;
-	  }
+      try {
+		       v = fc::from_base58( base58str.substr( prefix_len ) );
+	     }
+
+      catch( const fc::parse_error_exception& e ) {
+		       return false;
+	     }
+
       if( v.size() != sizeof( fc::ripemd160 ) + 4 )
           return false;
       const fc::ripemd160 checksum = fc::ripemd160::hash( v.data(), v.size() - 4 );
@@ -72,10 +73,11 @@ namespace graphene {
    }
 
    address::address( uint32_t blocknum, uint32_t tr_num)
-   {    
+   {
        string mask = "000000000000000000000000000000000";
        int blocknum_length = 12;
-       string res = string(mask, 0, blocknum_length - std::to_string(blocknum).size()) + std::to_string(blocknum) + "000" + std::to_string(tr_num); 
+       string res = string(mask, 0, blocknum_length - std::to_string(blocknum).size()) + std::to_string(blocknum) + "000" + std::to_string(tr_num);
+
        res += string(mask, res.size());
        addr = fc::ripemd160::hash( fc::sha512::hash( res.c_str(), sizeof( res ) ) );
    }

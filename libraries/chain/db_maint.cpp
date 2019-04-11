@@ -542,8 +542,7 @@ void split_fba_balance(
    if( !fba.is_configured(db) )
    {
       ilog( "${n} core given to network at block ${b} due to non-configured FBA", ("n", fba.accumulated_fba_fees)("b", db.head_block_time()) );
-      db.modify( core_dd, [&]( asset_dynamic_data_object& _core_dd )
-      {
+      db.modify( core_dd, [&]( asset_dynamic_data_object& _core_dd ) {
          _core_dd.current_supply -= fba.accumulated_fba_fees;
       } );
       db.modify( fba, [&]( fba_accumulator_object& _fba )
@@ -572,8 +571,7 @@ void split_fba_balance(
 
    if( network_amount != 0 )
    {
-      db.modify( core_dd, [&]( asset_dynamic_data_object& _core_dd )
-      {
+      db.modify( core_dd, [&]( asset_dynamic_data_object& _core_dd ) {
          _core_dd.current_supply -= network_amount;
       } );
    }
@@ -903,7 +901,7 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
       clear_account_mature_balance_index();
    }
 
-   if (history_size)
+   if (history_size > 0)
    {
       auto history_index = get_index_type<operation_history_index>().indices().get<by_time>().lower_bound(head_block_time() - fc::days(history_size));
       auto begin_iter = get_index_type<operation_history_index>().indices().get<by_time>().begin();
