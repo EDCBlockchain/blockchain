@@ -2,6 +2,7 @@
 #include <graphene/chain/protocol/operations.hpp>
 #include <graphene/chain/evaluator.hpp>
 #include <graphene/chain/database.hpp>
+#include <graphene/chain/fund_object.hpp>
 
 namespace graphene { namespace chain {
 
@@ -47,7 +48,7 @@ namespace graphene { namespace chain {
       typedef fund_deposit_operation operation_type;
 
       void_result do_evaluate(const fund_deposit_operation& o);
-      object_id_type do_apply(const fund_deposit_operation& o);
+      eval_fund_dep_apply_object do_apply(const fund_deposit_operation& o);
 
    };
 

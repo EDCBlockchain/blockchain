@@ -170,15 +170,20 @@ void database::adjust_bonus_balance(account_id_type account, asset delta)
 {
    auto& index = get_index_type<bonus_balances_index>().indices().get<by_account>();
    auto bonus_balances_itr = index.find(account);
+
    if (bonus_balances_itr == index.end())
    {
-      // disable for EDC
-      if ( (head_block_time() > HARDFORK_622_TIME) && (delta.asset_id == EDC_ASSET) ) { return; }
+      // previously called function 'check_supply_overflow()' can return 0, so...
+      if (delta.amount > 0)
+      {
+         // disable for EDC
+         if ((head_block_time() > HARDFORK_622_TIME) && (delta.asset_id == EDC_ASSET)) { return; }
 
-      create<bonus_balances_object>([&](bonus_balances_object& bbo) {
-         bbo.owner = account;
-         bbo.adjust_balance(delta, head_block_time(), this);
-      });
+         create<bonus_balances_object>([&](bonus_balances_object& bbo) {
+            bbo.owner = account;
+            bbo.adjust_balance(delta, head_block_time(), this);
+         });
+      }
    }
    else
    {

@@ -32,7 +32,7 @@ namespace graphene { namespace chain {
    /**
     *  @defgroup operations Operations
     *  @ingroup transactions Transactions
-    *  @brief A set of valid comands for mutating the globally shared state.
+    *  @brief A set of valid commands for mutating the globally shared state.
     *
     *  An operation can be thought of like a function that will modify the global
     *  shared state of the blockchain.  The members of each struct are like function
@@ -81,7 +81,21 @@ namespace graphene { namespace chain {
     */
 
    struct void_result{};
-   typedef fc::static_variant<void_result,object_id_type,asset> operation_result;
+
+   /**
+    * Contains information about fund's deposit apply procedure
+    */
+   class eval_fund_dep_apply_object
+   {
+   public:
+
+      object_id_type id;
+      fc::time_point datetime_begin;
+      fc::time_point datetime_end;
+
+   }; // eval_fund_dep_apply_object
+
+   typedef fc::static_variant<void_result,object_id_type,asset,eval_fund_dep_apply_object> operation_result;
 
    struct base_operation
    {
@@ -118,6 +132,11 @@ namespace graphene { namespace chain {
    ///@}
 
 } } // graphene::chain
+
+FC_REFLECT( graphene::chain::eval_fund_dep_apply_object,
+            (id)
+            (datetime_begin)
+            (datetime_end) );
 
 FC_REFLECT_TYPENAME( graphene::chain::operation_result )
 FC_REFLECT_TYPENAME( graphene::chain::future_extensions )

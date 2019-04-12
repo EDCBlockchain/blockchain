@@ -257,9 +257,10 @@ namespace graphene { namespace chain {
          string name;
 
          bool verification_is_required = false;
-         bool is_market = false;
          bool can_create_and_update_asset = false;
          bool can_create_addresses = true;
+         // all transfers to account will be considered as reserved
+         bool burning_mode_enabled = false;
 
          /**
           * The owner authority represents absolute control over the account. Usually the keys in this authority will
@@ -647,7 +648,7 @@ FC_REFLECT_DERIVED( graphene::chain::account_object,
                     (owner_special_authority)(active_special_authority)(addresses)
                     (top_n_control_flags)
                     (allowed_assets)
-                    (is_market)(verification_is_required)(can_create_and_update_asset)(can_create_addresses)
+                    (verification_is_required)(can_create_and_update_asset)(can_create_addresses)(burning_mode_enabled)
                     );
 
 FC_REFLECT_DERIVED( graphene::chain::bonus_balances_object,

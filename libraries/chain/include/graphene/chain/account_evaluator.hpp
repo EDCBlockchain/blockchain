@@ -88,7 +88,6 @@ public:
    void_result do_evaluate( const account_restrict_operation& o);
    object_id_type do_apply( const account_restrict_operation& o);
 
-   
    const restricted_account_object* restricted_account = nullptr;
 };
 

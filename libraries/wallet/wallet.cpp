@@ -98,6 +98,7 @@ public:
    std::string operator()(const object_id_type& oid);
    std::string operator()(const asset& a);
    std::string operator()(const string& s);
+   std::string operator()(const eval_fund_dep_apply_object& x) const;
 };
 
 // BLOCK  TRX  OP  VOP
@@ -3165,6 +3166,16 @@ std::string operation_result_printer::operator()(const asset& a)
 std::string operation_result_printer::operator()(const string& s)
 {
    return s;
+}
+
+std::string operation_result_printer::operator()(const eval_fund_dep_apply_object& obj) const
+{
+   std::ostringstream os;
+   os << "{\"id\":\"" << std::string(obj.id) << "\""
+      << ",\"datetime_begin\":\"" << std::string(obj.datetime_begin) << "\","
+      << ",\"datetime_end\":\"" << std::string(obj.datetime_end) << "\"}";
+
+   return os.str();
 }
 
 }}}

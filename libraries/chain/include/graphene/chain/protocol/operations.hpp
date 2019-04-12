@@ -119,6 +119,7 @@ namespace graphene { namespace chain {
             fund_set_enable_operation,
             fund_deposit_set_enable_operation,
             fund_remove_operation,     // [idx: 64]
+            // -- funds
             allow_create_addresses_operation
          > operation;
 

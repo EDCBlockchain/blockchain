@@ -202,9 +202,11 @@ void_result fund_deposit_evaluator::do_evaluate( const fund_deposit_operation& o
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
-object_id_type fund_deposit_evaluator::do_apply( const fund_deposit_operation& op )
+eval_fund_dep_apply_object fund_deposit_evaluator::do_apply( const fund_deposit_operation& op )
 { try {
 
+   eval_fund_dep_apply_object result;
+      
    database& d = db();
    auto fund = d.get_index_type<fund_index>().indices().get<by_id>().find(op.id);
 
@@ -221,6 +223,9 @@ object_id_type fund_deposit_evaluator::do_apply( const fund_deposit_operation& o
       o.prev_maintenance_time_on_creation = d.get_dynamic_global_properties().last_budget_time;
       o.datetime_end                      = o.prev_maintenance_time_on_creation + (86400 * op.period);
       o.period = op.period;
+      
+      result.datetime_begin = o.datetime_begin;
+      result.datetime_end   = o.datetime_end;
    });
 
    asset asst(op.amount, fund->get_asset_id());
@@ -254,8 +259,10 @@ object_id_type fund_deposit_evaluator::do_apply( const fund_deposit_operation& o
    });
 
    FC_ASSERT(new_fund_deposit.id == next_fund_deposit_id);
+   
+   result.id = new_fund_deposit.id;
 
-   return next_fund_deposit_id;
+   return result;
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 

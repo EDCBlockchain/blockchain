@@ -232,8 +232,8 @@ object_id_type account_create_evaluator::do_apply( const account_create_operatio
    }
 
    const auto& new_acnt_object = db().create<account_object>( [&]( account_object& obj ){
-         if( o.extensions.value.is_market.valid() )
-            obj.is_market = *o.extensions.value.is_market;
+//         if( o.extensions.value.is_market.valid() )
+//            obj.is_market = *o.extensions.value.is_market;
          obj.registrar = o.registrar;
          obj.referrer = o.referrer;
          obj.lifetime_referrer = o.referrer(db()).lifetime_referrer;

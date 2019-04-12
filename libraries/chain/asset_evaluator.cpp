@@ -270,7 +270,6 @@ void_result daily_issue_evaluator::do_apply( const daily_issue_operation& o )
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
-
 void_result asset_reserve_evaluator::do_evaluate( const asset_reserve_operation& o )
 { try {
    const database& d = db();
