@@ -55,7 +55,7 @@ user@user:~/blockchain$ ./programs/witness_node/witness_node --data-dir=data --r
 
 A list of witness_node commands is available here:
 
-   https://github.com/EDCBlockchain/blockchain/blob/master/libraries/app/include/graphene/app/database_api.hpp#L612
+   https://github.com/EDCBlockchain/blockchain/blob/master/libraries/app/include/graphene/app/database_api.hpp#L659
    
    and here:
    
