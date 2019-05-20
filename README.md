@@ -70,5 +70,5 @@ user@user:~/blockchain$ ./programs/cli_wallet/cli_wallet --server-rpc-endpoint=w
 
 A list of CLI wallet commands is available here:
 
-   https://github.com/EDCBlockchain/blockchain/blob/master/libraries/wallet/include/graphene/wallet/wallet.hpp#L1601    
+   https://github.com/EDCBlockchain/blockchain/blob/master/libraries/wallet/include/graphene/wallet/wallet.hpp#L1645
    
