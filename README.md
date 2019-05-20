@@ -59,7 +59,7 @@ A list of witness_node commands is available here:
    
    and here:
    
-   https://github.com/EDCBlockchain/blockchain/blob/master/libraries/app/include/graphene/app/api.hpp#L336
+   https://github.com/EDCBlockchain/blockchain/blob/master/libraries/app/include/graphene/app/api.hpp#L362
 
 ### cli_wallet
 
