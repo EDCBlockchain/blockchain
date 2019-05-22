@@ -38,7 +38,7 @@ namespace graphene { namespace chain {
  *  real or virtual operation is assigned a unique ID / sequence number that
  *  it can be referenced by.
  *
- *  @note  by default these objects are not tracked, the account_history_plugin must
+ *  @note  by default these objects are not tracked, the history_plugin must
  *  be loaded fore these objects to be maintained.
  *
  *  @note  this object is READ ONLY it can never be modified

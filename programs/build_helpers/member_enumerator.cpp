@@ -37,7 +37,7 @@ namespace graphene { namespace member_enumerator {
 
 struct class_processor
 {
-   class_processor( std::map< std::string, std::vector< std::string > >& r ) : result(r) {}
+   explicit class_processor( std::map< std::string, std::vector< std::string > >& r ) : result(r) {}
 
    template< typename T >
    void process_class( const T* dummy );
@@ -84,7 +84,7 @@ struct member_visitor
 
 struct static_variant_visitor
 {
-   static_variant_visitor( class_processor* p ) : proc(p) {}
+   explicit static_variant_visitor( class_processor* p ) : proc(p) {}
 
    typedef void result_type;
 
@@ -200,7 +200,7 @@ int main( int argc, char** argv )
       for( const std::pair< std::string, std::vector< std::string > >& e : result )
       {
          variant v;
-         to_variant( e.second, v );
+         to_variant( e.second, v, 1);
          mvo.set( e.first, v );
       }
 

@@ -7,28 +7,22 @@
 #include <unistd.h>
 #endif
 
-#ifdef HAVE_READLINE
-# include <readline/readline.h>
-# include <readline/history.h>
-// I don't know exactly what version of readline we need.  I know the 4.2 version that ships on some macs is
-// missing some functions we require.  We're developing against 6.3, but probably anything in the 6.x
-// series is fine
-# if RL_VERSION_MAJOR < 6
-#  ifdef _MSC_VER
-#   pragma message("You have an old version of readline installed that might not support some of the features we need")
-#   pragma message("Readline support will not be compiled in")
-#  else
-#   warning "You have an old version of readline installed that might not support some of the features we need"
-#   warning "Readline support will not be compiled in"
-#  endif
-#  undef HAVE_READLINE
-# endif
+#ifdef HAVE_EDITLINE
+# include "editline.h"
 # ifdef WIN32
 #  include <io.h>
 # endif
 #endif
 
+#include <boost/regex.hpp>
+
 namespace fc { namespace rpc {
+
+static boost::regex& cli_regex_secret()
+{
+   static boost::regex regex_expr;
+   return regex_expr;
+}
 
 static std::vector<std::string>& cli_commands()
 {
@@ -86,6 +80,11 @@ void cli::set_prompt( const string& prompt )
    _prompt = prompt;
 }
 
+void cli::set_regex_secret( const string& expr )
+{
+   cli_regex_secret() = expr;
+}
+
 void cli::run()
 {
    while( !_run_complete.canceled() )
@@ -101,9 +100,9 @@ void cli::run()
          {
             break;
          }
-         std::cout << line << "\n";
+
          line += char(EOF);
-         fc::variants args = fc::json::variants_from_string(line);;
+         fc::variants args = fc::json::variants_from_string(line);
          if( args.size() == 0 )
             continue;
 
@@ -121,66 +120,112 @@ void cli::run()
       catch ( const fc::exception& e )
       {
          std::cout << e.to_detail_string() << "\n";
+
+         if (e.code() == fc::canceled_exception_code)
+         {
+            break;
+         }
       }
    }
 }
 
-
-char * dupstr (const char* s) {
-   char *r;
-
-   r = (char*) malloc ((strlen (s) + 1));
-   strcpy (r, s);
-   return (r);
-}
-
-char* my_generator(const char* text, int state)
+/****
+ * @brief loop through list of commands, attempting to find a match
+ * @param token what the user typed
+ * @param match sets to 1 if only 1 match was found
+ * @returns the remaining letters of the name of the command or NULL if 1 match not found
+ */
+static char *my_rl_complete(char *token, int *match)
 {
-   static int list_index, len;
-   const char *name;
-
-   if (!state) {
-      list_index = 0;
-      len = strlen (text);
-   }
+   bool have_one = false;
+   std::string method_name;
 
    auto& cmd = cli_commands();
+   const size_t partlen = strlen (token); /* Part of token */
 
-   while( list_index < (int)cmd.size() )
+   for (const std::string& it : cmd)
    {
-      name = cmd[list_index].c_str();
-      list_index++;
-
-      if (strncmp (name, text, len) == 0)
-         return (dupstr(name));
+      if (it.compare(0, partlen, token) == 0)
+      {
+         if (have_one) {
+            // we can only have 1, but we found a second
+            return NULL;
+         }
+         else
+         {
+            method_name = it;
+            have_one = true;
+         }
+      }
    }
 
-   /* If no names matched, then return NULL. */
-   return ((char *)NULL);
+   if (have_one)
+   {
+      *match = 1;
+      method_name += " ";
+      return strdup (method_name.c_str() + partlen);
+   }
+
+   return NULL;
 }
 
-
-static char** cli_completion( const char * text , int start, int end)
+/***
+ * @brief return an array of matching commands
+ * @param token the incoming text
+ * @param array the resultant array of possible matches
+ * @returns the number of matches
+ */
+static int cli_completion(char *token, char ***array)
 {
-   char **matches;
-   matches = (char **)NULL;
+   auto& cmd = cli_commands();
+   int num_commands = cmd.size();
 
-#ifdef HAVE_READLINE
-   if (start == 0)
-      matches = rl_completion_matches ((char*)text, &my_generator);
-   else
-      rl_bind_key('\t',rl_abort);
-#endif
+   char **copy = (char **) malloc (num_commands * sizeof(char *));
+   if (copy == NULL)
+   {
+      // possible out of memory
+      return 0;
+   }
+   int total_matches = 0;
 
-   return (matches);
+   const size_t partlen = strlen(token);
+
+   for (const std::string& it : cmd)
+   {
+      if ( it.compare(0, partlen, token) == 0)
+      {
+         copy[total_matches] = strdup ( it.c_str() );
+         ++total_matches;
+      }
+   }
+   *array = copy;
+
+   return total_matches;
 }
 
+/***
+ * @brief regex match for secret information
+ * @param source the incoming text source
+ * @returns integer 1 in event of regex match for secret information, otherwise 0
+ */
+static int cli_check_secret(const char *source)
+{
+   if (!cli_regex_secret().empty() && boost::regex_match(source, cli_regex_secret()))
+      return 1;
+   
+   return 0;
+}
 
+/***
+ * @brief Read input from the user
+ * @param prompt the prompt to display
+ * @param line what the user typed
+ */
 void cli::getline( const fc::string& prompt, fc::string& line)
 {
    // getting file descriptor for C++ streams is near impossible
    // so we just assume it's the same as the C stream...
-#ifdef HAVE_READLINE
+#ifdef HAVE_EDITLINE
 #ifndef WIN32   
    if( isatty( fileno( stdin ) ) )
 #else
@@ -192,7 +237,9 @@ void cli::getline( const fc::string& prompt, fc::string& line)
    if( _isatty( _fileno( stdin ) ) )
 #endif
    {
-      rl_attempted_completion_function = cli_completion;
+      rl_set_complete_func(my_rl_complete);
+      rl_set_list_possib_func(cli_completion);
+      rl_set_check_secret_func(cli_check_secret);
 
       static fc::thread getline_thread("getline");
       getline_thread.async( [&](){
@@ -201,10 +248,8 @@ void cli::getline( const fc::string& prompt, fc::string& line)
          line_read = readline(prompt.c_str());
          if( line_read == nullptr )
             FC_THROW_EXCEPTION( fc::eof_exception, "" );
-         rl_bind_key( '\t', rl_complete );
-         if( *line_read )
-            add_history(line_read);
          line = line_read;
+         // we don't need here to add line in editline's history, cause it will be doubled
          free(line_read);
       }).wait();
    }

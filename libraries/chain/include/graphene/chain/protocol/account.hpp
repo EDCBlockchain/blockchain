@@ -69,17 +69,16 @@ namespace graphene { namespace chain {
    {
       struct ext
       {
-         optional< void_t >            null_ext;
-         optional< special_authority > owner_special_authority;
-         optional< special_authority > active_special_authority;
-         optional< buyback_account_options > buyback_options;
-         optional< bool >              is_market;
+         optional<void_t>            null_ext;
+         optional<special_authority> owner_special_authority;
+         optional<special_authority> active_special_authority;
+         optional<buyback_account_options> buyback_options;
       };
 
       struct fee_parameters_type
       {
-         uint64_t basic_fee      = 5*GRAPHENE_BLOCKCHAIN_PRECISION; ///< the cost to register the cheapest non-free account
-         uint64_t premium_fee    = 2000*GRAPHENE_BLOCKCHAIN_PRECISION; ///< the cost to register the cheapest non-free account
+         uint64_t basic_fee       = 5*GRAPHENE_BLOCKCHAIN_PRECISION; ///< the cost to register the cheapest non-free account
+         uint64_t premium_fee     = 2000*GRAPHENE_BLOCKCHAIN_PRECISION; ///< the cost to register the cheapest non-free account
          uint32_t price_per_kbyte = GRAPHENE_BLOCKCHAIN_PRECISION;
       };
 
@@ -98,7 +97,7 @@ namespace graphene { namespace chain {
       authority       active;
 
       account_options options;
-      extension< ext > extensions;
+      extension<ext> extensions;
 
       account_id_type fee_payer()const { return registrar; }
       void            validate()const;
@@ -108,8 +107,9 @@ namespace graphene { namespace chain {
       {
          // registrar should be required anyway as it is the fee_payer(), but we insert it here just to be sure
          a.insert( registrar );
-         if( extensions.value.buyback_options.valid() )
+         if (extensions.value.buyback_options.valid()) {
             a.insert( extensions.value.buyback_options->asset_to_buy_issuer );
+         }
       }
    };
 
@@ -124,15 +124,15 @@ namespace graphene { namespace chain {
    {
       struct ext
       {
-         optional< void_t >            null_ext;
-         optional< special_authority > owner_special_authority;
-         optional< special_authority > active_special_authority;
+         optional<void_t>            null_ext;
+         optional<special_authority> owner_special_authority;
+         optional<special_authority> active_special_authority;
       };
 
       struct fee_parameters_type
       {
          share_type fee             = 20 * GRAPHENE_BLOCKCHAIN_PRECISION;
-         uint32_t   price_per_kbyte = GRAPHENE_BLOCKCHAIN_PRECISION;
+         uint32_t price_per_kbyte = GRAPHENE_BLOCKCHAIN_PRECISION;
       };
 
       asset fee;
@@ -146,7 +146,7 @@ namespace graphene { namespace chain {
 
       /// New account options
       optional<account_options> new_options;
-      extension< ext > extensions;
+      extension<ext> extensions;
 
       account_id_type fee_payer()const { return account; }
       void       validate()const;
@@ -363,22 +363,62 @@ namespace graphene { namespace chain {
       void            validate( )const { };
    };
 
+   struct set_burning_mode_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset           fee;
+      account_id_type account_id;
+      bool            enabled = true;
+      extensions_type extensions;
+
+      account_id_type fee_payer( )const { return ALPHA_ACCOUNT_ID; }
+      void            validate( )const { };
+   };
+
+   struct assets_update_fee_payer_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset fee;
+
+      fc::flat_set<asset_id_type> assets_to_update;
+      asset_id_type               fee_payer_asset;
+
+      extensions_type extensions;
+      account_id_type fee_payer( )const { return GRAPHENE_COMMITTEE_ACCOUNT; }
+      void            validate( )const { };
+   };
+
+   struct asset_update_exchange_rate_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset fee;
+
+      asset_id_type asset_to_update;
+      price         core_exchange_rate;
+
+      extensions_type extensions;
+      account_id_type fee_payer( )const { return GRAPHENE_COMMITTEE_ACCOUNT; }
+      void            validate( )const { };
+   };
+
 } } // graphene::chain
 
 FC_REFLECT(graphene::chain::account_options, (memo_key)(voting_account)(num_witness)(num_committee)(votes)(extensions))
-FC_REFLECT_TYPENAME( graphene::chain::account_whitelist_operation::account_listing)
 FC_REFLECT_ENUM( graphene::chain::account_whitelist_operation::account_listing,
                 (no_listing)(white_listed)(black_listed)(white_and_black_listed))
 
-FC_REFLECT_TYPENAME( graphene::chain::account_restrict_operation::account_action)
+//FC_REFLECT_TYPENAME( graphene::chain::account_restrict_operation::account_action)
 FC_REFLECT_ENUM( graphene::chain::account_restrict_operation::account_action,
                 (restore)(restrict_in)(restrict_out)(restrict_all))
 
-FC_REFLECT_TYPENAME( graphene::chain::account_allow_referrals_operation::account_action)
+//FC_REFLECT_TYPENAME( graphene::chain::account_allow_referrals_operation::account_action)
 FC_REFLECT_ENUM( graphene::chain::account_allow_referrals_operation::account_action,
                 (allow)(disallow))
 
-FC_REFLECT( graphene::chain::account_create_operation::ext, (null_ext)(owner_special_authority)(active_special_authority)(buyback_options)(is_market))
+FC_REFLECT( graphene::chain::account_create_operation::ext, (null_ext)(owner_special_authority)(active_special_authority)(buyback_options) )
 FC_REFLECT( graphene::chain::account_create_operation,
             (fee)(registrar)
             (referrer)(referrer_percent)
@@ -395,11 +435,11 @@ FC_REFLECT( graphene::chain::account_upgrade_operation,
             (fee)(account_to_upgrade)(upgrade_to_lifetime_member)(extensions) )
 
 FC_REFLECT( graphene::chain::account_whitelist_operation, (fee)(authorizing_account)(account_to_list)(new_listing)(extensions))
-        
+
 FC_REFLECT( graphene::chain::account_restrict_operation, (fee)(target)(action)(extensions))
-FC_REFLECT( graphene::chain::account_allow_referrals_operation, (fee)(target)(action)(extensions))      
-FC_REFLECT( graphene::chain::set_online_time_operation, (fee)(online_info)(extensions))      
-FC_REFLECT( graphene::chain::set_verification_is_required_operation, (fee)(target)(verification_is_required)(extensions))         
+FC_REFLECT( graphene::chain::account_allow_referrals_operation, (fee)(target)(action)(extensions))
+FC_REFLECT( graphene::chain::set_online_time_operation, (fee)(online_info)(extensions))
+FC_REFLECT( graphene::chain::set_verification_is_required_operation, (fee)(target)(verification_is_required)(extensions))
 
 FC_REFLECT( graphene::chain::account_create_operation::fee_parameters_type, (basic_fee)(premium_fee)(price_per_kbyte) )
 FC_REFLECT( graphene::chain::account_whitelist_operation::fee_parameters_type, (fee) )
@@ -415,6 +455,15 @@ FC_REFLECT( graphene::chain::account_transfer_operation, (fee)(account_id)(new_o
 
 FC_REFLECT( graphene::chain::allow_create_addresses_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::allow_create_addresses_operation, (fee)(account_id)(allow)(extensions) )
+
+FC_REFLECT( graphene::chain::set_burning_mode_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::chain::set_burning_mode_operation, (fee)(account_id)(enabled)(extensions) )
+
+FC_REFLECT( graphene::chain::assets_update_fee_payer_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::chain::assets_update_fee_payer_operation, (fee)(assets_to_update)(fee_payer_asset)(extensions) )
+
+FC_REFLECT( graphene::chain::asset_update_exchange_rate_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::chain::asset_update_exchange_rate_operation, (fee)(asset_to_update)(core_exchange_rate)(extensions) )
 
 
 

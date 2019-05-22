@@ -15,12 +15,23 @@ namespace fc {
             return a->resume_time > b->resume_time;
         }
     };
+
+    namespace detail {
+       class idle_guard {
+       public:
+          explicit idle_guard( thread_d* t );
+          ~idle_guard();
+       private:
+          thread_idle_notifier* notifier;
+       };
+    }
+
     class thread_d {
 
         public:
-       using context_pair = std::pair<thread_d*, fc::context*>;
+           using context_pair = std::pair<thread_d*, fc::context*>;
 
-           thread_d(fc::thread& s)
+           thread_d( fc::thread& s, thread_idle_notifier* n = 0 )
             :self(s), boost_thread(0),
              task_in_queue(0),
              next_posted_num(1),
@@ -28,7 +39,8 @@ namespace fc {
              current(0),
              pt_head(0),
              blocked(0),
-             next_unused_task_storage_slot(0)
+             next_unused_task_storage_slot(0),
+             notifier(n)
 #ifndef NDEBUG
              ,non_preemptable_scope_count(0)
 #endif
@@ -97,6 +109,8 @@ namespace fc {
            // thread in a process)
            std::vector<detail::specific_data_info> non_task_specific_data;
            unsigned next_unused_task_storage_slot;
+
+           thread_idle_notifier *notifier;
 
 #ifndef NDEBUG
            unsigned                 non_preemptable_scope_count;
@@ -400,11 +414,11 @@ namespace fc {
                 // slog( "jump to %p from %p", next, prev );
                 // fc_dlog( logger::get("fc_context"), "from ${from} to ${to}", ( "from", int64_t(prev) )( "to", int64_t(next) ) ); 
 #if BOOST_VERSION >= 106100
-                 auto p = context_pair{nullptr, prev};
-                 auto t = bc::jump_fcontext( next->my_context, &p );
-                 static_cast<context_pair*>(t.data)->second->my_context = t.fctx;
+                auto p = context_pair{nullptr, prev};
+                auto t = bc::jump_fcontext( next->my_context, &p );
+                static_cast<context_pair*>(t.data)->second->my_context = t.fctx;
 #elif BOOST_VERSION >= 105600
-                 bc::jump_fcontext( &prev->my_context, next->my_context, 0 );
+                bc::jump_fcontext( &prev->my_context, next->my_context, 0 );
 #elif BOOST_VERSION >= 105300
                 bc::jump_fcontext( prev->my_context, next->my_context, 0 );
 #else
@@ -446,9 +460,9 @@ namespace fc {
                 // slog( "jump to %p from %p", next, prev );
                 // fc_dlog( logger::get("fc_context"), "from ${from} to ${to}", ( "from", int64_t(prev) )( "to", int64_t(next) ) );
 #if BOOST_VERSION >= 106100
-                 auto p = context_pair{this, prev};
-                 auto t = bc::jump_fcontext( next->my_context, &p );
-                 static_cast<context_pair*>(t.data)->second->my_context = t.fctx;
+                auto p = context_pair{this, prev};
+                auto t = bc::jump_fcontext( next->my_context, &p );
+                static_cast<context_pair*>(t.data)->second->my_context = t.fctx;
 #elif BOOST_VERSION >= 105600
                 bc::jump_fcontext( &prev->my_context, next->my_context, (intptr_t)this );
 #elif BOOST_VERSION >= 105300
@@ -478,13 +492,13 @@ namespace fc {
            }
 
 #if BOOST_VERSION >= 106100
-      static void start_process_tasks( bc::transfer_t my )
-      {
-         auto p = static_cast<context_pair*>(my.data);
-         auto self = static_cast<thread_d*>(p->first);
-         p->second->my_context = my.fctx;
+           static void start_process_tasks( bc::transfer_t my )
+           {
+              auto p = static_cast<context_pair*>(my.data); 
+              auto self = static_cast<thread_d*>(p->first);
+              p->second->my_context = my.fctx;
 #else
-         static void start_process_tasks( intptr_t my )
+           static void start_process_tasks( intptr_t my ) 
            {
               thread_d* self = (thread_d*)my;
 #endif
@@ -585,6 +599,11 @@ namespace fc {
                   
                   if( done ) 
                     return;
+
+                  detail::idle_guard guard( this );
+                  if( task_in_queue.load(boost::memory_order_relaxed) )
+                     continue;
+
                   if( timeout_time == time_point::maximum() ) 
                     task_ready.wait( lock );
                   else if( timeout_time != time_point::min() ) 
@@ -666,7 +685,7 @@ namespace fc {
         {
           if( fc::thread::current().my != this ) 
           {
-            self.async( [=](){ unblock(c); }, "thread_d::unblock" );
+            self.async( [this,c](){ unblock(c); }, "thread_d::unblock" );
             return;
           }
 

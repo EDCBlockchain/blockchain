@@ -24,7 +24,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/program_options.hpp>
 
-#include <graphene/account_history/account_history_plugin.hpp>
+#include <graphene/history/history_plugin.hpp>
 #include <graphene/market_history/market_history_plugin.hpp>
 
 #include <graphene/db/simple_index.hpp>
@@ -72,7 +72,7 @@ database_fixture::database_fixture()
       if( arg == "--show-test-names" )
          std::cout << "running test " << boost::unit_test::framework::current_test_case().p_name << std::endl;
    }
-   auto ahplugin = app.register_plugin<graphene::account_history::account_history_plugin>();
+   auto ahplugin = app.register_plugin<graphene::history::history_plugin>();
    auto mhplugin = app.register_plugin<graphene::market_history::market_history_plugin>();
    init_account_pub_key = init_account_priv_key.get_public_key();
        
@@ -124,7 +124,7 @@ database_fixture::~database_fixture()
       if( !std::uncaught_exception() )
       {
          verify_asset_supplies(db);
-         verify_account_history_plugin_index();
+         verify_history_plugin_index();
          BOOST_CHECK( db.get_node_properties().skip_flags == database::skip_nothing );
       }
 
@@ -230,14 +230,14 @@ void database_fixture::verify_asset_supplies( const database& db )
 //   wlog("***  End  asset supply verification ***");
 }
 
-void database_fixture::verify_account_history_plugin_index( )const
+void database_fixture::verify_history_plugin_index( )const
 {
    return;
    if( skip_key_index_test )
       return;
 
-   const std::shared_ptr<graphene::account_history::account_history_plugin> pin =
-      app.get_plugin<graphene::account_history::account_history_plugin>("account_history");
+   const std::shared_ptr<graphene::history::history_plugin> pin =
+      app.get_plugin<graphene::history::history_plugin>("history");
    if( pin->tracked_accounts().size() == 0 )
    {
       /*
@@ -268,10 +268,10 @@ void database_fixture::verify_account_history_plugin_index( )const
       vector< pair< account_id_type, address > > tuples_from_index;
       tuples_from_index.reserve( tuples_from_db.size() );
       const auto& key_account_idx =
-         db.get_index_type<graphene::account_history::key_account_index>()
-         .indices().get<graphene::account_history::by_key>();
+         db.get_index_type<graphene::history::key_account_index>()
+         .indices().get<graphene::history::by_key>();
 
-      for( const graphene::account_history::key_account_object& key_account : key_account_idx )
+      for( const graphene::history::key_account_object& key_account : key_account_idx )
       {
          address addr = key_account.key;
          for( const account_id_type& account_id : key_account.account_ids )
@@ -307,8 +307,8 @@ void database_fixture::verify_account_history_plugin_index( )const
       for( size_t i=0,n=tuples_from_db.size(); i<n; i++ )
          is_equal &= (tuples_from_db[i] == tuples_from_index[i] );
 
-      bool account_history_plugin_index_ok = is_equal;
-      BOOST_CHECK( account_history_plugin_index_ok );
+      bool history_plugin_index_ok = is_equal;
+      BOOST_CHECK( history_plugin_index_ok );
          */
    }
    return;
@@ -506,7 +506,7 @@ const asset_object& database_fixture::create_user_issued_asset( const string& na
    creator.symbol = name;
    creator.common_options.max_supply = 0;
    creator.precision = 2;
-   creator.common_options.core_exchange_rate = price({asset(1,asset_id_type(1)),asset(1)});
+   creator.common_options.core_exchange_rate = price(asset(1, asset_id_type(1)), asset(1));
    creator.common_options.max_supply = GRAPHENE_MAX_SHARE_SUPPLY;
    creator.common_options.flags = charge_market_fee;
    creator.common_options.issuer_permissions = charge_market_fee;
@@ -770,9 +770,7 @@ void database_fixture::transfer(
       trans.fee  = fee;
       trans.amount = amount;
       trx.operations.push_back(trans);
-
-      if( fee == asset() )
-      {
+      if (fee == asset()) {
          for( auto& op : trx.operations ) db.current_fee_schedule().set_fee(op);
       }
       trx.validate();
@@ -1087,23 +1085,22 @@ vector< operation_history_object > database_fixture::get_operation_history( acco
    return result;
 }
 
-
-void database_fixture::create_edc()
+void database_fixture::create_edc(asset base, asset quote)
 {
    try
    {
       set_expiration( db, trx );
       asset_create_operation creator;
-      creator.issuer = account_id_type();
-      creator.fee = asset();
+      creator.issuer = account_id_type(0);
+      creator.fee = asset(0);
       creator.symbol = "EDC";
       creator.common_options.max_supply = 10000000000;
       creator.precision = 3;
+      creator.params.fee_paying_asset = EDC_ASSET;
       creator.common_options.market_fee_percent = GRAPHENE_MAX_MARKET_FEE_PERCENT / 100; /*1%*/
       creator.common_options.issuer_permissions = UIA_ASSET_ISSUER_PERMISSION_MASK;
       creator.common_options.flags = charge_market_fee;
-      creator.common_options.core_exchange_rate = price({asset(2), asset(1, asset_id_type(1))});
-
+      creator.common_options.core_exchange_rate = price(base, quote);
       trx.operations.push_back(creator);
       trx.validate();
 
@@ -1111,6 +1108,35 @@ void database_fixture::create_edc()
       verify_asset_supplies(db);
       trx.operations.clear();
 
+   }
+   catch (...) {
+      throw;
+   }
+}
+
+void database_fixture::create_test_asset()
+{
+   try
+   {
+      asset_create_operation creator;
+      creator.issuer = account_id_type(0);
+      creator.fee = asset();
+      creator.symbol = "TEST";
+      creator.common_options.max_supply = 10000000000;
+      creator.precision = 3;
+      creator.params.fee_paying_asset = EDC_ASSET;
+      creator.common_options.market_fee_percent = GRAPHENE_MAX_MARKET_FEE_PERCENT / 100; /*1%*/
+      creator.common_options.issuer_permissions = UIA_ASSET_ISSUER_PERMISSION_MASK;
+      creator.common_options.flags = charge_market_fee;
+      creator.common_options.issuer_permissions = charge_market_fee;
+      creator.common_options.core_exchange_rate = price(asset(100, CORE_ASSET), asset(1, EDC_ASSET));
+
+      trx.operations.push_back(std::move(creator));
+      trx.validate();
+      set_expiration( db, trx );
+      db.push_transaction(trx, ~0);
+      verify_asset_supplies(db);
+      trx.operations.clear();
    }
    catch (...) {
       throw;

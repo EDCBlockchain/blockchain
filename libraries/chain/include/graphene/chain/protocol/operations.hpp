@@ -120,7 +120,10 @@ namespace graphene { namespace chain {
             fund_deposit_set_enable_operation,
             fund_remove_operation,     // [idx: 64]
             // -- funds
-            allow_create_addresses_operation
+            allow_create_addresses_operation,
+            set_burning_mode_operation,          // [idx: 66]
+            assets_update_fee_payer_operation,
+            asset_update_exchange_rate_operation // [idx: 68]
          > operation;
 
    /// @} // operations group

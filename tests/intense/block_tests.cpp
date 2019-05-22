@@ -38,6 +38,7 @@
 #include "../common/database_fixture.hpp"
 
 using namespace graphene::chain;
+using namespace graphene::chain::test;
 
 BOOST_AUTO_TEST_SUITE(block_tests)
 
@@ -135,16 +136,21 @@ BOOST_FIXTURE_TEST_CASE( update_account_keys, database_fixture )
       generate_block( skip_flags );
 
       std::cout << "update_account_keys:  this test will take a few minutes...\n";
-      for( int use_addresses=0; use_addresses<2; use_addresses++ )
+      for (int use_addresses=0; use_addresses<2; use_addresses++)
       {
          vector< public_key_type > key_ids = numbered_key_id[ use_addresses ];
-         for( int num_owner_keys=1; num_owner_keys<=2; num_owner_keys++ )
+         for (int num_owner_keys=1; num_owner_keys<=2; num_owner_keys++)
          {
-            for( int num_active_keys=1; num_active_keys<=2; num_active_keys++ )
+            for (int num_active_keys=1; num_active_keys<=2; num_active_keys++)
             {
-               std::cout << use_addresses << num_owner_keys << num_active_keys << "\n";
-               for( const vector< int >& key_sched_before : possible_key_sched )
+               std::cout << "use_addresses: " << use_addresses
+                         << ", num_owner_keys: " << num_owner_keys
+                         << ", num_active_keys: " << num_active_keys
+                         << std::endl;
+
+               for (const vector< int >& key_sched_before : possible_key_sched)
                {
+                  if (key_ids.size() == 0) { continue; }
                   auto it = key_sched_before.begin();
                   vector< const private_key_type* > owner_privkey;
                   vector< const public_key_type* > owner_keyid;
@@ -154,32 +160,50 @@ BOOST_FIXTURE_TEST_CASE( update_account_keys, database_fixture )
                   account_create_operation create_op;
                   create_op.name = "alice";
 
-                  for( int owner_index=0; owner_index<num_owner_keys; owner_index++ )
+                  for (int owner_index=0; owner_index<num_owner_keys; owner_index++)
                   {
-                     int i = *(it++);
-                     create_op.owner.key_auths[ key_ids[ i ] ] = 1;
-                     owner_privkey.push_back( &numbered_private_keys[i] );
-                     owner_keyid.push_back( &key_ids[ i ] );
+                     if (it != key_sched_before.end())
+                     {
+                        if ((int)key_ids.size() > *it)
+                        {
+                           create_op.owner.key_auths.insert(std::pair<public_key_type, weight_type>(key_ids[*it], 1));
+
+                           owner_privkey.push_back(&numbered_private_keys[*it]);
+                           owner_keyid.push_back(&key_ids[*it]);
+                        }
+                        ++it;
+                     }
                   }
+
                   // size() < num_owner_keys is possible when some keys are duplicates
                   create_op.owner.weight_threshold = create_op.owner.key_auths.size();
 
-                  for( int active_index=0; active_index<num_active_keys; active_index++ )
-                     create_op.active.key_auths[ key_ids[ *(it++) ] ] = 1;
+                  for (int active_index = 0; active_index < num_active_keys; active_index++)
+                  {
+                     if (it != key_sched_before.end())
+                     {
+                        if ((int)key_ids.size() > *it) {
+                           create_op.active.key_auths.insert(std::pair<public_key_type, weight_type>(key_ids[*it], 1));
+                        }
+                     }
+                     ++it;
+                  }
+
                   // size() < num_active_keys is possible when some keys are duplicates
                   create_op.active.weight_threshold = create_op.active.key_auths.size();
+                  if (it != key_sched_before.end())
+                  {
+                     if ((int)key_ids.size() > *it)
+                     {
+                        create_op.options.memo_key = key_ids[*it];
+                        ++it;
+                     }
+                  }
 
-                  create_op.options.memo_key = key_ids[ *(it++) ] ;
                   create_op.registrar = sam_account_object.id;
-                  trx.operations.push_back( create_op );
-                  // trx.sign( sam_key );
-                  wdump( (trx) );
+                  trx.operations.push_back(create_op);
+                  processed_transaction ptx_create = db.push_transaction(trx, ~0);
 
-                  processed_transaction ptx_create = db.push_transaction( trx,
-                     database::skip_transaction_dupe_check |
-                     database::skip_transaction_signatures |
-                     database::skip_authority_check
-                      );
                   account_id_type alice_account_id =
                      ptx_create.operation_results[0]
                      .get< object_id_type >();
@@ -222,15 +246,15 @@ BOOST_FIXTURE_TEST_CASE( update_account_keys, database_fixture )
                            database::skip_transaction_signatures );
                         }
                      }
-                     verify_account_history_plugin_index();
+                     verify_history_plugin_index();
                      generate_block( skip_flags );
 
-                     verify_account_history_plugin_index();
+                     verify_history_plugin_index();
                      db.pop_block();
-                     verify_account_history_plugin_index();
+                     verify_history_plugin_index();
                   }
                   db.pop_block();
-                  verify_account_history_plugin_index();
+                  verify_history_plugin_index();
                }
             }
          }
@@ -251,7 +275,7 @@ BOOST_FIXTURE_TEST_CASE( update_account_keys, database_fixture )
  *
  *  This means that when we shuffle witness we need to make sure
  *  that there is at least N/2 witness between consecutive turns
- *  of the same witness.    This means that durring the random
+ *  of the same witness. This means that during the random
  *  shuffle we need to restrict the placement of witness to maintain
  *  this invariant.
  *
@@ -272,6 +296,7 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
       // we'll need to enlarge this.
       std::bitset< 0x40 > witness_seen;
       size_t total_blocks = 1000000;
+      //size_t total_blocks = 10;
 
       cur_round.reserve( num_witnesses );
       full_schedule.reserve( total_blocks );
@@ -279,12 +304,11 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
 
       // we assert so the test doesn't continue, which would
       // corrupt memory
-      assert( num_witnesses <= witness_seen.size() );
+      BOOST_CHECK(num_witnesses <= witness_seen.size());
 
       while( full_schedule.size() < total_blocks )
       {
-         if( (db.head_block_num() & 0x3FFF) == 0 )
-         {
+         if( (db.head_block_num() & 0x3FFF) == 0 ) {
              wdump( (db.head_block_num()) );
          }
          witness_id_type wid = db.get_scheduled_witness( 1 );
@@ -299,7 +323,6 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
             {
                uint64_t inst = w.instance.value;
                BOOST_CHECK( !witness_seen.test( inst ) );
-               assert( !witness_seen.test( inst ) );
                witness_seen.set( inst );
             }
             cur_round.clear();
@@ -309,10 +332,8 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
 
       for( size_t i=0,m=full_schedule.size(); i<m; i++ )
       {
-         for( size_t j=i+1,n=std::min( m, i+dmin ); j<n; j++ )
-         {
-            BOOST_CHECK( full_schedule[i] != full_schedule[j] );
-            assert( full_schedule[i] != full_schedule[j] );
+         for( size_t j=i+1,n=std::min( m, i+dmin ); j<n; j++ ) {
+            BOOST_CHECK( full_schedule[i] != full_schedule[m] );
          }
       }
 
@@ -321,7 +342,6 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
       throw;
    }
 }
-
 
 BOOST_FIXTURE_TEST_CASE( tapos_rollover, database_fixture )
 {
@@ -378,42 +398,47 @@ BOOST_FIXTURE_TEST_CASE(bulk_discount, database_fixture)
 
    BOOST_TEST_MESSAGE( "=== bulk_discount, database_fixture ===" );
    ACTOR(nathan);
-   // Give nathan ALLLLLL the money!
-   transfer(GRAPHENE_COMMITTEE_ACCOUNT, nathan_id, db.get_balance(GRAPHENE_COMMITTEE_ACCOUNT, asset_id_type()));
+   // Give nathan all the money
+   transfer(GRAPHENE_COMMITTEE_ACCOUNT, nathan_id, db.get_balance(GRAPHENE_COMMITTEE_ACCOUNT, CORE_ASSET));
    enable_fees();//GRAPHENE_BLOCKCHAIN_PRECISION*10);
    upgrade_to_lifetime_member(nathan_id);
    share_type new_fees;
    while( nathan_id(db).statistics(db).lifetime_fees_paid + new_fees < GRAPHENE_DEFAULT_BULK_DISCOUNT_THRESHOLD_MIN )
    {
-      transfer(nathan_id, GRAPHENE_COMMITTEE_ACCOUNT, asset(1));
+      transfer(nathan_id, GRAPHENE_COMMITTEE_ACCOUNT, asset(1, CORE_ASSET));
       new_fees += db.current_fee_schedule().calculate_fee(transfer_operation()).amount;
    }
    generate_blocks(db.get_dynamic_global_properties().next_maintenance_time);
    enable_fees();//GRAPHENE_BLOCKCHAIN_PRECISION*10);
-   auto old_cashback = nathan_id(db).cashback_balance(db).balance;
 
-   transfer(nathan_id, GRAPHENE_COMMITTEE_ACCOUNT, asset(1));
-   generate_blocks(db.get_dynamic_global_properties().next_maintenance_time);
-   enable_fees();//GRAPHENE_BLOCKCHAIN_PRECISION*10);
-
-   BOOST_CHECK_EQUAL(nathan_id(db).cashback_balance(db).balance.amount.value,
-                     old_cashback.amount.value + (int64_t)(GRAPHENE_BLOCKCHAIN_PRECISION * 8));
-
-   new_fees = 0;
-   while( nathan_id(db).statistics(db).lifetime_fees_paid + new_fees < GRAPHENE_DEFAULT_BULK_DISCOUNT_THRESHOLD_MAX )
+   if (nathan_id(db).cashback_vb)
    {
-      transfer(nathan_id, GRAPHENE_COMMITTEE_ACCOUNT, asset(1));
-      new_fees += db.current_fee_schedule().calculate_fee(transfer_operation()).amount;
+      auto old_cashback = nathan_id(db).cashback_balance(db).balance;
+
+      transfer(nathan_id, GRAPHENE_COMMITTEE_ACCOUNT, asset(1, CORE_ASSET));
+      generate_blocks(db.get_dynamic_global_properties().next_maintenance_time);
+      enable_fees();//GRAPHENE_BLOCKCHAIN_PRECISION*10);
+
+      BOOST_CHECK_EQUAL(nathan_id(db).cashback_balance(db).balance.amount.value,
+                        old_cashback.amount.value + (int64_t)(GRAPHENE_BLOCKCHAIN_PRECISION * 8));
+
+      new_fees = 0;
+      while( nathan_id(db).statistics(db).lifetime_fees_paid + new_fees < GRAPHENE_DEFAULT_BULK_DISCOUNT_THRESHOLD_MAX )
+      {
+         transfer(nathan_id, GRAPHENE_COMMITTEE_ACCOUNT, asset(1, CORE_ASSET));
+         new_fees += db.current_fee_schedule().calculate_fee(transfer_operation()).amount;
+      }
+      generate_blocks(db.get_dynamic_global_properties().next_maintenance_time);
+      enable_fees();//GRAPHENE_BLOCKCHAIN_PRECISION*10);
+      old_cashback = nathan_id(db).cashback_balance(db).balance;
+
+      transfer(nathan_id, GRAPHENE_COMMITTEE_ACCOUNT, asset(1, CORE_ASSET));
+      generate_blocks(db.get_dynamic_global_properties().next_maintenance_time);
+
+      BOOST_CHECK_EQUAL(nathan_id(db).cashback_balance(db).balance.amount.value,
+                       (int64_t)(old_cashback.amount.value + GRAPHENE_BLOCKCHAIN_PRECISION * 9));
    }
-   generate_blocks(db.get_dynamic_global_properties().next_maintenance_time);
-   enable_fees();//GRAPHENE_BLOCKCHAIN_PRECISION*10);
-   old_cashback = nathan_id(db).cashback_balance(db).balance;
 
-   transfer(nathan_id, GRAPHENE_COMMITTEE_ACCOUNT, asset(1));
-   generate_blocks(db.get_dynamic_global_properties().next_maintenance_time);
-
-   BOOST_CHECK_EQUAL(nathan_id(db).cashback_balance(db).balance.amount.value,
-                     (int64_t)(old_cashback.amount.value + GRAPHENE_BLOCKCHAIN_PRECISION * 9));
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()

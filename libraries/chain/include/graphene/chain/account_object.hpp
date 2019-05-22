@@ -256,6 +256,10 @@ namespace graphene { namespace chain {
          /// The account's name. This name must be unique among all account names on the graph. May not be empty.
          string name;
 
+         fc::time_point_sec register_datetime;
+         account_restrict_operation::account_action current_restriction =
+            account_restrict_operation::account_action::restore;
+
          bool verification_is_required = false;
          bool can_create_and_update_asset = false;
          bool can_create_addresses = true;
@@ -648,7 +652,7 @@ FC_REFLECT_DERIVED( graphene::chain::account_object,
                     (owner_special_authority)(active_special_authority)(addresses)
                     (top_n_control_flags)
                     (allowed_assets)
-                    (verification_is_required)(can_create_and_update_asset)(can_create_addresses)(burning_mode_enabled)
+                    (register_datetime)(current_restriction)(verification_is_required)(can_create_and_update_asset)(can_create_addresses)(burning_mode_enabled)
                     );
 
 FC_REFLECT_DERIVED( graphene::chain::bonus_balances_object,

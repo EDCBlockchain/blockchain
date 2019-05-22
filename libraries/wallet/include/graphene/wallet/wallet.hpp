@@ -33,8 +33,8 @@ using namespace std;
 
 namespace fc
 {
-   void to_variant(const account_multi_index_type& accts, variant& vo);
-   void from_variant(const variant &var, account_multi_index_type &vo);
+   void to_variant( const account_multi_index_type& accts, variant& vo, uint32_t max_depth );
+   void from_variant( const variant &var, account_multi_index_type &vo, uint32_t max_depth );
 }
 
 namespace graphene { namespace wallet {
@@ -521,11 +521,11 @@ class wallet_api
        * @ingroup Transaction Builder API
        */
       signed_transaction propose_builder_transaction(
-          transaction_handle_type handle,
-          time_point_sec expiration = time_point::now() + fc::minutes(1),
-          uint32_t review_period_seconds = 0,
-          bool broadcast = true
-         );
+         transaction_handle_type handle,
+         time_point_sec expiration = time_point::now() + fc::minutes(1),
+         uint32_t review_period_seconds = 0,
+         bool broadcast = true
+        );
 
       signed_transaction propose_builder_transaction2(
          transaction_handle_type handle,
@@ -782,25 +782,6 @@ class wallet_api
        */
       std::pair<std::string, signed_transaction>
       transfer2(string from, string to, string amount, string asset_symbol, string memo );
-
-      /** Transfer an amount from one account to another with a given symbol */
-      signed_transaction transfer_with_fee_symbol( string from,
-                                                   string to,
-                                                   string amount,
-                                                   string asset_symbol,
-                                                   string memo,
-                                                   string fee_symbol,
-                                                   bool broadcast = false);
-      pair<transaction_id_type,signed_transaction> transfer_with_fee_symbol2( string from,
-                                                                              string to,
-                                                                              string amount,
-                                                                              string asset_symbol,
-                                                                              string memo,
-                                                                              string fee_symbol,
-                                                                              bool broadcast = false) {
-         auto trx = transfer_with_fee_symbol( from, to, amount, asset_symbol, memo, fee_symbol, true );
-         return std::make_pair(trx.id(),trx);
-      }
 
       signed_transaction set_online_time( map<account_id_type, uint16_t> online_info );
       signed_transaction set_verification_is_required( account_id_type target, bool verification_is_required );
@@ -1537,7 +1518,7 @@ class wallet_api
          const string& proposal_id,
          const approval_delta& delta,
          bool broadcast /* = false */
-         );
+      );
 
       order_book get_order_book( const string& base, const string& quote, unsigned limit = 50);
 
@@ -1549,6 +1530,19 @@ class wallet_api
                                                     fc::time_point_sec expiration_time, bool broadcast = true);
       signed_transaction propose_allow_create_addresses(const string& initiator, const string& target, bool allow,
                                                         fc::time_point_sec expiration_time, bool broadcast = true);
+      signed_transaction propose_update_assets_fee_payer(
+         const string& initiator
+         , const fc::flat_set<std::string>& assets_to_update
+         , const std::string& fee_payer_asset
+         , fc::time_point_sec expiration_time
+         , bool broadcast);
+
+      signed_transaction propose_update_asset_exchange_rate(
+         const string& initiator
+         , const std::string& asset_to_update
+         , const variant_object& core_exchange_rate
+         , fc::time_point_sec expiration_time
+         , bool broadcast);
 
       void dbg_make_uia(string creator, string symbol);
       void dbg_make_mia(string creator, string symbol);
@@ -1574,7 +1568,7 @@ class wallet_api
 
       std::map<string,std::function<string(fc::variant,const fc::variants&)>> get_result_formatters() const;
       void disable_backups() { no_backups = true; }
-      
+
       fc::signal<void(bool)> lock_changed;
       std::shared_ptr<detail::wallet_api_impl> my;
       bool no_backups = false;
@@ -1638,7 +1632,7 @@ FC_REFLECT_DERIVED( graphene::wallet::signed_block_with_info, (graphene::chain::
 FC_REFLECT_DERIVED( graphene::wallet::vesting_balance_object_with_info, (graphene::chain::vesting_balance_object),
    (allowed_withdraw)(allowed_withdraw_time) )
 
-FC_REFLECT( graphene::wallet::operation_detail, 
+FC_REFLECT( graphene::wallet::operation_detail,
             (memo)(description)(op) )
 
 FC_API( graphene::wallet::wallet_api,
@@ -1684,8 +1678,6 @@ FC_API( graphene::wallet::wallet_api,
         (cancel_order)
         (transfer)
         (transfer2)
-        (transfer_with_fee_symbol)
-        (transfer_with_fee_symbol2)
         (set_online_time)
         (set_verification_is_required)
         (get_transaction_id)
@@ -1707,6 +1699,8 @@ FC_API( graphene::wallet::wallet_api,
         (propose_account_referrals_permission)
         (propose_allow_create_asset)
         (propose_allow_create_addresses)
+        (propose_update_assets_fee_payer)
+        (propose_update_asset_exchange_rate)
         (create_committee_member)
         (get_witness)
         (get_committee_member)

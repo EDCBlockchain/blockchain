@@ -1,1 +1,0 @@
-cmd='/home/dim4egster2/work/clion/blockchain_gitlab/libraries/fc/vendor/secp256k1-zkp/configure;--prefix=/home/dim4egster2/work/clion/blockchain_gitlab/libraries/fc/vendor/secp256k1-zkp;--with-bignum=no'

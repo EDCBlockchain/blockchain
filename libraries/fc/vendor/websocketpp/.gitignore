@@ -17,6 +17,7 @@
 lib/*
 
 # CMake
+*.cmake
 *.dir
 CMakeFiles
 INSTALL.*

@@ -15,10 +15,9 @@ namespace fc {
   mutex::~mutex() {
     if( m_blist ) 
     {
-      context* c = m_blist;
-      (void)c;
       fc::thread::current().debug("~mutex");
 #if 0
+      context* c = m_blist;
       while( c )  {
  //       elog( "still blocking on context %p (%s)", m_blist, (m_blist->cur_task ? m_blist->cur_task->get_desc() : "no current task") ); 
         c = c->next_blocked_mutex;

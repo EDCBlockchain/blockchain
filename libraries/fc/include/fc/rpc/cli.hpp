@@ -16,6 +16,7 @@ namespace fc { namespace rpc {
    class cli : public api_connection
    {
       public:
+         cli( uint32_t max_depth ) : api_connection(max_depth) {}
          ~cli();
 
          virtual variant send_call( api_id_type api_id, string method_name, variants args = variants() );
@@ -30,6 +31,8 @@ namespace fc { namespace rpc {
          virtual void getline( const fc::string& prompt, fc::string& line );
 
          void set_prompt( const string& prompt );
+
+         void set_regex_secret( const string& expr );
 
       private:
          void run();

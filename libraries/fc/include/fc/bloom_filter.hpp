@@ -57,6 +57,20 @@ public:
      random_seed(0xA5A5A5A55A5A5A5AULL)
    {}
 
+   bloom_parameters(unsigned long long int projected_element_count,
+         double false_positive_probability,
+         unsigned long long int maximum_size) :
+            minimum_size(1),
+            maximum_size(maximum_size),
+            minimum_number_of_hashes(1),
+            maximum_number_of_hashes(std::numeric_limits<unsigned int>::max()),
+            projected_element_count(projected_element_count),
+            false_positive_probability(false_positive_probability),
+            random_seed(0xA5A5A5A55A5A5A5AULL)
+   {
+      compute_optimal_parameters();
+   }
+
    virtual ~bloom_parameters()
    {}
 

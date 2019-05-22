@@ -28,8 +28,8 @@ namespace graphene { namespace chain {
       struct history_item
       {
          fc::time_point create_datetime;
-         share_type fund_day_profit;
-         share_type fund_deposits_sum;
+         share_type daily_profit;
+         share_type daily_payments_without_owner;
       };
 
       std::vector<history_item> items;
@@ -275,8 +275,8 @@ namespace graphene { namespace chain {
 
 FC_REFLECT( graphene::chain::fund_history_object::history_item,
             (create_datetime)
-            (fund_day_profit)
-            (fund_deposits_sum) );
+            (daily_profit)
+            (daily_payments_without_owner) );
 
 FC_REFLECT_DERIVED( graphene::chain::fund_history_object,
                     (graphene::chain::object),

@@ -10,7 +10,7 @@ namespace fc { namespace rpc {
    class websocket_api_connection : public api_connection
    {
       public:
-         websocket_api_connection( fc::http::websocket_connection& c );
+         websocket_api_connection( fc::http::websocket_connection& c, uint32_t max_conversion_depth );
          ~websocket_api_connection();
 
          virtual variant send_call(

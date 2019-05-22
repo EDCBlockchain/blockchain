@@ -25,10 +25,12 @@ namespace fc
 
   typedef fc::optional<fc::string> ostring;
   class variant_object;
-  fc::string format_string( const fc::string&, const variant_object& );
+  fc::string format_string( const fc::string&, const variant_object&, uint32_t max_object_depth = 200 );
   fc::string trim( const fc::string& );
   fc::string to_lower( const fc::string& );
   string trim_and_normalize_spaces( const string& s );
+
+  uint64_t parse_size( const string& s );
 }
 
 #else

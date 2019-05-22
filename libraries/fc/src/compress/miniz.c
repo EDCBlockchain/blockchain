@@ -1495,30 +1495,14 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
     {
       if (r->m_type == 1)
       {
-        mz_uint8 *p = r->m_tables[0].m_code_size;
-        mz_uint i;
-        r->m_table_sizes[0] = 288;
-        r->m_table_sizes[1] = 32;
-        TINFL_MEMSET(r->m_tables[1].m_code_size, 5, 32);
-
-        for ( i = 0; i <= 143; ++i) {
-           *p++ = 8;
-        }
-        for ( ; i <= 255; ++i) {
-           *p++ = 9;
-        }
-        for ( ; i <= 279; ++i) {
-           *p++ = 7;
-        }
-        for ( ; i <= 287; ++i) {
-           *p++ = 8;
-        }
+        mz_uint8 *p = r->m_tables[0].m_code_size; mz_uint i;
+        r->m_table_sizes[0] = 288; r->m_table_sizes[1] = 32; TINFL_MEMSET(r->m_tables[1].m_code_size, 5, 32);
+        for (i = 0; i <= 143; ++i) {*p++ = 8;} for (; i <= 255; ++i) {*p++ = 9;} for (; i <= 279; ++i) {*p++ = 7;} for (; i <= 287; ++i) {*p++ = 8;}
       }
       else
       {
         for (counter = 0; counter < 3; counter++) { TINFL_GET_BITS(11, r->m_table_sizes[counter], "\05\05\04"[counter]); r->m_table_sizes[counter] += s_min_table_sizes[counter]; }
-        MZ_CLEAR_OBJ(r->m_tables[2].m_code_size);
-        for (counter = 0; counter < r->m_table_sizes[2]; counter++) { mz_uint s; TINFL_GET_BITS(14, s, 3); r->m_tables[2].m_code_size[s_length_dezigzag[counter]] = (mz_uint8)s; }
+        MZ_CLEAR_OBJ(r->m_tables[2].m_code_size); for (counter = 0; counter < r->m_table_sizes[2]; counter++) { mz_uint s; TINFL_GET_BITS(14, s, 3); r->m_tables[2].m_code_size[s_length_dezigzag[counter]] = (mz_uint8)s; }
         r->m_table_sizes[2] = 19;
       }
       for ( ; (int)r->m_type >= 0; r->m_type--)
@@ -1528,7 +1512,8 @@ tinfl_status tinfl_decompress(tinfl_decompressor *r, const mz_uint8 *pIn_buf_nex
         for (i = 0; i < r->m_table_sizes[r->m_type]; ++i) total_syms[pTable->m_code_size[i]]++;
         used_syms = 0, total = 0; next_code[0] = next_code[1] = 0;
         for (i = 1; i <= 15; ++i) { used_syms += total_syms[i]; next_code[i + 1] = (total = ((total + total_syms[i]) << 1)); }
-        if ((65536 != total) && (used_syms > 1)) {
+        if ((65536 != total) && (used_syms > 1))
+        {
           TINFL_CR_RETURN_FOREVER(35, TINFL_STATUS_FAILED);
         }
         for (tree_next = -1, sym_index = 0; sym_index < r->m_table_sizes[r->m_type]; ++sym_index)
@@ -2296,14 +2281,11 @@ static MZ_FORCEINLINE void tdefl_find_match(tdefl_compressor *d, mz_uint lookahe
         if (TDEFL_READ_UNALIGNED_WORD(&d->m_dict[probe_pos + match_len - 1]) == c01) break;
       TDEFL_PROBE; TDEFL_PROBE; TDEFL_PROBE;
     }
-    if (!dist) { break;}
-    q = (const mz_uint16*)(d->m_dict + probe_pos);
-    if (TDEFL_READ_UNALIGNED_WORD(q) != s01) { continue; }
-    p = s;
-    probe_len = 32;
+    if (!dist) {break;} q = (const mz_uint16*)(d->m_dict + probe_pos); if (TDEFL_READ_UNALIGNED_WORD(q) != s01) {continue;} p = s; probe_len = 32;
     do { } while ( (TDEFL_READ_UNALIGNED_WORD(++p) == TDEFL_READ_UNALIGNED_WORD(++q)) && (TDEFL_READ_UNALIGNED_WORD(++p) == TDEFL_READ_UNALIGNED_WORD(++q)) &&
                    (TDEFL_READ_UNALIGNED_WORD(++p) == TDEFL_READ_UNALIGNED_WORD(++q)) && (TDEFL_READ_UNALIGNED_WORD(++p) == TDEFL_READ_UNALIGNED_WORD(++q)) && (--probe_len > 0) );
-    if (!probe_len) {
+    if (!probe_len)
+    {
       *pMatch_dist = dist; *pMatch_len = MZ_MIN(max_match_len, TDEFL_MAX_MATCH_LEN); break;
     }
     else if ((probe_len = ((mz_uint)(p - s) * 2) + (mz_uint)(*(const mz_uint8*)p == *(const mz_uint8*)q)) > match_len)
@@ -2866,7 +2848,7 @@ void *tdefl_write_image_to_png_file_in_memory(const void *pImage, int w, int h, 
   #include <stdio.h>
   #include <sys/stat.h>
 
-  #if defined(_MSC_VER) || defined(__MINGW64__)
+  #if defined(_MSC_VER)
     static FILE *mz_fopen(const char *pFilename, const char *pMode)
     {
       FILE* pFile = NULL;

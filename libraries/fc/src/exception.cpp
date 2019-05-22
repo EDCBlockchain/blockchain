@@ -21,7 +21,6 @@ namespace fc
                            (eof_exception)
                            (unknown_host_exception)
                            (null_optional)
-                           (udt_exception)
                            (aes_exception)
                            (overflow_exception)
                            (underflow_exception)
@@ -124,19 +123,25 @@ namespace fc
 
    exception::~exception(){}
 
-   void to_variant( const exception& e, variant& v )
+   void to_variant( const exception& e, variant& v, uint32_t max_depth )
    {
-      v = mutable_variant_object( "code", e.code() )
-                                ( "name", e.name() )
-                                ( "message", e.what() )
-                                ( "stack", e.get_log() );
+      FC_ASSERT( max_depth > 0, "Recursion depth exceeded!" );
+      variant v_log;
+      to_variant( e.get_log(), v_log, max_depth - 1 );
+      mutable_variant_object tmp;
+      tmp( "code", e.code() )
+         ( "name", e.name() )
+         ( "message", e.what() )
+         ( "stack", v_log );
+      v = variant( tmp, max_depth );
 
    }
-   void          from_variant( const variant& v, exception& ll )
+   void from_variant( const variant& v, exception& ll, uint32_t max_depth )
    {
+      FC_ASSERT( max_depth > 0, "Recursion depth exceeded!" );
       auto obj = v.get_object();
       if( obj.contains( "stack" ) )
-         ll.my->_elog =  obj["stack"].as<log_messages>();
+         ll.my->_elog =  obj["stack"].as<log_messages>( max_depth - 1 );
       if( obj.contains( "code" ) )
          ll.my->_code = obj["code"].as_int64();
       if( obj.contains( "name" ) )
@@ -156,14 +161,21 @@ namespace fc
     *   and other information that is generally only useful for
     *   developers.
     */
-   string exception::to_detail_string( log_level ll  )const
+   string exception::to_detail_string( log_level ll )const
    {
       fc::stringstream ss;
       ss << variant(my->_code).as_string() <<" " << my->_name << ": " <<my->_what<<"\n";
       for( auto itr = my->_elog.begin(); itr != my->_elog.end();  )
       {
-         ss << itr->get_message() <<"\n"; //fc::format_string( itr->get_format(), itr->get_data() ) <<"\n";
-         ss << "    " << json::to_string( itr->get_data() )<<"\n";
+         ss << itr->get_message() <<"\n";
+         try
+         {
+            ss << "    " << json::to_string( itr->get_data() )<<"\n";
+         }
+         catch( const fc::assert_exception& e )
+         {
+            ss << "ERROR: Failed to convert log data to string!\n";
+         }
          ss << "    " << itr->get_context().to_string();
          ++itr;
          if( itr != my->_elog.end() ) ss<<"\n";
@@ -174,14 +186,14 @@ namespace fc
    /**
     *   Generates a user-friendly error report.
     */
-   string exception::to_string( log_level ll   )const
+   string exception::to_string( log_level ll )const
    {
       fc::stringstream ss;
-      ss << what() << " (" << variant(my->_code).as_string() <<")\n";
+      ss << what() << ":";
       for( auto itr = my->_elog.begin(); itr != my->_elog.end(); ++itr )
       {
-         ss << fc::format_string( itr->get_format(), itr->get_data() ) <<"\n";
-   //      ss << "    " << itr->get_context().to_string() <<"\n";
+         if( itr->get_format().size() )
+            ss << " " << fc::format_string( itr->get_format(), itr->get_data() );
       }
       return ss.str();
    }
@@ -244,6 +256,11 @@ namespace fc
       return *this;
    }
 
+   void throw_assertion_failure( const std::string& message )
+   {
+      FC_THROW_EXCEPTION( fc::assert_exception, message );
+   }
+
    void record_assert_trip(
       const char* filename,
       uint32_t lineno,
@@ -256,10 +273,16 @@ namespace fc
          ("source_lineno", lineno)
          ("expr", expr)
          ;
-      std::cout
-         << "FC_ASSERT triggered:  "
-         << fc::json::to_string( assert_trip_info ) << "\n";
-      return;
+      try
+      {
+         std::cout
+            << "FC_ASSERT triggered:  "
+            << fc::json::to_string( assert_trip_info ) << "\n";
+      }
+      catch( const fc::assert_exception& e )
+      { // this should never happen. assert_trip_info is flat.
+         std::cout << "ERROR: Failed to convert info to string?!\n";
+      }
    }
 
    bool enable_record_assert_trip = false;

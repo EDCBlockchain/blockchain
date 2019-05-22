@@ -194,6 +194,9 @@ void database::initialize_evaluators()
    register_evaluator<fund_deposit_set_enable_evaluator>();
    register_evaluator<fund_remove_evaluator>();
    register_evaluator<allow_create_addresses_evaluator>();
+   register_evaluator<set_burning_mode_evaluator>();
+   register_evaluator<assets_update_fee_payer_evaluator>();
+   register_evaluator<asset_update_exchange_rate_evaluator>();
 }
 
 void database::initialize_indexes()

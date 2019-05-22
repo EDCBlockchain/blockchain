@@ -11,7 +11,7 @@ namespace fc { namespace rpc {
    class http_api_connection : public api_connection
    {
       public:
-         http_api_connection();
+         http_api_connection(uint32_t max_conversion_depth);
          ~http_api_connection();
 
          virtual variant send_call(

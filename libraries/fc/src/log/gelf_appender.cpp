@@ -38,7 +38,7 @@ namespace fc
   };
 
   gelf_appender::gelf_appender(const variant& args) :
-    my(new impl(args.as<config>()))
+    my( new impl( args.as<config>( FC_MAX_LOG_OBJECT_DEPTH ) ) )
   {
     try
     {
@@ -94,7 +94,7 @@ namespace fc
     mutable_variant_object gelf_message;
     gelf_message["version"] = "1.1";
     gelf_message["host"] = my->cfg.host;
-    gelf_message["short_message"] = format_string(message.get_format(), message.get_data());
+    gelf_message["short_message"] = format_string( message.get_format(), message.get_data(), my->cfg.max_object_depth );
     
     gelf_message["timestamp"] = context.get_timestamp().time_since_epoch().count() / 1000000.;
 
@@ -128,8 +128,15 @@ namespace fc
     if (!context.get_task_name().empty())
       gelf_message["_task_name"] = context.get_task_name();
 
-    string gelf_message_as_string = json::to_string(gelf_message);
-    //unsigned uncompressed_size = gelf_message_as_string.size();
+    string gelf_message_as_string;
+    try
+    {
+       gelf_message_as_string = json::to_string(gelf_message);
+    }
+    catch( const fc::assert_exception& e )
+    {
+       gelf_message_as_string = "{\"level\":3,\"short_message\":\"ERROR while generating log message\"}";
+    }
     gelf_message_as_string = zlib_compress(gelf_message_as_string);
     
     // graylog2 expects the zlib header to be 0x78 0x9c

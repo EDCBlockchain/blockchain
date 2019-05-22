@@ -150,6 +150,7 @@ namespace graphene { namespace chain {
    asset fee_schedule::set_fee( operation& op, const price& core_exchange_rate )const
    {
       auto f = calculate_fee( op, core_exchange_rate );
+
       auto f_max = f;
       for( int i=0; i<MAX_FEE_STABILIZATION_ITERATION; i++ )
       {

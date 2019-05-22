@@ -41,8 +41,8 @@ namespace block_production_condition
       no_private_key = 4,
       low_participation = 5,
       lag = 6,
-      consecutive = 7,
-      exception_producing_block = 8
+      exception_producing_block = 7,
+      shutdown = 8
    };
 }
 
@@ -67,7 +67,7 @@ public:
       ) override;
 
    void set_block_production(bool allow) { _production_enabled = allow; }
-
+   void stop_block_production();
    virtual void plugin_initialize( const boost::program_options::variables_map& options ) override;
    virtual void plugin_startup() override;
    virtual void plugin_shutdown() override;
@@ -75,9 +75,10 @@ public:
 private:
    void schedule_production_loop();
    block_production_condition::block_production_condition_enum block_production_loop();
-   block_production_condition::block_production_condition_enum maybe_produce_block( fc::mutable_variant_object& capture );
+   block_production_condition::block_production_condition_enum maybe_produce_block( fc::limited_mutable_variant_object& capture );
 
    boost::program_options::variables_map _options;
+   bool _shutting_down = false;
    bool _production_enabled = false;
    bool _consecutive_production_enabled = false;
    uint32_t _required_witness_participation = 33 * GRAPHENE_1_PERCENT;

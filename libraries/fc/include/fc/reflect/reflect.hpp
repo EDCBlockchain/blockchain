@@ -7,6 +7,7 @@
  */
 
 #include <fc/utility.hpp>
+#include <boost/lexical_cast.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/seq/enum.hpp>
 #include <boost/preprocessor/seq/size.hpp>
@@ -86,6 +87,9 @@ void throw_bad_enum_cast( const char* k, const char* e );
   visitor.TEMPLATE operator()<member_type,type,&type::elem>( BOOST_PP_STRINGIZE(elem) ); \
 }
 
+#define FC_REFLECT_VISIT_MEMBER_I( r, visitor, I, elem ) \
+   case I: FC_REFLECT_VISIT_MEMBER( r, visitor, elem ) break;
+
 
 #define FC_REFLECT_BASE_MEMBER_COUNT( r, OP, elem ) \
   OP fc::reflector<elem>::total_member_count
@@ -98,6 +102,13 @@ template<typename Visitor>\
 static inline void visit( const Visitor& v ) { \
     BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_VISIT_BASE, v, INHERITS ) \
     BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_VISIT_MEMBER, v, MEMBERS ) \
+}\
+template<typename Visitor, typename IndexType>\
+static inline void visit_local_member( const Visitor& v, IndexType index ) { \
+   switch( index ) {\
+      BOOST_PP_SEQ_FOR_EACH_I( FC_REFLECT_VISIT_MEMBER_I, v, MEMBERS ) \
+      default: break;\
+   }\
 }
 
 #define FC_REFLECT_DERIVED_IMPL_EXT( TYPE, INHERITS, MEMBERS ) \
@@ -111,7 +122,7 @@ void fc::reflector<TYPE>::visit( const Visitor& v ) { \
 
 
 #define FC_REFLECT_VISIT_ENUM( r, enum_type, elem ) \
-  v.TEMPLATE operator()<enum_type::elem>(BOOST_PP_STRINGIZE(elem));
+  v.operator()(BOOST_PP_STRINGIZE(elem), int64_t(enum_type::elem) );
 #define FC_REFLECT_ENUM_TO_STRING( r, enum_type, elem ) \
    case enum_type::elem: return BOOST_PP_STRINGIZE(elem);
 #define FC_REFLECT_ENUM_TO_FC_STRING( r, enum_type, elem ) \
@@ -119,7 +130,8 @@ void fc::reflector<TYPE>::visit( const Visitor& v ) { \
 
 #define FC_REFLECT_ENUM_FROM_STRING( r, enum_type, elem ) \
   if( strcmp( s, BOOST_PP_STRINGIZE(elem)  ) == 0 ) return enum_type::elem;
-
+#define FC_REFLECT_ENUM_FROM_STRING_CASE( r, enum_type, elem ) \
+   case enum_type::elem:
 
 #define FC_REFLECT_ENUM( ENUM, FIELDS ) \
 namespace fc { \
@@ -146,11 +158,37 @@ template<> struct reflector<ENUM> { \
     static fc::string to_fc_string(int64_t i) { \
       return to_fc_string(ENUM(i)); \
     } \
+    static ENUM from_int(int64_t i) { \
+      ENUM e = ENUM(i); \
+      switch( e ) \
+      { \
+        BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_ENUM_FROM_STRING_CASE, ENUM, FIELDS ) \
+          break; \
+        default: \
+          fc::throw_bad_enum_cast( i, BOOST_PP_STRINGIZE(ENUM) ); \
+      } \
+      return e;\
+    } \
     static ENUM from_string( const char* s ) { \
         BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_ENUM_FROM_STRING, ENUM, FIELDS ) \
-        return ENUM(atoi(s));\
+        int64_t i = 0; \
+        try \
+        { \
+           i = boost::lexical_cast<int64_t>(s); \
+        } \
+        catch( const boost::bad_lexical_cast& e ) \
+        { \
+           fc::throw_bad_enum_cast( s, BOOST_PP_STRINGIZE(ENUM) ); \
+        } \
+        return from_int(i); \
+    } \
+    template< typename Visitor > \
+    static void visit( Visitor& v ) \
+    { \
+        BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_VISIT_ENUM, ENUM, FIELDS ) \
     } \
 };  \
+template<> struct get_typename<ENUM>  { static const char* name()  { return BOOST_PP_STRINGIZE(ENUM);  } }; \
 }
 
 /*  Note: FC_REFLECT_ENUM previously defined this function, but I don't think it ever

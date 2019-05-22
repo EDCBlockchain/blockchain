@@ -35,6 +35,9 @@ namespace graphene { namespace chain {
 
          void_result do_evaluate( const transfer_operation& o );
          void_result do_apply( const transfer_operation& o );
+
+         const asset_dynamic_data_object* asset_dyn_data_ptr = nullptr;
+         const account_object*            to_account_ptr = nullptr;
    };
 
    class override_transfer_evaluator : public evaluator<override_transfer_evaluator>
@@ -44,6 +47,9 @@ namespace graphene { namespace chain {
 
          void_result do_evaluate( const override_transfer_operation& o );
          void_result do_apply( const override_transfer_operation& o );
+
+         const asset_dynamic_data_object* asset_dyn_data_ptr = nullptr;
+         const account_object*            to_account_ptr = nullptr;
    };
 
 } } // graphene::chain

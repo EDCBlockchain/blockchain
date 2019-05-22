@@ -45,20 +45,18 @@
 namespace graphene { namespace app {
 
     login_api::login_api(application& a)
-    :_app(a)
-    {
-    }
+    :_app(a) { }
 
-    login_api::~login_api()
-    {
-    }
+    login_api::~login_api() { }
 
     bool login_api::login(const string& user, const string& password)
     {
        optional< api_access_info > acc = _app.get_api_access_info( user );
-       if( !acc.valid() )
+       if (!acc.valid()) {
           return false;
-       if( acc->password_hash_b64 != "*" )
+       }
+
+       if (acc->password_hash_b64 != "*")
        {
           std::string password_salt = fc::base64_decode( acc->password_salt_b64 );
           std::string acc_password_hash = fc::base64_decode( acc->password_hash_b64 );
@@ -70,44 +68,39 @@ namespace graphene { namespace app {
              return false;
        }
 
-       for( const std::string& api_name : acc->allowed_apis )
-          enable_api( api_name );
+       for (const std::string& api_name : acc->allowed_apis) {
+          enable_api(api_name);
+       }
        return true;
     }
 
     void login_api::enable_api( const std::string& api_name )
     {
-       if( api_name == "database_api" )
-       {
+       if (api_name == "database_api") {
           _database_api = std::make_shared< database_api >( std::ref( *_app.chain_database() ) );
        }
-       else if( api_name == "network_broadcast_api" )
-       {
+       else if (api_name == "network_broadcast_api") {
           _network_broadcast_api = std::make_shared< network_broadcast_api >( std::ref( _app ) );
        }
-       else if( api_name == "history_api" )
-       {
+       else if (api_name == "history_api") {
           _history_api = std::make_shared< history_api >( _app );
        }
-       else if( api_name == "network_node_api" )
-       {
+       else if (api_name == "network_node_api") {
           _network_node_api = std::make_shared< network_node_api >( std::ref(_app) );
        }
-       else if( api_name == "crypto_api" )
-       {
+       else if (api_name == "crypto_api") {
           _crypto_api = std::make_shared< crypto_api >();
        }
-       else if( api_name == "debug_api" )
+       else if (api_name == "debug_api")
        {
           // can only enable this API if the plugin was loaded
-          if( _app.get_plugin( "debug_witness" ) )
+          if ( _app.get_plugin( "debug_witness" ))
              _debug_api = std::make_shared< graphene::debug_witness::debug_api >( std::ref(_app) );
        }
        return;
     }
 
-    network_broadcast_api::network_broadcast_api(application& a):_app(a)
-    {
+    network_broadcast_api::network_broadcast_api(application& a):_app(a) {
        _applied_block_connection = _app.chain_database()->applied_block.connect([this](const signed_block& b){ on_applied_block(b); });
     }
 
@@ -126,7 +119,11 @@ namespace graphene { namespace app {
              {
                 auto block_num = b.block_num();
                 auto& callback = _callbacks.find(id)->second;
-                 callback( fc::variant(transaction_confirmation{ id, block_num, trx_num, trx}) );
+                auto v = fc::variant( transaction_confirmation{ id, block_num, trx_num, trx }, GRAPHENE_MAX_NESTED_OBJECTS );
+                fc::async( [capture_this,v,callback]() {
+                   callback(v);
+                } );
+                //callback( fc::variant(transaction_confirmation{ id, block_num, trx_num, trx}) );
                  // TODO: 
 //                fc::async( [capture_this,this,id,block_num,trx_num,trx,callback](){ callback( fc::variant(transaction_confirmation{ id, block_num, trx_num, trx}) ); } );
              }
@@ -537,7 +534,7 @@ namespace graphene { namespace app {
       return result;
    }
 
-    vector<operation_history_object> history_api::get_relative_account_history( account_id_type account, 
+    vector<operation_history_object> history_api::get_relative_history( account_id_type account, 
                                                                                 uint32_t stop, 
                                                                                 unsigned limit, 
                                                                                 uint32_t start) const
@@ -714,38 +711,31 @@ namespace graphene { namespace app {
       result.reserve(limit);
 
       const auto& idx = db.get_index_type<operation_history_index>().indices().get<by_id>();
-      auto itr = idx.begin();
-      bool first_found = false;
+
+      auto itr = idx.find(start);
+      if (itr == idx.end()) { return result; }
+      ++itr;
+
       while (itr != idx.end())
       {
          if (result.size() == limit) { break;}
 
-         if (!first_found && (itr->id == start))
+         std::for_each(operation_types.begin(), operation_types.end(), [&account, &itr, &result](const uint16_t& op_type)
          {
-            first_found = true;
-            ++itr;
-            continue;
-         }
-
-         if (first_found)
-         {
-            std::for_each(operation_types.begin(), operation_types.end(), [&account, &itr, &result](const uint16_t& op_type)
+            if ((unsigned)itr->op.which() == op_type)
             {
-               if ((unsigned)itr->op.which() == op_type)
+               // transfer operation
+               if (itr->op.which() == operation::tag<transfer_operation>::value)
                {
-                  // transfer operation
-                  if (itr->op.which() == operation::tag<transfer_operation>::value)
-                  {
-                     const transfer_operation& op = itr->op.get<transfer_operation>();
-                     if ((op.from == account) || (op.to == account)) {
-                        result.emplace_back(*itr);
-                     }
+                  const transfer_operation& op = itr->op.get<transfer_operation>();
+                  if ((op.from == account) || (op.to == account)) {
+                     result.emplace_back(*itr);
                   }
-                  // ..._operation
-
                }
-            });
-         }
+               // ..._operation
+
+            }
+         });
 
          ++itr;
       }
@@ -858,8 +848,8 @@ namespace graphene { namespace app {
 
    crypto_api::crypto_api(){};
 
-   blind_signature crypto_api::blind_sign( const extended_private_key_type& key, const blinded_hash& hash, int i ) {
-    return fc::ecc::extended_private_key( key ).blind_sign( hash, i );
+   /*blind_signature crypto_api::blind_sign( const extended_private_key_type& key, const blinded_hash& hash, int i ) {
+      return fc::ecc::extended_private_key( key ).blind_sign( hash, i );
    }
 
    signature_type crypto_api::unblind_signature( const extended_private_key_type& key,
@@ -867,26 +857,26 @@ namespace graphene { namespace app {
                                                   const blind_signature& sig,
                                                   const fc::sha256& hash,
                                                   int i ) {
-    return fc::ecc::extended_private_key( key ).unblind_signature( extended_public_key( bob ), sig, hash, i );
-   }
+      return fc::ecc::extended_private_key( key ).unblind_signature( extended_public_key( bob ), sig, hash, i );
+   }*/
 
    commitment_type crypto_api::blind( const blind_factor_type& blind, uint64_t value ) {
-    return fc::ecc::blind( blind, value );
+      return fc::ecc::blind( blind, value );
    }
 
    blind_factor_type crypto_api::blind_sum( const std::vector<blind_factor_type>& blinds_in, uint32_t non_neg ) {
-    return fc::ecc::blind_sum( blinds_in, non_neg );
+      return fc::ecc::blind_sum( blinds_in, non_neg );
    }
 
    bool crypto_api::verify_sum( const std::vector<commitment_type>& commits_in, const std::vector<commitment_type>& neg_commits_in, int64_t excess ) {
-    return fc::ecc::verify_sum( commits_in, neg_commits_in, excess );
+      return fc::ecc::verify_sum( commits_in, neg_commits_in, excess );
    }
 
    verify_range_result crypto_api::verify_range( const commitment_type& commit, const std::vector<char>& proof )
    {
-    verify_range_result result;
-    result.success = fc::ecc::verify_range( result.min_val, result.max_val, commit, proof );
-    return result;
+      verify_range_result result;
+      result.success = fc::ecc::verify_range( result.min_val, result.max_val, commit, proof );
+      return result;
    }
 
    std::vector<char> crypto_api::range_proof_sign( uint64_t min_value,
@@ -916,7 +906,7 @@ namespace graphene { namespace app {
    }
 
    range_proof_info crypto_api::range_get_info( const std::vector<char>& proof ) {
-    return fc::ecc::range_get_info( proof );
+      return fc::ecc::range_get_info( proof );
    }
 
 } } // graphene::app

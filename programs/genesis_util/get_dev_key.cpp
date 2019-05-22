@@ -72,7 +72,7 @@ int main( int argc, char** argv )
 
       auto show_key = [&]( const fc::ecc::private_key& priv_key )
       {
-         fc::mutable_variant_object mvo;
+         fc::limited_mutable_variant_object mvo(5);
          graphene::chain::public_key_type pub_key = priv_key.get_public_key();
          mvo( "private_key", graphene::utilities::key_to_wif( priv_key ) )
             ( "public_key", std::string( pub_key ) )
@@ -80,7 +80,7 @@ int main( int argc, char** argv )
             ;
          if( comma )
             std::cout << ",\n";
-         std::cout << fc::json::to_string( mvo );
+         std::cout << fc::json::to_string( fc::mutable_variant_object(mvo) );
          comma = true;
       };
 
@@ -90,7 +90,7 @@ int main( int argc, char** argv )
       {
          std::string arg = argv[i];
          std::string prefix;
-         int lep = -1, rep = 0;
+         int lep = -1, rep = -1;
          auto dash_pos = arg.rfind('-');
          if( dash_pos != string::npos )
          {
@@ -104,7 +104,7 @@ int main( int argc, char** argv )
                rep = std::stoi( rhs.substr( colon_pos+1 ) );
             }
          }
-         vector< fc::ecc::private_key > keys;
+
          if( lep >= 0 )
          {
             for( int k=lep; k<rep; k++ )

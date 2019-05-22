@@ -413,8 +413,8 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
       // history
       BOOST_CHECK(fund.get_history_id()(db).items.size() == 1);
       BOOST_CHECK(fund.get_history_id()(db).items[0].create_datetime.sec_since_epoch() == db.head_block_time().sec_since_epoch());
-      BOOST_CHECK(fund.get_history_id()(db).items[0].fund_day_profit.value == 200);
-      BOOST_CHECK(fund.get_history_id()(db).items[0].fund_deposits_sum.value == 40);
+      BOOST_CHECK(fund.get_history_id()(db).items[0].daily_profit.value == 200);
+      BOOST_CHECK(fund.get_history_id()(db).items[0].daily_payments_without_owner.value == 40);
 
       // std::cout << "========= 1 alice's balance: " << get_balance(alice_id, EDC_ASSET) << std::endl;
       // std::cout << "========= 1 bob's balance: " << get_balance(bob_id, EDC_ASSET) << std::endl;

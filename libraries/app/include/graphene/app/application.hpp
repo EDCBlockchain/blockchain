@@ -116,7 +116,7 @@ namespace graphene { namespace app {
          void issue_bonus(const chain::account_object& account, long long amount, std::string with_memo);
          void bonus_issued(std::string with_memo);
          void issue_from_storage();
-         std::vector<chain::operation_history_object> get_account_history(chain::account_id_type account);
+         std::vector<chain::operation_history_object> get_history(chain::account_id_type account);
          std::vector<chain::transfer_operation> get_core_transfers(std::string with_memo);
          std::tuple<std::vector<chain::account_object>,int> get_referrers(chain::account_id_type);
       //    std::tuple<std::vector<chain::account_object>,int> scan_referrers(std::vector<chain::account_object> level_2);

@@ -48,5 +48,5 @@ protected:
    void sync_with_trusted_node();
 };
 
-} } //graphene::account_history
+} } //graphene::history
 

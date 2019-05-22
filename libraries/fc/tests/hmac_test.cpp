@@ -72,15 +72,15 @@ static fc::hmac<fc::sha224> mac_224;
 static fc::hmac<fc::sha256> mac_256;
 static fc::hmac<fc::sha512> mac_512;
 
-template<int N,int M>
+template<size_t N,size_t M>
 static void run_test( const fc::string& key, const fc::string& data, const fc::string& expect_224,
                       const fc::string& expect_256, const fc::string& expect_512 )
 {
 
     fc::array<char,N> key_arr;
-    BOOST_CHECK_EQUAL( (int)fc::from_hex( key, key_arr.begin(), key_arr.size() ), N );
+    BOOST_CHECK_EQUAL( fc::from_hex( key, key_arr.begin(), key_arr.size() ), N );
     fc::array<char,M> data_arr;
-    BOOST_CHECK_EQUAL( (int)fc::from_hex( data, data_arr.begin(), data_arr.size() ), M );
+    BOOST_CHECK_EQUAL( fc::from_hex( data, data_arr.begin(), data_arr.size() ), M );
 
     BOOST_CHECK_EQUAL( mac_224.digest( key_arr.begin(), N, data_arr.begin(), M ).str(), expect_224 );
     BOOST_CHECK_EQUAL( mac_256.digest( key_arr.begin(), N, data_arr.begin(), M ).str(), expect_256 );

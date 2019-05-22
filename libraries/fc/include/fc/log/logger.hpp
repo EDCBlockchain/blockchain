@@ -1,10 +1,11 @@
 #pragma once
+#include <fc/config.hpp>
 #include <fc/string.hpp>
 #include <fc/time.hpp>
 #include <fc/shared_ptr.hpp>
 #include <fc/log/log_message.hpp>
 
-namespace fc  
+namespace fc
 {
 
    class appender;
@@ -13,13 +14,13 @@ namespace fc
     *
     *
     @code
-      void my_class::func() 
+      void my_class::func()
       {
          fc_dlog( my_class_logger, "Format four: ${arg}  five: ${five}", ("arg",4)("five",5) );
       }
     @endcode
     */
-   class logger 
+   class logger
    {
       public:
          static logger get( const fc::string& name = "default");
@@ -145,22 +146,49 @@ namespace fc
   BOOST_PP_STRINGIZE(base) ": ${" BOOST_PP_STRINGIZE( base ) "} "
 
 #define FC_FORMAT_ARGS(r, unused, base) \
-  BOOST_PP_LPAREN() BOOST_PP_STRINGIZE(base),fc::variant(base) BOOST_PP_RPAREN()
+  BOOST_PP_LPAREN() BOOST_PP_STRINGIZE(base),fc::variant(base,FC_MAX_LOG_OBJECT_DEPTH) BOOST_PP_RPAREN()
 
 #define FC_FORMAT( SEQ )\
-    BOOST_PP_SEQ_FOR_EACH( FC_FORMAT_ARG, v, SEQ ) 
+    BOOST_PP_SEQ_FOR_EACH( FC_FORMAT_ARG, v, SEQ )
 
-// takes a ... instead of a SEQ arg because it can be called with an empty SEQ 
+// takes a ... instead of a SEQ arg because it can be called with an empty SEQ
 // from FC_CAPTURE_AND_THROW()
 #define FC_FORMAT_ARG_PARAMS( ... )\
-    BOOST_PP_SEQ_FOR_EACH( FC_FORMAT_ARGS, v, __VA_ARGS__ ) 
+    BOOST_PP_SEQ_FOR_EACH( FC_FORMAT_ARGS, v, __VA_ARGS__ )
 
+#define FC_DUMP_FORMAT_ARG_NAME(r, unused, base) \
+   "(" BOOST_PP_STRINGIZE(base) ")"
+
+#define FC_DUMP_FORMAT_ARG_NAMES( SEQ )\
+   BOOST_PP_SEQ_FOR_EACH( FC_DUMP_FORMAT_ARG_NAME, v, SEQ )
+
+// TODO FC_FORMAT_ARG_PARAMS(...) may throw exceptions when calling fc::variant(...) inside,
+//      as a quick-fix / workaround, we catch all exceptions here.
+//      However, to log as much info as possible, it's better to catch exceptions when processing each argument
 #define idump( SEQ ) \
-    ilog( FC_FORMAT(SEQ), FC_FORMAT_ARG_PARAMS(SEQ) )  
+{ \
+   try { \
+      ilog( FC_FORMAT(SEQ), FC_FORMAT_ARG_PARAMS(SEQ) ); \
+   } catch( ... ) { \
+      ilog ( "[ERROR: Got exception while trying to dump ( ${args} )]",("args",FC_DUMP_FORMAT_ARG_NAMES(SEQ)) ); \
+   } \
+}
 #define wdump( SEQ ) \
-    wlog( FC_FORMAT(SEQ), FC_FORMAT_ARG_PARAMS(SEQ) )  
+{ \
+   try { \
+      wlog( FC_FORMAT(SEQ), FC_FORMAT_ARG_PARAMS(SEQ) ); \
+   } catch( ... ) { \
+      wlog ( "[ERROR: Got exception while trying to dump ( ${args} )]",("args",FC_DUMP_FORMAT_ARG_NAMES(SEQ)) ); \
+   } \
+}
 #define edump( SEQ ) \
-    elog( FC_FORMAT(SEQ), FC_FORMAT_ARG_PARAMS(SEQ) )  
+{ \
+   try { \
+      elog( FC_FORMAT(SEQ), FC_FORMAT_ARG_PARAMS(SEQ) ); \
+   } catch( ... ) { \
+      elog ( "[ERROR: Got exception while trying to dump ( ${args} )]",("args",FC_DUMP_FORMAT_ARG_NAMES(SEQ)) ); \
+   } \
+}
 
 // this disables all normal logging statements -- not something you'd normally want to do,
 // but it's useful if you're benchmarking something and suspect logging is causing

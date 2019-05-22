@@ -76,11 +76,11 @@ namespace fc
     };
   }
 
-  void to_variant( const url& u, fc::variant& v )
+  void to_variant( const url& u, fc::variant& v, uint32_t max_depth )
   {
     v = fc::string(u);
   }
-  void from_variant( const fc::variant& v, url& u )
+  void from_variant( const fc::variant& v, url& u, uint32_t max_depth )
   {
     u  = url( v.as_string() ); 
   }
@@ -99,7 +99,6 @@ namespace fc
       if( my->_host.valid() ) ss<<*my->_host;
       if( my->_port.valid() ) ss<<":"<<*my->_port;
       if( my->_path.valid() ) ss<<my->_path->generic_string();
-    //  if( my->_args ) ss<<"?"<<*my->_args;
       return ss.str();
   }
 

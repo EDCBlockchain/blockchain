@@ -2,17 +2,17 @@
 #include <fc/shared_ptr.hpp>
 #include <fc/filesystem.hpp>
 #include <fc/io/iostream.hpp>
+#include <fstream>
 
 namespace fc {
   class path;
   class ofstream : virtual public ostream {
     public:
-      enum mode { out, binary };
       ofstream();
-      ofstream( const fc::path& file, int m = binary );
+      ofstream( const fc::path& file, std::ios_base::openmode m = std::ios_base::out | std::ios_base::binary );
       ~ofstream();
 
-      void open( const fc::path& file, int m = binary );
+      void open( const fc::path& file, std::ios_base::openmode m = std::ios_base::out | std::ios_base::binary );
       size_t writesome( const char* buf, size_t len );
       size_t writesome(const std::shared_ptr<const char>& buffer, size_t len, size_t offset);
       void   put( char c );

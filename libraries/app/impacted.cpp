@@ -94,6 +94,13 @@ struct get_impacted_account_visitor
 
    void operator()( const allow_create_addresses_operation& op ) { }
 
+   void operator()( const set_burning_mode_operation& op ) {
+      _impacted_accounts.insert( op.account_id );
+   }
+
+   void operator()( const assets_update_fee_payer_operation& op ) { }
+   void operator()( const asset_update_exchange_rate_operation& op ) { }
+
    void operator()( const account_upgrade_operation& op ) { }
    void operator()( const account_transfer_operation& op ) {
       _impacted_accounts.insert( op.new_owner );

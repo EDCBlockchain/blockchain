@@ -32,7 +32,6 @@ namespace fc
        invalid_operation_exception_code  = 14,
        unknown_host_exception_code       = 15,
        null_optional_code                = 16,
-       udt_error_code                    = 17,
        aes_error_code                    = 18,
        overflow_code                     = 19,
        underflow_code                    = 20,
@@ -76,7 +75,7 @@ namespace fc
                     const std::string& what_value = "unspecified");
          exception( const exception& e );
          exception( exception&& e );
-         ~exception();
+         virtual ~exception();
 
          const char*          name()const throw();
          int64_t              code()const throw();
@@ -117,8 +116,8 @@ namespace fc
           */
           virtual std::shared_ptr<exception> dynamic_copy_exception()const;
 
-         friend void to_variant( const exception& e, variant& v );
-         friend void from_variant( const variant& e, exception& ll );
+         friend void to_variant( const exception& e, variant& v, uint32_t max_depth );
+         friend void from_variant( const variant& e, exception& ll, uint32_t max_depth );
 
          exception& operator=( const exception& copy );
          exception& operator=( exception&& copy );
@@ -126,8 +125,8 @@ namespace fc
          std::unique_ptr<detail::exception_impl> my;
    };
 
-   void to_variant( const exception& e, variant& v );
-   void from_variant( const variant& e, exception& ll );
+   void to_variant( const exception& e, variant& v, uint32_t max_depth );
+   void from_variant( const variant& e, exception& ll, uint32_t max_depth );
    typedef std::shared_ptr<exception> exception_ptr;
 
    typedef optional<exception> oexception;
@@ -294,7 +293,6 @@ namespace fc
   FC_DECLARE_EXCEPTION( assert_exception, assert_exception_code, "Assert Exception" );
   FC_DECLARE_EXCEPTION( eof_exception, eof_exception_code, "End Of File" );
   FC_DECLARE_EXCEPTION( null_optional, null_optional_code, "null optional" );
-  FC_DECLARE_EXCEPTION( udt_exception, udt_error_code, "UDT error" );
   FC_DECLARE_EXCEPTION( aes_exception, aes_error_code, "AES error" );
   FC_DECLARE_EXCEPTION( overflow_exception, overflow_code, "Integer Overflow" );
   FC_DECLARE_EXCEPTION( underflow_exception, underflow_code, "Integer Underflow" );

@@ -106,7 +106,7 @@ namespace graphene { namespace chain {
       // header to call db() without including database.hpp, which would
       // cause a circular dependency
       share_type calculate_fee_for_operation(const operation& op) const;
-      void db_adjust_balance(const account_id_type& fee_payer, asset fee_from_account);
+      void db_adjust_balance(const account_id_type& fee_payer, asset fee_amount);
 
       asset                            fee_from_account;
       share_type                       core_fee_paid;
@@ -147,9 +147,11 @@ namespace graphene { namespace chain {
          const auto& op = o.get<typename DerivedEvaluator::operation_type>();
 
          prepare_fee(op.fee_payer(), op.fee);
+
          if( !trx_state->skip_fee_schedule_check )
          {
             share_type required_fee = calculate_fee_for_operation(op);
+
             GRAPHENE_ASSERT( core_fee_paid >= required_fee,
                        insufficient_fee,
                        "Insufficient Fee Paid",

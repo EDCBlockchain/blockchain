@@ -31,7 +31,7 @@ namespace fc {
       path();
       ~path();
       path( const boost::filesystem::path& );
-      path( const fc::string& p );
+      path( const std::string& p );
       /// Constructor to build path using unicode native characters.
       path(const std::wstring& p);
       path( const char* );
@@ -54,12 +54,12 @@ namespace fc {
       fc::path     extension()const;
       fc::path     filename()const;
       fc::path     parent_path()const;
-      fc::string   string()const;
-      fc::string   generic_string()const;
+      std::string   string()const;
+      std::string   generic_string()const;
       /** On windows, returns a path where all path separators are '\' suitable for displaying
        * to users.  On other platforms, it does the same as generic_string()
        */
-      fc::string   preferred_string() const;
+      std::string   preferred_string() const;
 
       std::wstring wstring() const;
       std::wstring generic_wstring() const;
@@ -77,7 +77,7 @@ namespace fc {
        *
        * @note not part of boost::filesystem::path
        */
-      fc::string windows_string()const;
+      std::string windows_string()const;
 
       bool       is_relative()const;
       bool       is_absolute()const;
@@ -182,8 +182,8 @@ namespace fc {
   const fc::path& current_path();
 
   class variant;
-  void to_variant( const fc::path&,  fc::variant&  );
-  void from_variant( const fc::variant& , fc::path& );
+  void to_variant( const fc::path&, fc::variant&, uint32_t max_depth = 1 );
+  void from_variant( const fc::variant&, fc::path&, uint32_t max_depth = 1 );
 
   template<> struct get_typename<path> { static const char* name()   { return "path";   } };
 

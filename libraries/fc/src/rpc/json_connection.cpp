@@ -14,8 +14,8 @@ namespace fc { namespace rpc {
       class json_connection_impl 
       {
          public:
-            json_connection_impl( fc::buffered_istream_ptr&& in, fc::buffered_ostream_ptr&& out )
-            :_in(fc::move(in)),_out(fc::move(out)),_eof(false),_next_id(0),_logger("json_connection"){}
+            json_connection_impl( fc::buffered_istream_ptr&& in, fc::buffered_ostream_ptr&& out, uint32_t max_depth )
+            :_in(fc::move(in)),_out(fc::move(out)),_eof(false),_next_id(0),_logger("json_connection"),_max_depth(max_depth){}
 
             fc::buffered_istream_ptr                                              _in;
             fc::buffered_ostream_ptr                                              _out;
@@ -33,6 +33,7 @@ namespace fc { namespace rpc {
             std::function<void(fc::exception_ptr)>                                _on_close;
 
             logger                                                                _logger;
+            uint32_t                                                              _max_depth;
 
             void send_result( variant id, variant result )
             {
@@ -40,9 +41,9 @@ namespace fc { namespace rpc {
                {
                  fc::scoped_lock<fc::mutex> lock(_write_mutex);
                  *_out << "{\"id\":";
-                 json::to_stream( *_out, id  );
+                 json::to_stream( *_out, id, json::stringify_large_ints_and_doubles, _max_depth  );
                  *_out << ",\"result\":";
-                 json::to_stream( *_out, result);
+                 json::to_stream( *_out, result, json::stringify_large_ints_and_doubles, _max_depth );
                  *_out << "}\n";
                  _out->flush();
                }
@@ -54,11 +55,11 @@ namespace fc { namespace rpc {
                {
                  fc::scoped_lock<fc::mutex> lock(_write_mutex);
                  *_out << "{\"id\":";
-                 json::to_stream( *_out, id  );
+                 json::to_stream( *_out, id, json::stringify_large_ints_and_doubles, _max_depth );
                  *_out << ",\"error\":{\"message\":";
                  json::to_stream( *_out, fc::string(e.what()) );
                  *_out <<",\"code\":0,\"data\":";
-                 json::to_stream( *_out, variant(e));
+                 json::to_stream( *_out, variant(e, _max_depth), json::stringify_large_ints_and_doubles, _max_depth );
                  *_out << "}}\n";
                  _out->flush();
                }
@@ -165,10 +166,7 @@ namespace fc { namespace rpc {
                              auto err = e->value().get_object();
                              auto data = err.find( "data" );
                              if( data != err.end() )
-                             {
-                                //wlog(  "exception: ${except}", ("except", data->value() ) );
-                                await->second->set_exception( data->value().as<exception>().dynamic_copy_exception() );  
-                             }
+                                await->second->set_exception( data->value().as<exception>(_max_depth).dynamic_copy_exception() );
                              else
                                 await->second->set_exception( exception_ptr(new FC_EXCEPTION( exception, "${error}", ("error",e->value()) ) ) );
                           } 
@@ -207,7 +205,7 @@ namespace fc { namespace rpc {
                   fc::string line;
                   while( !_done.canceled() )
                   {
-                      variant v = json::from_stream(*_in);
+                      variant v = json::from_stream( *_in, json::legacy_parser, _max_depth );
                       ///ilog( "input: ${in}", ("in", v ) );
                       //wlog(  "recv: ${line}", ("line", line) );
                       _handle_message_future = fc::async([=](){ handle_message(v.get_object()); }, "json_connection handle_message");
@@ -242,8 +240,8 @@ namespace fc { namespace rpc {
       };
    }//namespace detail
 
-   json_connection::json_connection( fc::buffered_istream_ptr in, fc::buffered_ostream_ptr out )
-   :my( new detail::json_connection_impl(fc::move(in),fc::move(out)) )
+   json_connection::json_connection( fc::buffered_istream_ptr in, fc::buffered_ostream_ptr out, uint32_t max_depth )
+   :_max_conversion_depth(max_depth),my( new detail::json_connection_impl(fc::move(in),fc::move(out),max_depth) )
    {}
 
    json_connection::~json_connection()

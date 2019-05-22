@@ -55,8 +55,8 @@ namespace fc {
       std::shared_ptr<detail::url_impl> my;
   };
 
-  void to_variant( const url& u, fc::variant& v );
-  void from_variant( const fc::variant& v, url& u );
+  void to_variant( const url& u, fc::variant& v, uint32_t max_depth = 1 );
+  void from_variant( const fc::variant& v, url& u, uint32_t max_depth = 1 );
 
   /**
    *  Used to create / manipulate a URL

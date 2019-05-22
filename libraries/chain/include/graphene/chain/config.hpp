@@ -169,8 +169,10 @@
 #define GRAPHENE_PROXY_TO_SELF_ACCOUNT (graphene::chain::account_id_type(5))
 // alpha account
 #define ALPHA_ACCOUNT_ID (graphene::chain::account_id_type(18))
+// CORE asset id
+#define CORE_ASSET (graphene::chain::asset_id_type(0))
 // EDC asset id
-#define EDC_ASSET (chain::asset_id_type(1))
+#define EDC_ASSET (graphene::chain::asset_id_type(1))
 // edc symbol
 #define EDC_ASSET_SYMBOL "EDC"
 
@@ -180,3 +182,5 @@
 
 // hack for unit test
 #define GRAPHENE_FBA_STEALTH_DESIGNATED_ASSET (asset_id_type(1))
+
+#define GRAPHENE_MAX_NESTED_OBJECTS (200)

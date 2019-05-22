@@ -5,6 +5,8 @@
 #pragma once
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
+#include <boost/thread.hpp>
+#include <vector>
 #include <fc/thread/future.hpp>
 #include <fc/io/iostream.hpp>
 
@@ -17,7 +19,6 @@ namespace asio {
      *  @brief internal implementation types/methods for fc::asio
      */
     namespace detail {
-        using namespace fc;
 
         class read_write_handler
         {
@@ -57,22 +58,42 @@ namespace asio {
           bool operator()( C& c, bool s ) { c.non_blocking(s); return true; } 
         };
 
-        #if WIN32  // windows stream handles do not support non blocking!
+#if WIN32  // windows stream handles do not support non blocking!
 	       template<>
          struct non_blocking<boost::asio::windows::stream_handle> { 
 	          typedef boost::asio::windows::stream_handle C;
             bool operator()( C& ) { return false; } 
             bool operator()( C&, bool ) { return false; } 
         };
-        #endif 
-    }
+#endif
+    } // end of namespace detail
+
+    /***
+     * A structure for holding the boost io service and associated
+     * threads
+     */
+    class default_io_service_scope
+    {
+       public:
+          default_io_service_scope();
+          ~default_io_service_scope();
+          static void     set_num_threads(uint16_t num_threads);
+          static uint16_t get_num_threads();
+          boost::asio::io_service*          io;
+       private:
+          std::vector<boost::thread*>       asio_threads;
+          boost::asio::io_service::work*    the_work;
+       protected:
+          static uint16_t num_io_threads; // marked protected to help with testing
+    };
+
     /**
      * @return the default boost::asio::io_service for use with fc::asio
      * 
      * This IO service is automatically running in its own thread to service asynchronous
      * requests without blocking any other threads.
      */
-    boost::asio::io_service& default_io_service(bool cleanup = false);
+    boost::asio::io_service& default_io_service();
 
     /** 
      *  @brief wraps boost::asio::async_read

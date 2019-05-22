@@ -1,7 +1,6 @@
 #include <boost/test/unit_test.hpp>
 
 #include <fc/crypto/hex.hpp>
-#include <fc/crypto/base32.hpp>
 #include <fc/crypto/base36.hpp>
 #include <fc/crypto/base58.hpp>
 #include <fc/crypto/base64.hpp>
@@ -24,8 +23,8 @@ static void test_16( const std::string& test, const std::string& expected )
     BOOST_CHECK_EQUAL( expected, enc2 );
 
     char out[32];
-    int len = fc::from_hex( enc1, out, 32 );
-    BOOST_CHECK_EQUAL( (int)test.size(), len );
+    size_t len = fc::from_hex( enc1, out, 32 );
+    BOOST_CHECK_EQUAL( test.size(), len );
     BOOST_CHECK( !memcmp( test.c_str(), out, len ) );
     if (len > 10) {
         BOOST_CHECK( fc::from_hex( enc1, out, 10 ) <= 10 );
@@ -44,29 +43,6 @@ BOOST_AUTO_TEST_CASE(hex_test)
 }
 
 
-static void test_32( const std::string& test, const std::string& expected )
-{
-    std::vector<char> vec( test.begin(), test.end() );
-    fc::string enc1 = fc::to_base32( vec );
-    fc::string enc2 = fc::to_base32( test.c_str(), test.size() );
-    BOOST_CHECK_EQUAL( enc1, enc2 );
-    BOOST_CHECK_EQUAL( expected, enc2 );
-
-    std::vector<char> dec = fc::from_base32( enc1 );
-    BOOST_CHECK_EQUAL( vec.size(), dec.size() );
-    BOOST_CHECK( !memcmp( vec.data(), dec.data(), vec.size() ) );
-}
-
-BOOST_AUTO_TEST_CASE(base32_test)
-{
-    test_32( TEST1, "" );
-    test_32( TEST2, "AAATAMI=" );
-    test_32( TEST3, "IFBEGRCFIZDUQSKKJNGE2TSPKBIVEU2UKVLFOWCZLI======" );
-    test_32( TEST4, "777AB7IB7Q======" );
-    test_32( TEST5, "AAAAA===" );
-}
-
-
 static void test_36( const std::string& test, const std::string& expected )
 {
     std::vector<char> vec( test.begin(), test.end() );
@@ -77,7 +53,7 @@ static void test_36( const std::string& test, const std::string& expected )
 
     std::vector<char> dec = fc::from_base36( enc1 );
     BOOST_CHECK_EQUAL( vec.size(), dec.size() );
-    BOOST_CHECK( !memcmp( vec.data(), dec.data(), vec.size() ) );
+    BOOST_CHECK( vec == dec );
 }
 
 BOOST_AUTO_TEST_CASE(base36_test)
@@ -100,17 +76,14 @@ static void test_58( const std::string& test, const std::string& expected )
 
     std::vector<char> dec = fc::from_base58( enc1 );
     BOOST_CHECK_EQUAL( vec.size(), dec.size() );
-    BOOST_CHECK( !memcmp( vec.data(), dec.data(), vec.size() ) );
+    BOOST_CHECK( vec == dec );
 
     char buffer[64];
     size_t len = fc::from_base58( enc1, buffer, 64 );
     BOOST_CHECK( len <= 64 );
-    BOOST_CHECK( !memcmp( vec.data(), buffer, len ) );
+    BOOST_CHECK( vec.empty() || !memcmp( vec.data(), buffer, len ) );
     if ( len > 10 ) {
-        try {
-            len = fc::from_base58( enc1, buffer, 10 );
-            BOOST_CHECK( len <= 10 );
-        } catch ( fc::exception expected ) {}
+        BOOST_CHECK_THROW(fc::from_base58( enc1, buffer, 10 ), fc::exception);
     }
 
 }

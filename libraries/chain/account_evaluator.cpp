@@ -243,10 +243,11 @@ object_id_type account_create_evaluator::do_apply( const account_create_operatio
          obj.lifetime_referrer_fee_percentage = params.lifetime_referrer_percent_of_fee;
          obj.referrer_rewards_percentage = referrer_percent;
 
-         obj.name             = o.name;
-         obj.owner            = o.owner;
-         obj.active           = o.active;
-         obj.options          = o.options;
+         obj.name              = o.name;
+         obj.register_datetime = d.head_block_time();
+         obj.owner             = o.owner;
+         obj.active            = o.active;
+         obj.options           = o.options;
          obj.statistics = db().create<account_statistics_object>([&](account_statistics_object& s){s.owner = obj.id;}).id;
 
          if( o.extensions.value.owner_special_authority.valid() )
@@ -539,10 +540,17 @@ void_result account_restrict_evaluator::do_evaluate(const account_restrict_opera
     const auto& idx = d.get_index_type<restricted_account_index>().indices().get<by_acc_id>();
     auto itr = idx.find(o.target);
 
-    FC_ASSERT( ((o.action & o.restore) && (itr != idx.end())) || (o.action & ~o.restore));
+    FC_ASSERT( ((o.action & o.restore) && (itr != idx.end())) || (o.action & ~o.restore) );
 
-    if (itr != idx.end())
-        restricted_account = &*itr;
+    const auto& acc_idx = d.get_index_type<account_index>().indices().get<by_id>();
+    auto acc_itr = acc_idx.find(o.target);
+    FC_ASSERT(acc_itr != acc_idx.end());
+
+    account_ptr = &d.get(o.target);
+
+    if (itr != idx.end()) {
+       restricted_account_obj_ptr = &*itr;
+    }
 
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
@@ -551,15 +559,19 @@ object_id_type account_restrict_evaluator::do_apply(const account_restrict_opera
 { try {
    database& d = db();
 
-   if (o.action & o.restore)
+   d.modify<account_object>(*account_ptr, [&](account_object& acc) {
+      acc.current_restriction = static_cast<account_restrict_operation::account_action>(o.action);
+   } );
+
+   if (o.action & o.restore) {
+      d.remove(*restricted_account_obj_ptr);
+   }
+   else
    {
-      d.remove( *restricted_account );
-   } else
-   {
-      if (restricted_account == nullptr)
+      if (restricted_account_obj_ptr == nullptr)
       {
          const auto& new_restr_object =
-         d.create< restricted_account_object >( [&]( restricted_account_object& rao )
+         d.create<restricted_account_object>( [&]( restricted_account_object& rao)
          {
             rao.account = o.target;
             rao.restriction_type = o.action;
@@ -567,8 +579,7 @@ object_id_type account_restrict_evaluator::do_apply(const account_restrict_opera
          return new_restr_object.id;
       }
 
-      d.modify<restricted_account_object> ( *restricted_account,[&]( restricted_account_object& rao)
-      {
+      d.modify<restricted_account_object>( *restricted_account_obj_ptr,[&](restricted_account_object& rao) {
          rao.restriction_type = o.action;
       } );
    }
@@ -662,6 +673,7 @@ void_result set_online_time_evaluator::do_evaluate(const set_online_time_operati
 void_result set_online_time_evaluator::do_apply(const set_online_time_operation& o)
 { try {
    database& d = db();
+
    d.modify(d.get(accounts_online_id_type()), [&](accounts_online_object& obj) {
       obj.online_info = o.online_info;
    });
@@ -677,6 +689,7 @@ void_result set_verification_is_required_evaluator::do_evaluate(const set_verifi
 void_result set_verification_is_required_evaluator::do_apply(const set_verification_is_required_operation& o)
 { try {
    database& d = db();
+
    d.modify(o.target(d), [&](account_object& obj) {
       obj.verification_is_required = o.verification_is_required;
    });
@@ -702,11 +715,101 @@ void_result allow_create_addresses_evaluator::do_apply(const allow_create_addres
 { try {
    database& d = db();
 
-   d.modify<account_object>(*account_ptr, [&](account_object& acc) {
-      acc.can_create_addresses = o.allow;
-   } );
+   if (account_ptr)
+   {
+      d.modify<account_object>(*account_ptr, [&](account_object& acc) {
+         acc.can_create_addresses = o.allow;
+      });
+   }
 
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
+
+void_result set_burning_mode_evaluator::do_evaluate(const set_burning_mode_operation& o)
+{ try {
+   database& d = db();
+
+   const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
+   auto itr = idx.find(o.account_id);
+
+   FC_ASSERT(itr != idx.end(), "Account with ID ${id} not exists!", ("a", o.account_id));
+
+   account_ptr = &*itr;
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (o) ) }
+
+void_result set_burning_mode_evaluator::do_apply(const set_burning_mode_operation& o)
+{ try {
+   database& d = db();
+
+   if (account_ptr)
+   {
+      d.modify<account_object>(*account_ptr, [&](account_object& acc) {
+         acc.burning_mode_enabled = o.enabled;
+      });
+   }
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (o) ) }
+
+void_result assets_update_fee_payer_evaluator::do_evaluate(const assets_update_fee_payer_operation& o)
+{ try {
+   database& d = db();
+
+   const auto& idx = d.get_index_type<asset_index>().indices().get<by_id>();
+   for (const asset_id_type& item: o.assets_to_update)
+   {
+      auto asset_iter = idx.find(item);
+      FC_ASSERT(asset_iter != idx.end(), "Asset with ID ${a} not exists!", ("a", item));
+   }
+
+   auto asset_paying_iter = idx.find(o.fee_payer_asset);
+   FC_ASSERT(asset_paying_iter != idx.end(), "Payer asset ${a} not exists!", ("a", o.fee_payer_asset));
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (o) ) }
+
+void_result assets_update_fee_payer_evaluator::do_apply(const assets_update_fee_payer_operation& o)
+{ try {
+   database& d = db();
+
+   for (const asset_id_type& item: o.assets_to_update)
+   {
+      d.modify(item(d), [&](asset_object& a) {
+         a.params.fee_paying_asset = o.fee_payer_asset;
+      });
+   }
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (o) ) }
+
+void_result asset_update_exchange_rate_evaluator::do_evaluate(const asset_update_exchange_rate_operation& op)
+{ try {
+   database& d = db();
+
+   const auto& idx = d.get_index_type<asset_index>().indices().get<by_id>();
+
+   auto asset_paying_iter = idx.find(op.asset_to_update);
+   FC_ASSERT(asset_paying_iter != idx.end(), "Paying asset ${a} not exists!", ("a", op.asset_to_update));
+
+   asset_ptr = &(*asset_paying_iter);
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+void_result asset_update_exchange_rate_evaluator::do_apply(const asset_update_exchange_rate_operation& op)
+{ try {
+   database& d = db();
+
+   if (asset_ptr)
+   {
+      d.modify<asset_object>(*asset_ptr, [&](asset_object& o) {
+         o.options.core_exchange_rate = op.core_exchange_rate;
+      } );
+   }
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (op) ) }
 
 } } // graphene::chain

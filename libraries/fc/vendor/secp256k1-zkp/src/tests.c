@@ -2054,7 +2054,7 @@ void test_ecdsa_edge_cases(void) {
                     continue;
                 }
                 sigbder[i] = c;
-                CHECK(secp256k1_ecdsa_verify(ctx, msg32, sigbder, sizeof(sigbder), pubkeyb, pubkeyblen) == ((i==4 || i==7) ? 0 : -2 ));
+               CHECK(secp256k1_ecdsa_verify(ctx, msg32, sigbder, sizeof(sigbder), pubkeyb, pubkeyblen) == ((i==4 || i==7) ? 0 : -2 ));
             }
             sigbder[i] = orig;
         }

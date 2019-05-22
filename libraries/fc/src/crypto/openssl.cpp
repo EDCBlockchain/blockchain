@@ -29,8 +29,12 @@ namespace  fc
             putenv((char*)varSetting.c_str());
 #endif
           }
-
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+         // no longer needed as of OpenSSL 1.1
+         // if special initialization is necessary in versions 1.1 and above,
+         // use OPENSSL_init_crypto
           OPENSSL_config(nullptr);
+#endif
        }
 
        ~openssl_scope()

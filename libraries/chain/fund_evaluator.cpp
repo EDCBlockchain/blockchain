@@ -277,11 +277,6 @@ void_result fund_withdrawal_evaluator::do_evaluate( const fund_withdrawal_operat
    FC_ASSERT( op.issuer == asst_obj.issuer );
    FC_ASSERT( !asst_obj.is_market_issued(), "Cannot manually issue a market-issued asset." );
 
-   asset_dyn_data_ptr = &asst_obj.dynamic_asset_data_id(d);
-   FC_ASSERT( ((asset_dyn_data_ptr->current_supply + op.asset_to_issue.amount) <= asst_obj.options.max_supply)
-               , "Try to issue more than max_supply! Max_supply of '${asst}': '${max_spl}'), current supply: '${cur_spl}'"
-               , ("asst", asst_obj.symbol)("max_spl", asst_obj.options.max_supply)("cur_spl", asset_dyn_data_ptr->current_supply) );
-
    return void_result();
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
@@ -415,7 +410,7 @@ void_result fund_remove_evaluator::do_evaluate( const fund_remove_operation& op 
    FC_ASSERT( itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id) );
    const fund_object& fund = *itr;
 
-   const fund_statistics_object* fund_stat_ptr = d.find(fc::variant(fund.get_statistics_id()).as<fund_statistics_id_type>());
+   const fund_statistics_object* fund_stat_ptr = d.find(fc::variant(fund.get_statistics_id(), 1).as<fund_statistics_id_type>(1));
    FC_ASSERT( fund_stat_ptr, "Where is no fund statistics with id '${id}'!", ("id", fund.get_statistics_id()) );
 
    return void_result();

@@ -28,14 +28,12 @@
 
 #include <graphene/chain/protocol/fee_schedule.hpp>
 #include <graphene/chain/protocol/types.hpp>
-#include <graphene/time/time.hpp>
+//#include <graphene/time/time.hpp>
 
 #include <graphene/egenesis/egenesis.hpp>
 
 #include <graphene/net/core_messages.hpp>
 #include <graphene/net/exceptions.hpp>
-
-#include <graphene/time/time.hpp>
 
 #include <graphene/utilities/key_conversion.hpp>
 #include <graphene/chain/worker_evaluator.hpp>
@@ -61,6 +59,7 @@
 #include <fc/log/logger_config.hpp>
 
 #include <boost/range/adaptor/reversed.hpp>
+#include <fc/asio.hpp>
 
 namespace graphene { namespace app {
 using net::item_hash_t;
@@ -178,17 +177,18 @@ namespace detail {
          FC_CAPTURE_AND_RETHROW((endpoint_string))
       }
 
+
       void reset_websocket_server()
       { try {
          if( !_options->count("rpc-endpoint") )
             return;
 
-         bool enable_deflate_compression = _options->count("enable-permessage-deflate") != 0;
+         //bool enable_deflate_compression = _options->count("enable-permessage-deflate") != 0;
 
-         _websocket_server = std::make_shared<fc::http::websocket_server>(enable_deflate_compression);
+         _websocket_server = std::make_shared<fc::http::websocket_server>();
 
          _websocket_server->on_connection([&]( const fc::http::websocket_connection_ptr& c ){
-            auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(*c);
+            auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(*c, GRAPHENE_NET_MAX_NESTED_OBJECTS);
             auto login = std::make_shared<graphene::app::login_api>( std::ref(*_self) );
             auto db_api = std::make_shared<graphene::app::database_api>( std::ref(*_self->chain_database()) );
             wsc->register_api(fc::api<graphene::app::database_api>(db_api));
@@ -211,11 +211,11 @@ namespace detail {
          }
 
          string password = _options->count("server-pem-password") ? _options->at("server-pem-password").as<string>() : "";
-         bool enable_deflate_compression = _options->count("enable-permessage-deflate") != 0;
-         _websocket_tls_server = std::make_shared<fc::http::websocket_tls_server>( _options->at("server-pem").as<string>(), password, enable_deflate_compression );
+         //bool enable_deflate_compression = _options->count("enable-permessage-deflate") != 0;
+         _websocket_tls_server = std::make_shared<fc::http::websocket_tls_server>( _options->at("server-pem").as<string>(), password );
 
          _websocket_tls_server->on_connection([&]( const fc::http::websocket_connection_ptr& c ){
-            auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(*c);
+            auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(*c, GRAPHENE_NET_MAX_NESTED_OBJECTS);
             auto login = std::make_shared<graphene::app::login_api>( std::ref(*_self) );
             auto db_api = std::make_shared<graphene::app::database_api>( std::ref(*_self->chain_database()) );
             wsc->register_api(fc::api<graphene::app::database_api>(db_api));
@@ -227,7 +227,7 @@ namespace detail {
          _websocket_tls_server->start_accept();
       } FC_CAPTURE_AND_RETHROW() }
 
-      application_impl(application* self)
+      explicit application_impl(application* self)
          : _self(self),
            _chain_db(std::make_shared<chain::database>())
       {
@@ -244,7 +244,6 @@ namespace detail {
          public_key_type init_pubkey( init_key );
          for( uint64_t i=0; i<genesis.initial_active_witnesses; i++ )
             genesis.initial_witness_candidates[i].block_signing_key = init_pubkey;
-         return;
       }
 
       void startup()
@@ -252,17 +251,17 @@ namespace detail {
          bool clean = !fc::exists(_data_dir / "blockchain/dblock");
          fc::create_directories(_data_dir / "blockchain/dblock");
 
-         auto initial_state = [&] {
+         auto initial_state = [this] {
             ilog("Initializing database...");
             if( _options->count("genesis-json") )
             {
                std::string genesis_str;
                fc::read_file_contents( _options->at("genesis-json").as<boost::filesystem::path>(), genesis_str );
-               genesis_state_type genesis = fc::json::from_string( genesis_str ).as<genesis_state_type>();
+               genesis_state_type genesis = fc::json::from_string( genesis_str ).as<genesis_state_type>(20);
                bool modified_genesis = false;
                if( _options->count("genesis-timestamp") )
                {
-                  genesis.initial_timestamp = fc::time_point_sec( graphene::time::now() ) + genesis.initial_parameters.block_interval + _options->at("genesis-timestamp").as<uint32_t>();
+                  genesis.initial_timestamp = fc::time_point_sec( fc::time_point::now() ) + genesis.initial_parameters.block_interval + _options->at("genesis-timestamp").as<uint32_t>();
                   genesis.initial_timestamp -= genesis.initial_timestamp.sec_since_epoch() % genesis.initial_parameters.block_interval;
                   modified_genesis = true;
                   std::cerr << "Used genesis timestamp:  " << genesis.initial_timestamp.to_iso_string() << " (PLEASE RECORD THIS)\n";
@@ -291,7 +290,7 @@ namespace detail {
                graphene::egenesis::compute_egenesis_json( egenesis_json );
                FC_ASSERT( egenesis_json != "" );
                FC_ASSERT( graphene::egenesis::get_egenesis_json_hash() == fc::sha256::hash( egenesis_json ) );
-               auto genesis = fc::json::from_string( egenesis_json ).as<genesis_state_type>();
+               auto genesis = fc::json::from_string( egenesis_json ).as<genesis_state_type>(20);
                genesis.initial_chain_id = fc::sha256::hash( egenesis_json );
                return genesis;
             }
@@ -308,7 +307,7 @@ namespace detail {
             loaded_checkpoints.reserve( cps.size() );
             for( auto cp : cps )
             {
-               auto item = fc::json::from_string(cp).as<std::pair<uint32_t,block_id_type> >();
+               auto item = fc::json::from_string(cp).as<std::pair<uint32_t,block_id_type> >(2);
                loaded_checkpoints[item.first] = item.second;
             }
          }
@@ -395,11 +394,10 @@ namespace detail {
             _force_validate = true;
          }
 
-         graphene::time::now();
 
          if( _options->count("api-access") )
             _apiaccess = fc::json::from_file( _options->at("api-access").as<boost::filesystem::path>() )
-               .as<api_access>();
+               .as<api_access>(20);
          else
          {
             // TODO:  Remove this generous default access policy
@@ -465,7 +463,7 @@ namespace detail {
                                 std::vector<fc::uint160_t>& contained_transaction_message_ids) override
       { try {
 
-         auto latency = graphene::time::now() - blk_msg.block.timestamp;
+         auto latency = fc::time_point::now() - blk_msg.block.timestamp;
          if (!sync_mode || blk_msg.block.block_num() % 10000 == 0)
          {
             const auto& witness = blk_msg.block.witness(*_chain_db);
@@ -775,6 +773,10 @@ namespace detail {
               return synopsis; // we have no blocks
           }
 
+          if ( low_block_num == 0) {
+             low_block_num = 1;
+          }
+
           // at this point:
           // low_block_num is the block before the first block we can undo, 
           // non_fork_high_block_num is the block before the fork (if the peer is on a fork, or otherwise it is the same as high_block_num)
@@ -788,10 +790,16 @@ namespace detail {
             // for each block in the synopsis, figure out where to pull the block id from.
             // if it's <= non_fork_high_block_num, we grab it from the main blockchain;
             // if it's not, we pull it from the fork history
-            if (low_block_num <= non_fork_high_block_num)
-              synopsis.push_back(_chain_db->get_block_id_for_num(low_block_num));
+            if (low_block_num <= non_fork_high_block_num) {
+               synopsis.push_back(_chain_db->get_block_id_for_num(low_block_num));
+            }
             else
-              synopsis.push_back(fork_history[low_block_num - non_fork_high_block_num - 1]);
+            {
+               uint32_t idx = low_block_num - non_fork_high_block_num - 1;
+               if (fork_history.size() > idx) {
+                  synopsis.push_back(fork_history[idx]);
+               }
+            }
             low_block_num += (true_high_block_num - low_block_num + 2) / 2;
           }
           while (low_block_num <= high_block_num);
@@ -836,10 +844,10 @@ namespace detail {
          return fc::time_point_sec::min();
       } FC_CAPTURE_AND_RETHROW( (block_id) ) }
 
-      /** returns graphene::time::now() */
+      /** returns fc::time_point::now() */
       virtual fc::time_point_sec get_blockchain_now() override
       {
-         return graphene::time::now();
+         return fc::time_point::now();
       }
 
       virtual item_hash_t get_head_block_id() const override
@@ -913,6 +921,7 @@ void application::set_program_options(boost::program_options::options_descriptio
          ("genesis-json", bpo::value<boost::filesystem::path>(), "File to read Genesis State from")
          ("dbg-init-key", bpo::value<string>(), "Block signing key to use for init witnesses, overrides genesis file")
          ("api-access", bpo::value<boost::filesystem::path>(), "JSON file specifying API permissions")
+         ("io-threads", bpo::value<uint16_t>()->implicit_value(0), "Number of IO threads, default to 0 for auto-configuration")
          ;
    command_line_options.add(configuration_file_options);
    command_line_options.add_options()
@@ -946,7 +955,7 @@ void application::initialize(const fc::path& data_dir, const boost::program_opti
       if( fc::exists(genesis_out) )
       {
          try {
-            genesis_state = fc::json::from_file(genesis_out).as<genesis_state_type>();
+            genesis_state = fc::json::from_file(genesis_out).as<genesis_state_type>(20);
          } catch(const fc::exception& e) {
             std::cerr << "Unable to parse existing genesis file:\n" << e.to_string()
                       << "\nWould you like to replace it? [y/N] ";
@@ -962,6 +971,12 @@ void application::initialize(const fc::path& data_dir, const boost::program_opti
       fc::json::save_to_file(genesis_state, genesis_out);
 
       std::exit(EXIT_SUCCESS);
+   }
+
+   if ( options.count("io-threads") )
+   {
+      const uint16_t num_threads = options["io-threads"].as<uint16_t>();
+      fc::asio::default_io_service_scope::set_num_threads(num_threads);
    }
 }
 
@@ -1092,7 +1107,7 @@ void application::referrer_bonus()
 
         const uint64_t balance = d.get_balance(account.id, asset->id).amount.value;
         if (balance < 200 * PRECISION) return;
-        auto history = get_account_history(account_id_type(account.id));
+        auto history = get_history(account_id_type(account.id));
         for( auto h = history.begin(); h < history.end(); h++) {
             if (h->op.which() == 14) {
                 auto op = h->op.get<asset_issue_operation>();
@@ -1258,7 +1273,7 @@ std::tuple<std::vector<account_object>, int> application::get_referrers(account_
     
 std::vector<asset_issue_operation> application::get_daily_bonus(chain::account_id_type account_id)
 {
-    auto history = get_account_history(account_id);
+    auto history = get_history(account_id);
     std::vector<asset_issue_operation> result;
     for( auto h = history.begin(); h < history.end(); h++) {
         if (h->op.which() == 14) {
@@ -1271,7 +1286,7 @@ std::vector<asset_issue_operation> application::get_daily_bonus(chain::account_i
     return result;
 }
     
-vector<operation_history_object> application::get_account_history(account_id_type account)
+vector<operation_history_object> application::get_history(account_id_type account)
 {
     auto& db = *my->_chain_db;
     vector<operation_history_object> result;

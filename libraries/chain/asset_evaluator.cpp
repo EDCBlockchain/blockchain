@@ -401,6 +401,10 @@ void_result asset_update_evaluator::do_evaluate(const asset_update_operation& o)
 
    asset_to_update = &a;
 
+   if (d.head_block_time() > HARDFORK_623_TIME) {
+      FC_ASSERT( asset_to_update->params.fee_paying_asset == EDC_ASSET, "Fee must be only in ${a}", ("a", EDC_ASSET_SYMBOL) );
+   }
+
    FC_ASSERT( o.issuer == a.issuer, "", ("o.issuer", o.issuer)("a.issuer", a.issuer) );
 
    const auto& chain_parameters = d.get_global_properties().parameters;

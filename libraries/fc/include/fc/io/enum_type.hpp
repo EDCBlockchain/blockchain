@@ -11,16 +11,16 @@ namespace fc
     public:
       enum_type( EnumType t )
       :value(t){}
-      
+
       enum_type( IntType t )
       :value( (EnumType)t ){}
-      
+
       enum_type(){}
-      
+
       explicit operator IntType()const     { return static_cast<IntType>(value);    }
       operator EnumType()const    { return value;                          }
       operator std::string()const { return fc::reflector<EnumType>::to_string(value); }
-      
+
       enum_type& operator=( IntType i )  { value = (EnumType)i; return *this;}
       enum_type& operator=( EnumType i ) { value = i; return *this;}
       bool       operator<( EnumType i ) const { return value < i; }
@@ -48,31 +48,33 @@ namespace fc
 
 
   template<typename IntType, typename EnumType>
-  void to_variant( const enum_type<IntType,EnumType>& var,  variant& vo )
+  void to_variant( const enum_type<IntType,EnumType>& var,  variant& vo, uint32_t max_depth = 1 )
   {
-    vo = (EnumType)var.value;
+    to_variant( var.value, vo, max_depth );
   }
   template<typename IntType, typename EnumType>
-  void from_variant( const variant& var,  enum_type<IntType,EnumType>& vo )
+  void from_variant( const variant& var,  enum_type<IntType,EnumType>& vo, uint32_t max_depth )
   {
-    vo.value = var.as<EnumType>();
+    vo.value = var.as<EnumType>(1);
   }
 
 
   /** serializes like an IntType */
-  namespace raw 
-  { 
+  namespace raw
+  {
     template<typename Stream, typename IntType, typename EnumType>
-    inline void pack( Stream& s, const fc::enum_type<IntType,EnumType>& tp )
+    inline void pack( Stream& s, const fc::enum_type<IntType,EnumType>& tp, uint32_t _max_depth )
     {
-       fc::raw::pack( s, static_cast<IntType>(tp) );
+       FC_ASSERT( _max_depth > 0 );
+       fc::raw::pack( s, static_cast<IntType>(tp), _max_depth - 1 );
     }
 
     template<typename Stream, typename IntType, typename EnumType>
-    inline void unpack( Stream& s, fc::enum_type<IntType,EnumType>& tp )
+    inline void unpack( Stream& s, fc::enum_type<IntType,EnumType>& tp, uint32_t _max_depth )
     {
+       FC_ASSERT( _max_depth > 0 );
        IntType t;
-       fc::raw::unpack( s, t );
+       fc::raw::unpack( s, t, _max_depth - 1 );
        tp = t;
     }
   }

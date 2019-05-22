@@ -88,7 +88,9 @@ public:
    void_result do_evaluate( const account_restrict_operation& o);
    object_id_type do_apply( const account_restrict_operation& o);
 
-   const restricted_account_object* restricted_account = nullptr;
+   const account_object* account_ptr = nullptr;
+   const restricted_account_object* restricted_account_obj_ptr = nullptr;
+
 };
 
 class account_allow_create_asset_evaluator: public evaluator<account_allow_create_asset_evaluator>
@@ -140,9 +142,42 @@ public:
    void_result do_evaluate(const allow_create_addresses_operation& o);
    void_result do_apply(const allow_create_addresses_operation& o);
 
-   const account_object* account_ptr;
+   const account_object* account_ptr = nullptr;
 
 };
 
+class set_burning_mode_evaluator: public evaluator<set_burning_mode_evaluator>
+{
+public:
+   typedef set_burning_mode_operation operation_type;
+
+   void_result do_evaluate(const set_burning_mode_operation& o);
+   void_result do_apply(const set_burning_mode_operation& o);
+
+   const account_object* account_ptr = nullptr;
+
+};
+
+class assets_update_fee_payer_evaluator: public evaluator<assets_update_fee_payer_evaluator>
+{
+public:
+   typedef assets_update_fee_payer_operation operation_type;
+
+   void_result do_evaluate(const assets_update_fee_payer_operation& o);
+   void_result do_apply(const assets_update_fee_payer_operation& o);
+
+};
+
+class asset_update_exchange_rate_evaluator: public evaluator<asset_update_exchange_rate_evaluator>
+{
+public:
+   typedef asset_update_exchange_rate_operation operation_type;
+
+   void_result do_evaluate(const asset_update_exchange_rate_operation& op);
+   void_result do_apply(const asset_update_exchange_rate_operation& op);
+
+   const asset_object* asset_ptr = nullptr;
+
+};
 
 } } // graphene::chain

@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string>
 
+#include <fc/config.hpp>
 #include <fc/exception/exception.hpp>
 #include <fc/crypto/city.hpp>
 
@@ -120,15 +121,15 @@ namespace fc
 
   class variant;
 
-  void to_variant( const uint128& var,  variant& vo );
-  void from_variant( const variant& var,  uint128& vo );
+  void to_variant( const uint128& var,  variant& vo, uint32_t max_depth = 1 );
+  void from_variant( const variant& var,  uint128& vo, uint32_t max_depth = 1 );
 
   namespace raw
   {
     template<typename Stream>
-    inline void pack( Stream& s, const uint128& u ) { s.write( (char*)&u, sizeof(u) ); }
+    inline void pack( Stream& s, const uint128& u, uint32_t _max_depth=FC_PACK_MAX_DEPTH ) { s.write( (char*)&u, sizeof(u) ); }
     template<typename Stream>
-    inline void unpack( Stream& s, uint128& u ) { s.read( (char*)&u, sizeof(u) ); }
+    inline void unpack( Stream& s, uint128& u, uint32_t _max_depth=FC_PACK_MAX_DEPTH ) { s.read( (char*)&u, sizeof(u) ); }
   }
 
   size_t city_hash_size_t(const char *buf, size_t len);

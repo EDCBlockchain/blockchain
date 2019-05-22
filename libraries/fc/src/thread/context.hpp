@@ -1,6 +1,5 @@
 #pragma once
 #include <fc/thread/thread.hpp>
-#include <boost/context/all.hpp>
 #include <fc/exception/exception.hpp>
 #include <vector>
 
@@ -9,11 +8,17 @@
 #define BOOST_COROUTINES_NO_DEPRECATION_WARNING // Boost 1.61
 #define BOOST_COROUTINE_NO_DEPRECATION_WARNING // Boost 1.62
 
+#if BOOST_VERSION >= 106800
+#include <boost/context/continuation_fcontext.hpp>
+#else
+#include <boost/context/all.hpp>
+#endif
+
 #if BOOST_VERSION >= 106100
-#include <boost/coroutine/stack_allocator.hpp>
-namespace bc  = boost::context::detail;
-namespace bco = boost::coroutines;
-typedef bco::stack_allocator stack_allocator;
+  #include <boost/coroutine/stack_allocator.hpp>
+  namespace bc  = boost::context::detail;
+  namespace bco = boost::coroutines;
+  typedef bco::stack_allocator stack_allocator;
 #elif BOOST_VERSION >= 105400
 # include <boost/coroutine/stack_context.hpp>
   namespace bc  = boost::context;
@@ -56,13 +61,12 @@ namespace fc {
 #endif
 
 #if BOOST_VERSION >= 106100
-     using context_fn = void (*)(bc::transfer_t);
+    using context_fn = void (*)(bc::transfer_t);
 #else
-     using context_fn = void(*)(intptr_t);
+    using context_fn = void(*)(intptr_t);
 #endif
 
-
-     context( context_fn sf, stack_allocator& alloc, fc::thread* t )
+    context( context_fn sf, stack_allocator& alloc, fc::thread* t )
     : caller_context(0),
       stack_alloc(&alloc),
       next_blocked(0), 

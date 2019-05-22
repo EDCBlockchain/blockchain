@@ -8,7 +8,8 @@
 
 namespace fc { namespace http {
    namespace detail {
-      class abstract_websocket_server;
+      class websocket_server_impl;
+      class websocket_tls_server_impl;
       class websocket_client_impl;
       class websocket_tls_client_impl;
    } // namespace detail;
@@ -28,6 +29,8 @@ namespace fc { namespace http {
          void     set_session_data( fc::any d ){ _session_data = std::move(d); }
          fc::any& get_session_data() { return _session_data; }
 
+         virtual std::string get_request_header(const std::string& key) = 0;
+
          fc::signal<void()> closed;
       private:
          fc::any                                   _session_data;
@@ -41,7 +44,7 @@ namespace fc { namespace http {
    class websocket_server
    {
       public:
-         websocket_server(bool enable_permessage_deflate = true);
+         websocket_server();
          ~websocket_server();
 
          void on_connection( const on_connection_handler& handler);
@@ -50,16 +53,16 @@ namespace fc { namespace http {
          void start_accept();
 
       private:
-         std::unique_ptr<detail::abstract_websocket_server> my;
+         friend class detail::websocket_server_impl;
+         std::unique_ptr<detail::websocket_server_impl> my;
    };
 
 
    class websocket_tls_server
    {
       public:
-         websocket_tls_server(const std::string& server_pem = std::string(),
-                              const std::string& ssl_password = std::string(),
-                              bool enable_permessage_deflate = false);
+         websocket_tls_server( const std::string& server_pem = std::string(),
+                           const std::string& ssl_password = std::string());
          ~websocket_tls_server();
 
          void on_connection( const on_connection_handler& handler);
@@ -68,13 +71,14 @@ namespace fc { namespace http {
          void start_accept();
 
       private:
-         std::unique_ptr<detail::abstract_websocket_server> my;
+         friend class detail::websocket_tls_server_impl;
+         std::unique_ptr<detail::websocket_tls_server_impl> my;
    };
 
    class websocket_client
    {
       public:
-         websocket_client();
+         websocket_client( const std::string& ca_filename = "_default" );
          ~websocket_client();
 
          websocket_connection_ptr connect( const std::string& uri );
@@ -86,7 +90,7 @@ namespace fc { namespace http {
    class websocket_tls_client
    {
       public:
-         websocket_tls_client();
+         websocket_tls_client( const std::string& ca_filename = "_default" );
          ~websocket_tls_client();
 
          websocket_connection_ptr connect( const std::string& uri );

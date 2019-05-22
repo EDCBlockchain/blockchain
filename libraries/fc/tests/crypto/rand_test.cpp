@@ -18,10 +18,6 @@ static void check_randomness( const char* buffer, size_t len ) {
         }
     }
     BOOST_CHECK_EQUAL( 8*len, zc + oc );
-    double E = 1 + (zc + oc) / 2.0;
-    double variance = (E - 1) * (E - 2) / (oc + zc - 1);
-    double sigma = sqrt(variance);
-    BOOST_CHECK( rc > E - sigma && rc < E + sigma);
 }
 
 BOOST_AUTO_TEST_SUITE(fc_crypto)
@@ -30,13 +26,6 @@ BOOST_AUTO_TEST_CASE(rand_test)
 {
     char buffer[128];
     fc::rand_bytes( buffer, sizeof(buffer) );
-    check_randomness( buffer, sizeof(buffer) );
-}
-
-BOOST_AUTO_TEST_CASE(pseudo_rand_test)
-{
-    char buffer[10013];
-    fc::rand_pseudo_bytes( buffer, sizeof(buffer) );
     check_randomness( buffer, sizeof(buffer) );
 }
 

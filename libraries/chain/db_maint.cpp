@@ -168,11 +168,10 @@ void database::update_active_witnesses()
    share_type stake_tally = 0; 
 
    size_t witness_count = 0;
-   if( stake_target > 0 )
+   if (stake_target > 0)
    {
       while( (witness_count < _witness_count_histogram_buffer.size() - 1)
-             && (stake_tally <= stake_target) )
-      {
+             && (stake_tally <= stake_target) ) {
          stake_tally += _witness_count_histogram_buffer[++witness_count];
       }
    }
@@ -209,7 +208,8 @@ void database::update_active_witnesses()
 
          // total_votes is 64 bits. Subtract the number of leading low bits from 64 to get the number of useful bits,
          // then I want to keep the most significant 16 bits of what's left.
-         int8_t bits_to_drop = std::max(int(boost::multiprecision::detail::find_msb(total_votes)) - 15, 0);
+         int8_t bits_to_drop = std::max(int(boost::multiprecision::detail::find_msb(
+         total_votes)) - 15, 0);
          for( const auto& weight : weights )
          {
             // Ensure that everyone has at least one vote. Zero weights aren't allowed.
@@ -251,10 +251,13 @@ void database::update_active_committee_members()
    /// the number of witnesses to have (they abstain and are non-voting accounts)
    uint64_t stake_tally = 0; // _committee_count_histogram_buffer[0];
    size_t committee_member_count = 0;
-   if( stake_target > 0 )
-      while( (committee_member_count < _committee_count_histogram_buffer.size() - 1)
-             && (stake_tally <= stake_target) )
+   if (stake_target > 0)
+   {
+      while ( (committee_member_count < _committee_count_histogram_buffer.size() - 1)
+              && (stake_tally <= stake_target) ) {
          stake_tally += _committee_count_histogram_buffer[++committee_member_count];
+      }
+   }
 
    const chain_property_object& cpo = get_chain_properties();
    auto committee_members = sort_votable_objects<committee_member_index>(std::max(committee_member_count*2+1, (size_t)cpo.immutable_parameters.min_committee_member_count));
@@ -328,8 +331,8 @@ void database::initialize_budget_record( fc::time_point_sec now, budget_record& 
    rec.from_accumulated_fees = core_dd.accumulated_fees;
    rec.from_unused_witness_budget = dpo.witness_budget;
 
-   if(    (dpo.last_budget_time == fc::time_point_sec())
-       || (now <= dpo.last_budget_time) )
+   if ( (dpo.last_budget_time == fc::time_point_sec())
+        || (now <= dpo.last_budget_time) )
    {
       rec.time_since_last_budget = 0;
       return;
@@ -947,6 +950,10 @@ void database::issue_bonuses()
    const auto& asset_idx = get_index_type<asset_index>();
    const auto& idx = get_index_type<chain::account_index>();
    transaction_evaluation_state eval(this);
+
+   auto idx_alpha = idx.indices().get<by_id>().find(ALPHA_ACCOUNT_ID);
+   if (idx_alpha == idx.indices().get<by_id>().end()) { return; }
+
    auto& alpha_list = ALPHA_ACCOUNT_ID(*this).blacklisted_accounts;
 
    asset_idx.inspect_all_objects( [&](const chain::object& obj) {
@@ -1009,6 +1016,7 @@ void database::issue_bonuses_before_620()
    referral_tree rtree( idx, bal_idx, asset->id, account_id_type(), &mat_bal_idx );
    auto& issuer_list = asset->issuer(*this).blacklisted_accounts;
    auto& alpha_list = ALPHA_ACCOUNT_ID(*this).blacklisted_accounts;
+
    int minutes_in_1_day = 1440;
    auto online_info = get( accounts_online_id_type() ).online_info;
    double default_online_part = online_info.size() ? 0 : 1;
@@ -1070,7 +1078,7 @@ void database::issue_bonuses_before_620()
             apply_operation(eval, r_op);
          }
          catch (fc::assert_exception& ex) {
-            wlog("Assert exception: ${file}:${func}:${line}:${txt}", ("file", __FILE__)("func", __PRETTY_FUNCTION__)("line", __LINE__)("txt", ex.what()));
+            wlog("Assert exception: ${file}:${func}:${line}:${txt}", ("file", __FILE__)("func", __PRETTY_FUNCTION__)("line", __LINE__)("txt", ex.to_string(fc::log_level::all)));
          }
       }
    });

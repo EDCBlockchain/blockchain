@@ -65,8 +65,8 @@ void test_big( const std::string& expected ) {
 
     H hash2( expected );
     fc::variant v;
-    to_variant( hash2, v );
-    from_variant( v, hash );
+    to_variant( hash2, v, 5 );
+    from_variant( v, hash, 5 );
     BOOST_CHECK( hash == hash2 );
 
     H hash3( expected.substr(15) + "000000000000000" );
@@ -75,7 +75,7 @@ void test_big( const std::string& expected ) {
 
 template<typename H>
 void test_stream( ) {
-    H hash( TEST1 );
+    H hash = H::hash( TEST1 );
     std::stringstream stream;
     stream << hash;
 

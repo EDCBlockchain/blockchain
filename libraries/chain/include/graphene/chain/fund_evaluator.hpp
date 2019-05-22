@@ -62,7 +62,6 @@ namespace graphene { namespace chain {
       void_result do_evaluate(const fund_withdrawal_operation& o);
       void_result do_apply(const fund_withdrawal_operation& o);
 
-      const asset_dynamic_data_object* asset_dyn_data_ptr = nullptr;
    };
 
    /////////////////////////////////////////////////////

@@ -354,15 +354,15 @@ protected:
      */
     template <typename ErrorCodeType>
     lib::error_code translate_ec(ErrorCodeType ec) {
-       if (ec.category() == lib::asio::error::get_ssl_category()) {
-          // We know it is a TLS related error, but otherwise don't know
-          // more. Pass through as TLS generic.
-          return make_error_code(transport::error::tls_error);
-       } else {
-          // We don't know any more information about this error so pass
-          // through
-          return make_error_code(transport::error::pass_through);
-       }
+        if (ec.category() == lib::asio::error::get_ssl_category()) {
+                // We know it is a TLS related error, but otherwise don't know
+                // more. Pass through as TLS generic.
+                return make_error_code(transport::error::tls_error);
+        } else {
+            // We don't know any more information about this error so pass
+            // through
+            return make_error_code(transport::error::pass_through);
+        }
     }
     
     /// Overload of translate_ec to catch cases where lib::error_code is the

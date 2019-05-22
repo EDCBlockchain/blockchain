@@ -68,30 +68,31 @@ public:
 /** C++ wrapper for BIGNUM (OpenSSL bignum) */
 class CBigNum
 {
-   BIGNUM* bn;
+    BIGNUM* bn;
 public:
     CBigNum()
-   : bn(BN_new()) {}
+       : bn(BN_new()) {}
+
     CBigNum(const CBigNum& b)
-    : CBigNum()
+       : CBigNum()
     {
         if (!BN_copy(bn, b.bn))
         {
-           BN_clear_free(bn);
+            BN_clear_free(bn);
             throw bignum_error("CBigNum::CBigNum(const CBigNum&) : BN_copy failed");
         }
     }
 
     CBigNum& operator=(const CBigNum& b)
     {
-       if (!BN_copy(bn, b.bn))
+        if (!BN_copy(bn, b.bn))
             throw bignum_error("CBigNum::operator= : BN_copy failed");
         return (*this);
     }
 
     ~CBigNum()
     {
-       BN_clear_free(bn);
+        BN_clear_free(bn);
     }
 
     //CBigNum(char n) is not portable.  Use 'signed char' or 'unsigned char'.
@@ -105,31 +106,31 @@ public:
     CBigNum(uint64_t n)         :CBigNum() { setuint64(n); }
 
     explicit CBigNum(const std::vector<unsigned char>& vch)
-    : CBigNum()
+       : CBigNum()
     {
         setvch(vch);
     }
 
     void setulong(unsigned long n)
     {
-       if (!BN_set_word(bn, n))
+        if (!BN_set_word(bn, n))
             throw bignum_error("CBigNum conversion from unsigned long : BN_set_word failed");
     }
 
     unsigned long getulong() const
     {
-       return BN_get_word(bn);
+        return BN_get_word(bn);
     }
 
     unsigned int getuint() const
     {
-       return BN_get_word(bn);
+        return BN_get_word(bn);
     }
 
     int getint() const
     {
-       unsigned long n = BN_get_word(bn);
-       if (!BN_is_negative(bn))
+        unsigned long n = BN_get_word(bn);
+        if (!BN_is_negative(bn))
             return (n > (unsigned long)std::numeric_limits<int>::max() ? std::numeric_limits<int>::max() : n);
         else
             return (n > (unsigned long)std::numeric_limits<int>::max() ? std::numeric_limits<int>::min() : -(int)n);
@@ -194,7 +195,7 @@ public:
         pch[1] = (nSize >> 16) & 0xff;
         pch[2] = (nSize >> 8) & 0xff;
         pch[3] = (nSize) & 0xff;
-       BN_mpi2bn(pch, p - pch, bn);
+        BN_mpi2bn(pch, p - pch, bn);
     }
 
 
@@ -210,7 +211,7 @@ public:
         vch2[3] = (nSize >> 0) & 0xff;
         // swap data to big endian
         reverse_copy(vch.begin(), vch.end(), vch2.begin() + 4);
-       BN_mpi2bn(&vch2[0], vch2.size(), bn);
+        BN_mpi2bn(&vch2[0], vch2.size(), bn);
     }
 
     std::vector<unsigned char> getvch() const
@@ -239,10 +240,10 @@ public:
 
     unsigned int GetCompact() const
     {
-       unsigned int nSize = BN_bn2mpi(bn, NULL);
+        unsigned int nSize = BN_bn2mpi(bn, NULL);
         std::vector<unsigned char> vch(nSize);
         nSize -= 4;
-       BN_bn2mpi(bn, &vch[0]);
+        BN_bn2mpi(bn, &vch[0]);
         unsigned int nCompact = nSize << 24;
         if (nSize >= 1) nCompact |= (vch[4] << 16);
         if (nSize >= 2) nCompact |= (vch[5] << 8);
@@ -277,7 +278,7 @@ public:
             *this += n;
         }
         if (fNegative)
-           BN_set_negative(bn, 1);
+            BN_set_negative(bn, 1);
     }
 
     std::string ToString(int nBase=10) const
@@ -290,17 +291,17 @@ public:
         BN_set_negative(bn.bn, false);
         CBigNum dv;
         CBigNum rem;
-       if (BN_cmp(bn.bn, bn0.bn) == 0)
+        if (BN_cmp(bn.bn, bn0.bn) == 0)
             return "0";
-       while (BN_cmp(bn.bn, bn0.bn) > 0)
+        while (BN_cmp(bn.bn, bn0.bn) > 0)
         {
-           if (!BN_div(dv.bn, rem.bn, bn.bn, bnBase.bn, pctx))
+            if (!BN_div(dv.bn, rem.bn, bn.bn, bnBase.bn, pctx))
                 throw bignum_error("CBigNum::ToString() : BN_div failed");
             bn = dv;
             unsigned int c = rem.getulong();
             str += "0123456789abcdef"[c];
         }
-       if (BN_is_negative(this->bn))
+        if (BN_is_negative(this->bn))
             str += "-";
         reverse(str.begin(), str.end());
         return str;
@@ -315,50 +316,50 @@ public:
 
     bool operator!() const
     {
-       return BN_is_zero(bn);
+        return BN_is_zero(bn);
     }
 
     CBigNum& operator+=(const CBigNum& b)
     {
-       if (!BN_add(bn, bn, b.bn))
+        if (!BN_add(bn, bn, b.bn))
             throw bignum_error("CBigNum::operator+= : BN_add failed");
         return *this;
     }
 
     CBigNum& operator-=(const CBigNum& b)
     {
-       if (!BN_sub(bn, bn, b.bn))
-          throw bignum_error("CBigNum::operator-= : BN_sub failed");
+        if (!BN_sub(bn, bn, b.bn))
+            throw bignum_error("CBigNum::operator-= : BN_sub failed");
         return *this;
     }
 
     CBigNum& operator*=(const CBigNum& b)
     {
         CAutoBN_CTX pctx;
-       if (!BN_mul(bn, bn, b.bn, pctx))
+        if (!BN_mul(bn, bn, b.bn, pctx))
             throw bignum_error("CBigNum::operator*= : BN_mul failed");
         return *this;
     }
 
     CBigNum& operator/=(const CBigNum& b)
     {
-       CAutoBN_CTX pctx;
-       if (!BN_div(bn, NULL, bn, b.bn, pctx))
-          throw bignum_error("CBigNum::operator/= : BN_div failed");
+        CAutoBN_CTX pctx;
+        if (!BN_div(bn, NULL, bn, b.bn, pctx))
+            throw bignum_error("CBigNum::operator/= : BN_div failed");
         return *this;
     }
 
     CBigNum& operator%=(const CBigNum& b)
     {
-       CAutoBN_CTX pctx;
-       if (!BN_div(NULL, bn, bn, b.bn, pctx))
-          throw bignum_error("CBigNum::operator%= : BN_div failed");
+        CAutoBN_CTX pctx;
+        if (!BN_div(NULL, bn, bn, b.bn, pctx))
+            throw bignum_error("CBigNum::operator%= : BN_div failed");
         return *this;
     }
 
     CBigNum& operator<<=(unsigned int shift)
     {
-       if (!BN_lshift(bn, bn, shift))
+        if (!BN_lshift(bn, bn, shift))
             throw bignum_error("CBigNum:operator<<= : BN_lshift failed");
         return *this;
     }
@@ -369,13 +370,13 @@ public:
         //   if built on ubuntu 9.04 or 9.10, probably depends on version of openssl
         CBigNum a = 1;
         a <<= shift;
-       if (BN_cmp(a.bn, bn) > 0)
+        if (BN_cmp(a.bn, bn) > 0)
         {
             *this = 0;
             return *this;
         }
 
-       if (!BN_rshift(bn, bn, shift))
+        if (!BN_rshift(bn, bn, shift))
             throw bignum_error("CBigNum:operator>>= : BN_rshift failed");
         return *this;
     }
@@ -384,7 +385,7 @@ public:
     CBigNum& operator++()
     {
         // prefix operator
-       if (!BN_add(bn, bn, BN_value_one()))
+        if (!BN_add(bn, bn, BN_value_one()))
             throw bignum_error("CBigNum::operator++ : BN_add failed");
         return *this;
     }
@@ -401,7 +402,7 @@ public:
     {
         // prefix operator
         CBigNum r;
-       if (!BN_sub(r.bn, bn, BN_value_one()))
+        if (!BN_sub(r.bn, bn, BN_value_one()))
             throw bignum_error("CBigNum::operator-- : BN_sub failed");
         *this = r;
         return *this;
@@ -415,12 +416,12 @@ public:
         return ret;
     }
 
-   const BIGNUM* to_bignum() const {
-      return bn;
-   }
-   BIGNUM* to_bignum() {
-      return bn;
-   }
+    const BIGNUM* to_bignum() const {
+       return bn;
+    }
+    BIGNUM* to_bignum() {
+       return bn;
+    }
 };
 
 
@@ -428,7 +429,7 @@ public:
 inline const CBigNum operator+(const CBigNum& a, const CBigNum& b)
 {
     CBigNum r;
-   if (!BN_add(r.to_bignum(), a.to_bignum(), b.to_bignum()))
+    if (!BN_add(r.to_bignum(), a.to_bignum(), b.to_bignum()))
         throw bignum_error("CBigNum::operator+ : BN_add failed");
     return r;
 }
@@ -436,7 +437,7 @@ inline const CBigNum operator+(const CBigNum& a, const CBigNum& b)
 inline const CBigNum operator-(const CBigNum& a, const CBigNum& b)
 {
     CBigNum r;
-   if (!BN_sub(r.to_bignum(), a.to_bignum(), b.to_bignum()))
+    if (!BN_sub(r.to_bignum(), a.to_bignum(), b.to_bignum()))
         throw bignum_error("CBigNum::operator- : BN_sub failed");
     return r;
 }
@@ -452,7 +453,7 @@ inline const CBigNum operator*(const CBigNum& a, const CBigNum& b)
 {
     CAutoBN_CTX pctx;
     CBigNum r;
-   if (!BN_mul(r.to_bignum(), a.to_bignum(), b.to_bignum(), pctx))
+    if (!BN_mul(r.to_bignum(), a.to_bignum(), b.to_bignum(), pctx))
         throw bignum_error("CBigNum::operator* : BN_mul failed");
     return r;
 }
@@ -461,7 +462,7 @@ inline const CBigNum operator/(const CBigNum& a, const CBigNum& b)
 {
     CAutoBN_CTX pctx;
     CBigNum r;
-   if (!BN_div(r.to_bignum(), NULL, a.to_bignum(), b.to_bignum(), pctx))
+    if (!BN_div(r.to_bignum(), NULL, a.to_bignum(), b.to_bignum(), pctx))
         throw bignum_error("CBigNum::operator/ : BN_div failed");
     return r;
 }
@@ -470,7 +471,7 @@ inline const CBigNum operator%(const CBigNum& a, const CBigNum& b)
 {
     CAutoBN_CTX pctx;
     CBigNum r;
-   if (!BN_mod(r.to_bignum(), a.to_bignum(), b.to_bignum(), pctx))
+    if (!BN_mod(r.to_bignum(), a.to_bignum(), b.to_bignum(), pctx))
         throw bignum_error("CBigNum::operator% : BN_div failed");
     return r;
 }
@@ -478,7 +479,7 @@ inline const CBigNum operator%(const CBigNum& a, const CBigNum& b)
 inline const CBigNum operator<<(const CBigNum& a, unsigned int shift)
 {
     CBigNum r;
-   if (!BN_lshift(r.to_bignum(), a.to_bignum(), shift))
+    if (!BN_lshift(r.to_bignum(), a.to_bignum(), shift))
         throw bignum_error("CBigNum:operator<< : BN_lshift failed");
     return r;
 }
@@ -525,7 +526,7 @@ inline std::string EncodeBase58(const unsigned char* pbegin, const unsigned char
     CBigNum rem;
     while (bn > bn0)
     {
-       if (!BN_div(dv.to_bignum(), rem.to_bignum(), bn.to_bignum(), bn58.to_bignum(), pctx))
+        if (!BN_div(dv.to_bignum(), rem.to_bignum(), bn.to_bignum(), bn58.to_bignum(), pctx))
             throw bignum_error("EncodeBase58 : BN_div failed");
         bn = dv;
         unsigned int c = rem.getulong();
@@ -635,7 +636,9 @@ size_t from_base58( const std::string& base58_str, char* out_data, size_t out_da
     FC_THROW_EXCEPTION( parse_error_exception, "Unable to decode base58 string ${base58_str}", ("base58_str",base58_str) );
   }
   FC_ASSERT( out.size() <= out_data_len );
-  memcpy( out_data, out.data(), out.size() );
+  if (!out.empty()) {
+     memcpy( out_data, out.data(), out.size() );
+  }
   return out.size();
 }
 }

@@ -41,8 +41,8 @@ using namespace chain;
 // various template automagic depends on them being known at compile
 // time.
 //
-#ifndef ACCOUNT_HISTORY_SPACE_ID
-#define ACCOUNT_HISTORY_SPACE_ID 5
+#ifndef HISTORY_SPACE_ID
+#define HISTORY_SPACE_ID 5
 #endif
 
 struct bucket_key
@@ -68,8 +68,8 @@ struct bucket_key
 
 struct bucket_object : public abstract_object<bucket_object>
 {
-   static const uint8_t space_id = ACCOUNT_HISTORY_SPACE_ID;
-   static const uint8_t type_id  = 1; // market_history_plugin type, referenced from account_history_plugin.hpp
+   static const uint8_t space_id = HISTORY_SPACE_ID;
+   static const uint8_t type_id  = 1; // market_history_plugin type, referenced from history_plugin.hpp
 
    price high()const { return asset( high_base, key.base ) / asset( high_quote, key.quote ); }
    price low()const { return asset( low_base, key.base ) / asset( low_quote, key.quote ); }

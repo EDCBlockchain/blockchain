@@ -34,7 +34,8 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
    const database& d = db();
 
    const account_object& from_account    = op.from(d);
-   const account_object& to_account      = op.to(d);
+   to_account_ptr = &op.to(d);
+
    const asset_object&   asset_type      = op.amount.asset_id(d);
 
    try {
@@ -47,7 +48,7 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
          ("asset",op.amount.asset_id)
          );
       GRAPHENE_ASSERT(
-         is_authorized_asset( d, to_account, asset_type ),
+         is_authorized_asset( d, *to_account_ptr, asset_type ),
          transfer_to_account_not_whitelisted,
          "'to' account ${to} is not whitelisted for asset ${asset}",
          ("to",op.to)
@@ -61,7 +62,7 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
          ("from",op.from)
          );
       GRAPHENE_ASSERT(
-         not_restricted_account( d, to_account, directionality_type::receiver),
+         not_restricted_account( d, *to_account_ptr, directionality_type::receiver),
          transfer_to_account_restricted,
          "'to' account ${to} is restricted by committee",
          ("to",op.to)
@@ -70,7 +71,7 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
       if( asset_type.is_transfer_restricted() )
       {
          GRAPHENE_ASSERT(
-            from_account.id == asset_type.issuer || to_account.id == asset_type.issuer,
+            from_account.id == asset_type.issuer || to_account_ptr->id == asset_type.issuer,
             transfer_restricted_transfer_asset,
             "Asset {asset} has transfer_restricted flag enabled",
             ("asset", op.amount.asset_id)
@@ -80,7 +81,19 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
       bool insufficient_balance = d.get_balance( from_account, asset_type ).amount >= op.amount.amount;
       FC_ASSERT( insufficient_balance,
                  "Insufficient Balance: ${balance}, unable to transfer '${total_transfer}' from account '${a}' to '${t}'", 
-                 ("a",from_account.name)("t",to_account.name)("total_transfer",d.to_pretty_string(op.amount))("balance",d.to_pretty_string(d.get_balance(from_account, asset_type))) );
+                 ("a",from_account.name)("t",to_account_ptr->name)("total_transfer",d.to_pretty_string(op.amount))("balance",d.to_pretty_string(d.get_balance(from_account, asset_type))) );
+
+      // see also 'asset_reserve_operation'
+      if (to_account_ptr->burning_mode_enabled)
+      {
+         FC_ASSERT(!asset_type.is_market_issued(), "Cannot reserve (burn) ${sym} because it is a market-issued asset", ("sym", asset_type.symbol));
+
+         FC_ASSERT( is_authorized_asset( d, from_account, asset_type ) );
+         FC_ASSERT( not_restricted_account( d, from_account, directionality_type::payer) );
+
+         asset_dyn_data_ptr = &asset_type.dynamic_asset_data_id(d);
+         FC_ASSERT( (asset_dyn_data_ptr->current_supply - op.amount.amount) >= 0 );
+      }
 
       return void_result();
    } FC_RETHROW_EXCEPTIONS( error, "Unable to transfer ${a} from ${f} to ${t}", ("a",d.to_pretty_string(op.amount))("f",op.from(d).name)("t",op.to(d).name) );
@@ -89,8 +102,23 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
 
 void_result transfer_evaluator::do_apply( const transfer_operation& o )
 { try {
-   db().adjust_balance( o.from, -o.amount );
-   db().adjust_balance( o.to, o.amount );
+   database& d = db();
+
+   d.adjust_balance( o.from, -o.amount );
+
+   if (to_account_ptr)
+   {
+      if (!to_account_ptr->burning_mode_enabled) {
+         d.adjust_balance( o.to, o.amount );
+      }
+      else if (asset_dyn_data_ptr)
+      {
+         d.modify( *asset_dyn_data_ptr, [&]( asset_dynamic_data_object& data ) {
+            data.current_supply -= o.amount.amount;
+         });
+      }
+   }
+
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
@@ -108,13 +136,13 @@ void_result override_transfer_evaluator::do_evaluate( const override_transfer_op
    FC_ASSERT( asset_type.issuer == op.issuer );
 
    const account_object& from_account    = op.from(d);
-   const account_object& to_account      = op.to(d);
+   to_account_ptr = &op.to(d);
 
-   FC_ASSERT( is_authorized_asset( d, to_account, asset_type ) );
+   FC_ASSERT( is_authorized_asset( d, *to_account_ptr, asset_type ) );
    FC_ASSERT( is_authorized_asset( d, from_account, asset_type ) );
 
    FC_ASSERT( not_restricted_account( d, from_account, directionality_type::payer) );
-   FC_ASSERT( not_restricted_account( d, to_account, directionality_type::receiver) );
+   FC_ASSERT( not_restricted_account( d, *to_account_ptr, directionality_type::receiver) );
 
    if( d.head_block_time() <= HARDFORK_419_TIME )
    {
@@ -125,13 +153,39 @@ void_result override_transfer_evaluator::do_evaluate( const override_transfer_op
    FC_ASSERT( d.get_balance( from_account, asset_type ).amount >= op.amount.amount,
               "", ("total_transfer",op.amount)("balance",d.get_balance(from_account, asset_type).amount) );
 
+   if (to_account_ptr->burning_mode_enabled)
+   {
+      FC_ASSERT(!asset_type.is_market_issued(), "Cannot reserve (burn) ${sym} because it is a market-issued asset", ("sym", asset_type.symbol));
+
+      FC_ASSERT( is_authorized_asset( d, from_account, asset_type ) );
+      FC_ASSERT( not_restricted_account( d, from_account, directionality_type::payer) );
+
+      asset_dyn_data_ptr = &asset_type.dynamic_asset_data_id(d);
+      FC_ASSERT( (asset_dyn_data_ptr->current_supply - op.amount.amount) >= 0 );
+   }
+
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
 void_result override_transfer_evaluator::do_apply( const override_transfer_operation& o )
 { try {
-   db().adjust_balance( o.from, -o.amount );
-   db().adjust_balance( o.to, o.amount );
+   database& d = db();
+
+   d.adjust_balance( o.from, -o.amount );
+
+   if (to_account_ptr)
+   {
+      if (!to_account_ptr->burning_mode_enabled) {
+         d.adjust_balance( o.to, o.amount );
+      }
+      else if (asset_dyn_data_ptr)
+      {
+         d.modify( *asset_dyn_data_ptr, [&]( asset_dynamic_data_object& data ) {
+            data.current_supply -= o.amount.amount;
+         });
+      }
+   }
+
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 

@@ -88,8 +88,8 @@ void fund_object::process(database& db) const
 
    transaction_evaluation_state eval(&db);
 
-   // all users' deposits
-   share_type fund_deposits_sum;
+   // all payments to users
+   share_type daily_payments_without_owner;
 
    /**
     * create tmp object, because below will be reducing of fund's balance if deposit is
@@ -116,20 +116,23 @@ void fund_object::process(database& db) const
             if (quantity.value > 0)
             {
                const asset& asst_quantity = db.check_supply_overflow(asst.amount(quantity));
-
-               chain::fund_payment_operation op;
-               op.issuer     = asst.issuer;
-               op.fund_id    = get_id();
-               op.deposit_id = dep.get_id();
-               op.asset_to_issue = asst_quantity;
-               op.issue_to_account = dep.account_id;
-               try
+               if (asst_quantity.amount.value > 0)
                {
-                  op.validate();
-                  db.apply_operation(eval, op);
-               } catch (fc::assert_exception& e) { }
+                  chain::fund_payment_operation op;
+                  op.issuer = asst.issuer;
+                  op.fund_id = get_id();
+                  op.deposit_id = dep.get_id();
+                  op.asset_to_issue = asst_quantity;
+                  op.issue_to_account = dep.account_id;
 
-               fund_deposits_sum += asst_quantity.amount;
+                  try
+                  {
+                     op.validate();
+                     db.apply_operation(eval, op);
+                  } catch (fc::assert_exception& e) { }
+
+                  daily_payments_without_owner += asst_quantity.amount;
+               }
             }
          }
 
@@ -140,22 +143,23 @@ void fund_object::process(database& db) const
             chain::fund_withdrawal_operation op;
             op.issuer = asst.issuer;
             op.fund_id = get_id();
-            op.asset_to_issue = db.check_supply_overflow(asst.amount(dep.amount));
+            op.asset_to_issue = asst.amount(dep.amount);
             op.issue_to_account = dep.account_id;
+
             try
             {
                op.validate();
                db.apply_operation(eval, op);
             } catch (fc::assert_exception& e) {  }
 
-            // disable deposit
-            db.modify(dep, [&](chain::fund_deposit_object& f) {
-               f.enabled = false;
-            });
-
             // reduce fund balance
             db.modify(*this, [&](chain::fund_object& f) {
                f.balance -= dep.amount;
+            });
+
+            // disable deposit
+            db.modify(dep, [&](chain::fund_deposit_object& f) {
+               f.enabled = false;
             });
          }
       }
@@ -168,26 +172,30 @@ void fund_object::process(database& db) const
       share_type fund_day_profit = std::roundl((long double)old_balance.value * get_rate_percent(*p_rate, db));
       if (fund_day_profit > 0)
       {
-         h_item.fund_day_profit = fund_day_profit;
-         h_item.fund_deposits_sum = fund_deposits_sum;
+         h_item.daily_profit = fund_day_profit;
+         h_item.daily_payments_without_owner = daily_payments_without_owner;
 
-         share_type owner_profit = fund_day_profit - fund_deposits_sum;
+         share_type owner_profit = fund_day_profit - daily_payments_without_owner;
          const asset& asst_owner_quantity = db.check_supply_overflow(asst.amount(owner_profit));
 
 //         std::cout << "old_balance: " << old_balance.value
 //                   << ", fund_deposits_sum: " << fund_deposits_sum.value
 //                   << ", owner profit: " << owner_profit.value << std::endl;
 
-         chain::fund_payment_operation op;
-         op.issuer = asst.issuer;
-         op.fund_id = get_id();
-         op.asset_to_issue = asst_owner_quantity;
-         op.issue_to_account = owner;
-         try
+         if (asst_owner_quantity.amount.value > 0)
          {
-            op.validate();
-            db.apply_operation(eval, op);
-         } catch (fc::assert_exception& e) { }
+            chain::fund_payment_operation op;
+            op.issuer = asst.issuer;
+            op.fund_id = get_id();
+            op.asset_to_issue = asst_owner_quantity;
+            op.issue_to_account = owner;
+
+            try
+            {
+               op.validate();
+               db.apply_operation(eval, op);
+            } catch (fc::assert_exception& e) { }
+         }
       }
    }
 
@@ -207,11 +215,11 @@ void fund_object::finish(database& db) const
       const chain::asset_object& asst = *asset_itr;
       transaction_evaluation_state eval(&db);
 
-      // return deposit to user
+      // return amount to owner
       chain::fund_withdrawal_operation op;
       op.issuer           = asst.issuer;
       op.fund_id          = get_id();
-      op.asset_to_issue   = db.check_supply_overflow(asst.amount(owner_deps));
+      op.asset_to_issue   = asst.amount(owner_deps);
       op.issue_to_account = owner;
       op.datetime         = db.head_block_time();
       try

@@ -105,7 +105,7 @@ void  asset_create_operation::validate()const
    if( bitasset_opts ) bitasset_opts->validate();
 
    asset dummy = asset(1) * common_options.core_exchange_rate;
-   FC_ASSERT(dummy.asset_id == asset_id_type(1));
+   FC_ASSERT(dummy.asset_id == EDC_ASSET);
    FC_ASSERT(precision <= 12);
 }
 share_type allow_create_asset_operation::calculate_fee( const allow_create_asset_operation::fee_parameters_type& k )const
@@ -121,7 +121,7 @@ void asset_update_operation::validate()const
    new_options.validate();
 
    asset dummy = asset(1, asset_to_update) * new_options.core_exchange_rate;
-   FC_ASSERT(dummy.asset_id == asset_id_type());
+   FC_ASSERT(dummy.asset_id == CORE_ASSET);
 }
 
 share_type asset_update_operation::calculate_fee(const asset_update_operation::fee_parameters_type& k)const
@@ -137,7 +137,7 @@ void asset_update2_operation::validate()const
    new_options.validate();
 
    asset dummy = asset(1, asset_to_update) * new_options.core_exchange_rate;
-   FC_ASSERT(dummy.asset_id == asset_id_type());
+   FC_ASSERT(dummy.asset_id == CORE_ASSET);
 }
 
 share_type asset_update2_operation::calculate_fee(const asset_update2_operation::fee_parameters_type& k)const
@@ -177,37 +177,37 @@ void asset_issue_operation::validate()const
    FC_ASSERT( fee.amount >= 0 );
    FC_ASSERT( asset_to_issue.amount.value <= GRAPHENE_MAX_SHARE_SUPPLY );
    FC_ASSERT( asset_to_issue.amount.value > 0 );
-   FC_ASSERT( asset_to_issue.asset_id != asset_id_type(0) );
+   FC_ASSERT( asset_to_issue.asset_id != CORE_ASSET );
 }
 
 void bonus_operation::validate()const
 {
-   FC_ASSERT( asset_to_issue != asset_id_type(0) );
+   FC_ASSERT( asset_to_issue != CORE_ASSET );
 }
 void daily_issue_operation::validate()const
 {
    FC_ASSERT( asset_to_issue.amount.value <= GRAPHENE_MAX_SHARE_SUPPLY );
    FC_ASSERT( asset_to_issue.amount.value > 0 );
-   FC_ASSERT( asset_to_issue.asset_id != asset_id_type(0) );
+   FC_ASSERT( asset_to_issue.asset_id != CORE_ASSET );
 }
 void referral_issue_operation::validate()const
 {
    FC_ASSERT( asset_to_issue.amount.value <= GRAPHENE_MAX_SHARE_SUPPLY );
    FC_ASSERT( asset_to_issue.amount.value > 0 );
-   FC_ASSERT( asset_to_issue.asset_id != asset_id_type(0) );
+   FC_ASSERT( asset_to_issue.asset_id != CORE_ASSET );
 }
 
 void asset_fund_fee_pool_operation::validate() const
 {
    FC_ASSERT( fee.amount >= 0 );
-   FC_ASSERT( fee.asset_id == asset_id_type() );
+   FC_ASSERT( fee.asset_id == CORE_ASSET );
    FC_ASSERT( amount > 0 );
 }
 
 void edc_asset_fund_fee_pool_operation::validate() const
 {
    FC_ASSERT( fee.amount >= 0 );
-   FC_ASSERT( fee.asset_id == asset_id_type(1) ); // should be EDC
+   FC_ASSERT( fee.asset_id == EDC_ASSET ); // should be EDC
    FC_ASSERT( amount > 0 );
 }
 

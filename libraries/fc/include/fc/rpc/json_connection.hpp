@@ -21,7 +21,7 @@ namespace fc { namespace rpc  {
          typedef std::function<variant(const variants&)>       method;
          typedef std::function<variant(const variant_object&)> named_param_method;
 
-         json_connection( fc::buffered_istream_ptr in, fc::buffered_ostream_ptr out );
+         json_connection( fc::buffered_istream_ptr in, fc::buffered_ostream_ptr out, uint32_t max_depth );
          ~json_connection();
 
          /**
@@ -303,7 +303,10 @@ namespace fc { namespace rpc  {
          /// Sending in a variant_object will be issued as named parameters
          variant call( const fc::string& method, const variant_object& named_args );
          ///@}
-         
+
+      protected:
+         const uint32_t _max_conversion_depth; // for nested structures, json, variant etc.
+
       private:
          std::unique_ptr<detail::json_connection_impl> my;
    };

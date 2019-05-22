@@ -175,7 +175,7 @@ struct database_fixture {
    static fc::ecc::private_key generate_private_key(string seed);
    string generate_anon_acct_name();
    static void verify_asset_supplies( const database& db );
-   void verify_account_history_plugin_index( )const;
+   void verify_history_plugin_index( )const;
    void open_database();
    signed_block generate_block(uint32_t skip = ~0,
                                const fc::ecc::private_key& key = generate_private_key("null_key"),
@@ -294,7 +294,8 @@ struct database_fixture {
    int64_t get_balance( const account_object& account, const asset_object& a )const;
    vector< operation_history_object > get_operation_history( account_id_type account_id )const;
 
-   void create_edc();
+   void create_edc(asset base = asset(2, CORE_ASSET), asset quote = asset(1, EDC_ASSET));
+   void create_test_asset();
 
    /** FUNDS **/
 

@@ -42,14 +42,19 @@ database& generic_evaluator::db()const { return trx_state->db(); }
 
    operation_result generic_evaluator::start_evaluate( transaction_evaluation_state& eval_state, const operation& op, bool apply )
    { try {
-      trx_state   = &eval_state;
+      trx_state = &eval_state;
+      const database& d = db();
+
       //check_required_authorities(op);
-      if ( db().head_block_time() > HARDFORK_620_TIME ) {
-        if ( op.which() == operation::tag<transfer_operation>::value ) {
-          const transfer_operation& tr_op = op.get<transfer_operation>();
-          asset_id_type should_pay_in = tr_op.amount.asset_id( db() ).params.fee_paying_asset;
-          FC_ASSERT( tr_op.fee.asset_id == should_pay_in, "You should pay fee in ${name}", ( "name", should_pay_in( db() ).symbol ) );
-        }
+      if (d.head_block_time() > HARDFORK_620_TIME)
+      {
+         if (op.which() == operation::tag<transfer_operation>::value)
+         {
+            const transfer_operation& tr_op = op.get<transfer_operation>();
+
+            asset_id_type should_pay_in = tr_op.amount.asset_id(d).params.fee_paying_asset;
+            FC_ASSERT( tr_op.fee.asset_id == should_pay_in, "You should pay fee in ${a}", ("a", should_pay_in(d).symbol) );
+         }
       }
       auto result = evaluate( op );
 
@@ -60,15 +65,18 @@ database& generic_evaluator::db()const { return trx_state->db(); }
    void generic_evaluator::prepare_fee(account_id_type account_id, asset fee)
    {
       const database& d = db();
-      fee_from_account = fee;
+
       FC_ASSERT( fee.amount >= 0 );
+
+      fee_from_account = fee;
+
       fee_paying_account = &account_id(d);
       fee_paying_account_statistics = &fee_paying_account->statistics(d);
 
       fee_asset = &fee.asset_id(d);
       fee_asset_dyn_data = &fee_asset->dynamic_asset_data_id(d);
 
-      if( d.head_block_time() > HARDFORK_419_TIME )
+      if (d.head_block_time() > HARDFORK_419_TIME)
       {
          FC_ASSERT( is_authorized_asset( d, *fee_paying_account, *fee_asset ), "Account ${acct} '${name}' attempted to pay fee by using asset ${a} '${sym}', which is unauthorized due to whitelist / blacklist",
             ("acct", fee_paying_account->id)("name", fee_paying_account->name)("a", fee_asset->id)("sym", fee_asset->symbol) );
@@ -79,13 +87,15 @@ database& generic_evaluator::db()const { return trx_state->db(); }
 
       FC_ASSERT( !fee_paying_account->verification_is_required, "Please contact support");
 
-      if( fee_from_account.asset_id == asset_id_type() )
+      if (fee_from_account.asset_id == CORE_ASSET) {
          core_fee_paid = fee_from_account.amount;
+      }
       else
       {
          asset fee_from_pool = fee_from_account * fee_asset->options.core_exchange_rate;
-         FC_ASSERT( fee_from_pool.asset_id == asset_id_type() );
+         FC_ASSERT(fee_from_pool.asset_id == CORE_ASSET);
          core_fee_paid = fee_from_pool.amount;
+
           // if (d.head_block_time() > HARDFORK_616_TIME)
           //   FC_ASSERT( core_fee_paid <= fee_asset_dyn_data->fee_pool, "Fee pool balance of '${b}' is less than the ${r} required to convert ${c}",
           //          ("r", db().to_pretty_string( fee_from_pool))("b",db().to_pretty_string(fee_asset_dyn_data->fee_pool))("c",db().to_pretty_string(fee)) );
@@ -94,24 +104,37 @@ database& generic_evaluator::db()const { return trx_state->db(); }
 
    void generic_evaluator::convert_fee()
    {
-      if( !trx_state->skip_fee ) {
-         if( fee_asset->get_id() != asset_id_type() )
+      if (!trx_state->skip_fee)
+      {
+         asset_id_type asset_id = fee_asset->get_id();
+         if (asset_id != CORE_ASSET)
          {
-            db().modify(*fee_asset_dyn_data, [this](asset_dynamic_data_object& d) {
-               d.accumulated_fees += fee_from_account.amount;
-               d.fee_pool -= core_fee_paid;
-            });
+            database& d = db();
+            if (d.head_block_time() > HARDFORK_623_TIME)
+            {
+               d.modify(*fee_asset_dyn_data, [this](asset_dynamic_data_object& d) {
+                  d.current_supply -= fee_from_account.amount;
+               });
+            }
+            else
+            {
+               d.modify(*fee_asset_dyn_data, [this](asset_dynamic_data_object& d)
+               {
+                  d.accumulated_fees += fee_from_account.amount;
+                  d.fee_pool -= core_fee_paid;
+               });
+            }
          }
       }
    }
 
    void generic_evaluator::pay_fee()
    { try {
-      if( !trx_state->skip_fee ) {
+      if (!trx_state->skip_fee)
+      {
          database& d = db();
          /// TODO: db().pay_fee( account_id, core_fee );
-         d.modify(*fee_paying_account_statistics, [&](account_statistics_object& s)
-         {
+         d.modify(*fee_paying_account_statistics, [&](account_statistics_object& s) {
             s.pay_fee( core_fee_paid, d.get_global_properties().parameters.cashback_vesting_threshold );
          });
       }
@@ -121,24 +144,21 @@ database& generic_evaluator::db()const { return trx_state->db(); }
    {
       database& d = db();
       const fba_accumulator_object& fba = d.get< fba_accumulator_object >( fba_accumulator_id_type( fba_id ) );
-      if( !fba.is_configured(d) )
+      if (!fba.is_configured(d))
       {
          generic_evaluator::pay_fee();
          return;
       }
-      d.modify( fba, [&]( fba_accumulator_object& _fba )
-      {
+      d.modify(fba, [&]( fba_accumulator_object& _fba) {
          _fba.accumulated_fba_fees += core_fee_paid;
       } );
    }
 
-   share_type generic_evaluator::calculate_fee_for_operation(const operation& op) const
-   {
-     return db().current_fee_schedule().calculate_fee( op ).amount;
+   share_type generic_evaluator::calculate_fee_for_operation(const operation& op) const {
+     return db().current_fee_schedule().calculate_fee(op).amount;
    }
-   void generic_evaluator::db_adjust_balance(const account_id_type& fee_payer, asset fee_from_account)
-   {
-     db().adjust_balance(fee_payer, fee_from_account);
+   void generic_evaluator::db_adjust_balance(const account_id_type& fee_payer, asset fee_amount) {
+     db().adjust_balance(fee_payer, fee_amount);
    }
 
 } }

@@ -128,14 +128,14 @@ namespace fc {
       }
       bigint bigint::operator / ( const bigint& a ) const {
         BN_CTX* ctx = BN_CTX_new();
-        bigint tmp;//(*this);
+        bigint tmp;
         BN_div( tmp.n, NULL, n, a.n, ctx );
         BN_CTX_free(ctx);
         return tmp;
       }
       bigint bigint::operator % ( const bigint& a ) const {
         BN_CTX* ctx = BN_CTX_new();
-        bigint tmp;//(*this);
+        bigint tmp;
         BN_mod( tmp.n, n, a.n, ctx );
         BN_CTX_free(ctx);
         return tmp;
@@ -143,7 +143,7 @@ namespace fc {
 
       bigint bigint::operator /= ( const bigint& a ) {
         BN_CTX* ctx = BN_CTX_new();
-        bigint tmp;//*this);
+        bigint tmp;
         BN_div( tmp.n, NULL, n, a.n, ctx );
         fc_swap( tmp.n, n );
         BN_CTX_free(ctx);
@@ -188,6 +188,8 @@ namespace fc {
 
 
       bigint& bigint::operator = ( bigint&& a ) {
+        if( &a == this )
+          return *this;
         fc_swap( a.n, n );
         return *this;
       }
@@ -208,14 +210,14 @@ namespace fc {
       }
 
   /** encodes the big int as base64 string, or a number */
-  void to_variant( const bigint& bi, variant& v )
+  void to_variant( const bigint& bi, variant& v, uint32_t max_depth )
   {
     std::vector<char> ve = bi;
     v = fc::variant(base64_encode((unsigned char*)ve.data(),ve.size()));
   }
 
   /** decodes the big int as base64 string, or a number */
-  void from_variant( const variant& v, bigint& bi )
+  void from_variant( const variant& v, bigint& bi, uint32_t max_depth )
   {
     if( v.is_numeric() ) bi = bigint( static_cast<unsigned long>(v.as_uint64()) );
     else

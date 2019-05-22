@@ -33,6 +33,25 @@
 #include <fc/safe.hpp>
 #include <fc/container/flat.hpp>
 #include <fc/string.hpp>
+
+#include <graphene/chain/protocol/ext.hpp>
+
+// TODO: move this to fc
+#include <fc/crypto/sha1.hpp>
+namespace fc { namespace raw {
+   template<typename T>
+   inline void pack( T& ds, const fc::sha1& ep, uint32_t _max_depth = 1 ) {
+      ds << ep;
+   }
+
+   template<typename T>
+   inline void unpack( T& ds, sha1& ep, uint32_t _max_depth = 1 ) {
+      ds >> ep;
+   }
+
+} }
+// /TODO: move to fc
+
 #include <fc/io/raw.hpp>
 #include <fc/uint128.hpp>
 #include <fc/static_variant.hpp>
@@ -69,7 +88,7 @@ namespace graphene { namespace chain {
    using fc::enum_type;
    using fc::optional;
    using fc::unsigned_int;
-   using fc::signed_int;
+   //using fc::signed_int;
    using fc::time_point_sec;
    using fc::time_point;
    using fc::safe;
@@ -342,12 +361,13 @@ namespace graphene { namespace chain {
 
 namespace fc
 {
-   void to_variant( const graphene::chain::public_key_type& var,  fc::variant& vo );
-   void from_variant( const fc::variant& var,  graphene::chain::public_key_type& vo );
-   void to_variant( const graphene::chain::extended_public_key_type& var, fc::variant& vo );
-   void from_variant( const fc::variant& var, graphene::chain::extended_public_key_type& vo );
-   void to_variant( const graphene::chain::extended_private_key_type& var, fc::variant& vo );
-   void from_variant( const fc::variant& var, graphene::chain::extended_private_key_type& vo );
+   void to_variant( const graphene::chain::public_key_type& var,  fc::variant& vo, uint32_t max_depth = 2 );
+   void from_variant( const fc::variant& var,  graphene::chain::public_key_type& vo, uint32_t max_depth = 2 );
+   void to_variant( const graphene::chain::extended_public_key_type& var, fc::variant& vo, uint32_t max_depth = 2 );
+   void from_variant( const fc::variant& var, graphene::chain::extended_public_key_type& vo, uint32_t max_depth = 2 );
+   void to_variant( const graphene::chain::extended_private_key_type& var, fc::variant& vo, uint32_t max_depth = 2 );
+   void from_variant( const fc::variant& var, graphene::chain::extended_private_key_type& vo, uint32_t max_depth = 2 );
+
 }
 
 FC_REFLECT( graphene::chain::public_key_type, (key_data) )
