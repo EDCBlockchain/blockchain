@@ -1905,6 +1905,63 @@ BOOST_AUTO_TEST_CASE( vesting_balance_withdraw_test )
    // TODO:  Test with non-core asset and Bob account
 } FC_LOG_AND_RETHROW() }
 
-// TODO:  Write linear VBO tests
+//BOOST_AUTO_TEST_CASE( addresses_usage )
+//{
+//   try {
+//
+//      BOOST_TEST_MESSAGE( "=== addresses_usage ===" );
+//
+//      ACTOR(alice);
+//
+//      auto idx = db.get_index_type<account_addresses_index>().indices().get<by_acc_id>().find(alice_id);
+//      BOOST_CHECK(idx == db.get_index_type<account_addresses_index>().indices().get<by_acc_id>().end());
+//
+//      add_address_operation op;
+//      op.to_account = alice_id;
+//
+//      trx.operations.push_back(op);
+//      trx.validate();
+//      db.push_transaction(trx, ~0);
+//
+//      generate_block();
+//
+//      idx = db.get_index_type<account_addresses_index>().indices().get<by_acc_id>().find(alice_id);
+//      BOOST_CHECK(idx != db.get_index_type<account_addresses_index>().indices().get<by_acc_id>().end());
+//
+//      const account_addresses_object& addr_obj = *idx;
+//      BOOST_CHECK(addr_obj.addresses.size() == 1);
+//
+//      const address& addr = addr_obj.addresses[0];
+//
+//      // the same address should be in a common conteiner
+//      const map<address, set<account_id_type>>& all_addresses = db.get(all_addresses_id_type(0)).addresses;
+//
+//      auto a_itr = all_addresses.find(addr);
+//      BOOST_CHECK( (a_itr != all_addresses.end()) && (a_itr->second.size() == 1) );
+//
+//      auto itr2 = a_itr->second.find(alice_id);
+//      BOOST_CHECK(itr2 != a_itr->second.end());
+//   }
+//   catch ( const fc::exception& e )
+//   {
+//      elog("${e}", ("e", e.to_detail_string()));
+//      throw;
+//   }
+//}
 
 BOOST_AUTO_TEST_SUITE_END()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

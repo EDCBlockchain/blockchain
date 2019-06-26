@@ -32,3 +32,9 @@ add_executable( convert_address convert_address.cpp )
 
 target_link_libraries( convert_address
                        PRIVATE graphene_chain fc ${CMAKE_DL_LIBS} ${PLATFORM_SPECIFIC_LIBS} )
+
+
+add_executable( get_key_by_brainkey get_keys_by_brainkey.cpp )
+
+target_link_libraries( get_key_by_brainkey
+        PRIVATE graphene_app graphene_egenesis_none graphene_utilities fc ${CMAKE_DL_LIBS} ${PLATFORM_SPECIFIC_LIBS} )

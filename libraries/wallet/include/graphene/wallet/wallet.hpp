@@ -1418,7 +1418,16 @@ class wallet_api
                                           bool broadcast = false);
 
       signed_transaction generate_address(const string& account_id_or_name);
-      vector<address>     get_account_addresses( string name_or_id );
+
+      /** Returns account addresses
+       *
+       * @param limit maximum entities
+       * @param from from which address position start to count
+       *
+       * @return limited addresses and count of all account addresses
+       */
+      std::pair<unsigned, vector<address>>
+      get_account_addresses(const string& name_or_id, unsigned from = 0, unsigned limit = 100);
 
       /** Set your vote for the number of witnesses and committee_members in the system.
        *

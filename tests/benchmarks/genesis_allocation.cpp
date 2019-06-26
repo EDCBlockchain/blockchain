@@ -90,7 +90,7 @@ BOOST_AUTO_TEST_CASE( genesis_and_persistence_bench )
 #ifdef NDEBUG
       ilog("Running in release mode.");
 
-      const int account_count = 2000000;
+      const int account_count = 20000;
       //const int account_count = 100;
       const int blocks_to_produce = 100000;
       //const int blocks_to_produce = 100;

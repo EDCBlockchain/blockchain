@@ -26,6 +26,8 @@ namespace graphene { namespace chain {
       void_result do_evaluate(const fund_update_operation& o);
       void_result do_apply(const fund_update_operation& o);
 
+      const fund_object* fund_obj_ptr = nullptr;
+
    };
 
    /////////////////////////////////////////////////////
@@ -38,6 +40,8 @@ namespace graphene { namespace chain {
       void_result do_evaluate(const fund_refill_operation& o);
       void_result do_apply(const fund_refill_operation& o);
 
+      const fund_object* fund_obj_ptr = nullptr;
+
    };
 
    /////////////////////////////////////////////////////
@@ -49,6 +53,9 @@ namespace graphene { namespace chain {
 
       void_result do_evaluate(const fund_deposit_operation& o);
       eval_fund_dep_apply_object do_apply(const fund_deposit_operation& o);
+
+      optional<fund_options::payment_rate> p_rate;
+      const fund_object* fund_obj_ptr = nullptr;
 
    };
 
@@ -114,6 +121,36 @@ namespace graphene { namespace chain {
 
       void_result do_evaluate(const fund_remove_operation& o);
       void_result do_apply(const fund_remove_operation& o);
+
+      const fund_object* fund_obj_ptr = nullptr;
+
+   };
+
+   /////////////////////////////////////////////////////
+
+   class fund_set_fixed_percent_on_deposits_evaluator: public evaluator<fund_set_fixed_percent_on_deposits_evaluator>
+   {
+   public:
+      typedef fund_set_fixed_percent_on_deposits_operation operation_type;
+
+      void_result do_evaluate(const fund_set_fixed_percent_on_deposits_operation& o);
+      void_result do_apply(const fund_set_fixed_percent_on_deposits_operation& o);
+
+      const fund_object* fund_obj_ptr = nullptr;
+
+   };
+
+   /////////////////////////////////////////////////////
+
+   class enable_autorenewal_deposits_evaluator: public evaluator<enable_autorenewal_deposits_evaluator>
+   {
+   public:
+      typedef enable_autorenewal_deposits_operation operation_type;
+
+      void_result do_evaluate(const enable_autorenewal_deposits_operation& o);
+      void_result do_apply(const enable_autorenewal_deposits_operation& o);
+
+      const account_object* account_ptr = nullptr;
 
    };
 

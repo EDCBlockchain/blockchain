@@ -375,10 +375,10 @@ namespace graphene { namespace app {
                break;
             } case restricted_account_object_type: {
                break;
-            } case allow_create_asset_object_type: {
+            } case account_addresses_object_type: {
                 break;
             } case fund_object_type: {
-             break;
+                break;
             }
           }
        }
@@ -666,13 +666,14 @@ namespace graphene { namespace app {
       {
          try
          {
-            auto& hist = node->operation_id(db);
+            const operation_history_object& hist = node->operation_id(db);
             if (node->operation_id.instance.value <= start.instance.value)
             {
                std::for_each(operation_types.begin(), operation_types.end(), [&account, &hist, &result](const uint16_t& op_type)
                {
                   if ((unsigned) hist.op.which() == op_type)
                   {
+                     // fund_payment_operation
                      if (hist.op.which() == operation::tag<fund_payment_operation>::value)
                      {
                         if (hist.op.get<fund_payment_operation>().issue_to_account == account) {

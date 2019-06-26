@@ -906,10 +906,21 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
 
    if (history_size > 0)
    {
-      auto history_index = get_index_type<operation_history_index>().indices().get<by_time>().lower_bound(head_block_time() - fc::days(history_size));
-      auto begin_iter = get_index_type<operation_history_index>().indices().get<by_time>().begin();
-      while(begin_iter != history_index) {
-         remove(*begin_iter++);
+      fc::time_point tp = head_block_time() - fc::days(history_size);
+
+      {
+         auto history_index = get_index_type<operation_history_index>().indices().get<by_time>().lower_bound(tp);
+         auto begin_iter = get_index_type<operation_history_index>().indices().get<by_time>().begin();
+         while (begin_iter != history_index) {
+            remove(*begin_iter++);
+         }
+      }
+      {
+         auto history_index = get_index_type<fund_transaction_history_index>().indices().get<by_time>().lower_bound(tp);
+         auto begin_iter = get_index_type<fund_transaction_history_index>().indices().get<by_time>().begin();
+         while (begin_iter != history_index) {
+            remove(*begin_iter++);
+         }
       }
    }
 

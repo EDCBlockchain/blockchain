@@ -44,7 +44,7 @@ public:
    void_result do_evaluate( const account_update_operation& o );
    void_result do_apply( const account_update_operation& o );
 
-   const account_object* acnt;
+   const account_object* acnt = nullptr;
 };
 
 class add_address_evaluator: public evaluator<add_address_evaluator>
@@ -55,7 +55,7 @@ public:
    void_result do_evaluate(const add_address_operation& o);
    void_result do_apply(const add_address_operation& o);
 
-   const account_object* account_ptr;
+   const account_object* account_ptr = nullptr;
 };
 
 class account_upgrade_evaluator: public evaluator<account_upgrade_evaluator>
@@ -66,7 +66,7 @@ public:
    void_result do_evaluate(const operation_type& o);
    void_result do_apply(const operation_type& o);
 
-   const account_object* account;
+   const account_object* account = nullptr;
 };
 
 class account_whitelist_evaluator: public evaluator<account_whitelist_evaluator>
@@ -77,7 +77,7 @@ public:
    void_result do_evaluate( const account_whitelist_operation& o);
    void_result do_apply( const account_whitelist_operation& o);
 
-   const account_object* listed_account;
+   const account_object* listed_account = nullptr;
 };
 
 class account_restrict_evaluator: public evaluator<account_restrict_evaluator>
@@ -91,17 +91,6 @@ public:
    const account_object* account_ptr = nullptr;
    const restricted_account_object* restricted_account_obj_ptr = nullptr;
 
-};
-
-class account_allow_create_asset_evaluator: public evaluator<account_allow_create_asset_evaluator>
-{
-public:
-   typedef allow_create_asset_operation operation_type;
-
-   void_result do_evaluate( const allow_create_asset_operation& o);
-   object_id_type do_apply( const allow_create_asset_operation& o);
-
-   const allow_create_asset_object* allow_create_asset_account = nullptr;
 };
 
 class account_allow_referrals_evaluator: public evaluator<account_allow_referrals_evaluator>
@@ -165,7 +154,6 @@ public:
 
    void_result do_evaluate(const assets_update_fee_payer_operation& o);
    void_result do_apply(const assets_update_fee_payer_operation& o);
-
 };
 
 class asset_update_exchange_rate_evaluator: public evaluator<asset_update_exchange_rate_evaluator>

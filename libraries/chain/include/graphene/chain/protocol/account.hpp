@@ -237,11 +237,11 @@ namespace graphene { namespace chain {
         uint8_t             action;
         extensions_type     extensions;
         
-        account_id_type fee_payer()const { return account_id_type(); }
+        account_id_type fee_payer()const { return GRAPHENE_COMMITTEE_ACCOUNT; }
 
         void validate() const
         {
-            FC_ASSERT( target != account_id_type() );
+            FC_ASSERT( target != GRAPHENE_COMMITTEE_ACCOUNT );
             FC_ASSERT(action);
             FC_ASSERT(action == 0x1 || action == 0x2 || action == 0x4 || action == 0x6);
         }
@@ -262,8 +262,8 @@ namespace graphene { namespace chain {
         uint8_t             action;
         extensions_type     extensions;
         
-        account_id_type fee_payer()const { return account_id_type(); }
-        void validate()const { FC_ASSERT( target != account_id_type() ); FC_ASSERT(action); FC_ASSERT(action == 0x1 || action == 0x2);}
+        account_id_type fee_payer()const { return GRAPHENE_COMMITTEE_ACCOUNT; }
+        void validate()const { FC_ASSERT( target != GRAPHENE_COMMITTEE_ACCOUNT ); FC_ASSERT(action); FC_ASSERT(action == 0x1 || action == 0x2);}
     };
 
     struct set_online_time_operation: public base_operation

@@ -25,6 +25,7 @@
 #include <graphene/chain/protocol/operations.hpp>
 #include <graphene/db/generic_index.hpp>
 #include <boost/multi_index/composite_key.hpp>
+#include <boost/multi_index/sequenced_index.hpp>
 #include <fc/uint128.hpp>
 #include <iostream>
 
@@ -195,25 +196,29 @@ namespace graphene { namespace chain {
             optional<uint8_t> restriction_type = 0x6;
     };
 
-    class allow_create_asset_object : public graphene::db::abstract_object<allow_create_asset_object>
-    {
-    public:
-         static const uint8_t space_id = protocol_ids;
-         static const uint8_t type_id  = allow_create_asset_object_type;
-
-         account_id_type account;
-         optional<bool> allow = false;
-    };
-
     class accounts_online_object : public abstract_object<accounts_online_object>
     {
         public:
             static const uint8_t space_id = implementation_ids;
             static const uint8_t type_id  = impl_accounts_online_object_type;
 
-            map<account_id_type, uint16_t>  online_info;
+            map<account_id_type, uint16_t> online_info;
             accounts_online_id_type get_id() { return id; }
     };
+
+    // deprecated, must be deleted
+    class account_addresses_object : public abstract_object<account_addresses_object>
+    {
+    public:
+       static const uint8_t space_id = protocol_ids;
+       static const uint8_t type_id  = account_addresses_object_type;
+
+       account_id_type account;
+       vector<address> addresses;
+
+       account_addresses_id_type get_id() { return id; }
+    };
+
    /**
     * @brief This class represents an account on the object graph
     * @ingroup object
@@ -224,7 +229,7 @@ namespace graphene { namespace chain {
     */
    class account_object : public graphene::db::abstract_object<account_object>
    {
-      public:
+   public:
          static const uint8_t space_id = protocol_ids;
          static const uint8_t type_id  = account_object_type;
 
@@ -265,6 +270,10 @@ namespace graphene { namespace chain {
          bool can_create_addresses = true;
          // all transfers to account will be considered as reserved
          bool burning_mode_enabled = false;
+         // fund deposits will be renewed automatically
+         bool deposits_autorenewal_enabled = true;
+
+         address last_generated_address;
 
          /**
           * The owner authority represents absolute control over the account. Usually the keys in this authority will
@@ -279,7 +288,7 @@ namespace graphene { namespace chain {
 
          vector<address> addresses;
 
-         typedef account_options  options_type;
+         typedef account_options options_type;
          account_options options;
 
          /// The reference implementation records the account's statistics in a separate object. This field contains the
@@ -354,28 +363,25 @@ namespace graphene { namespace chain {
          }
 
          /// @return true if this is a lifetime member account; false otherwise.
-         bool is_lifetime_member()const
-         {
+         bool is_lifetime_member() const {
             return membership_expiration_date == time_point_sec::maximum();
          }
          /// @return true if this is a basic account; false otherwise.
-         bool is_basic_account(time_point_sec now)const
-         {
+         bool is_basic_account(time_point_sec now) const {
             return now > membership_expiration_date;
          }
          /// @return true if the account is an unexpired annual member; false otherwise.
          /// @note This method will return false for lifetime members.
-         bool is_annual_member(time_point_sec now)const
-         {
+         bool is_annual_member(time_point_sec now) const {
             return !is_lifetime_member() && !is_basic_account(now);
          }
          /// @return true if the account is an annual or lifetime member; false otherwise.
-         bool is_member(time_point_sec now)const
-         {
+         bool is_member(time_point_sec now) const {
             return !is_basic_account(now);
          }
 
          account_id_type get_id()const { return id; }
+
    };
 
    /**
@@ -390,24 +396,21 @@ namespace graphene { namespace chain {
          virtual void about_to_modify( const object& before ) override;
          virtual void object_modified( const object& after  ) override;
 
-
          /** given an account or key, map it to the set of accounts that reference it in an active or owner authority */
          map< account_id_type, set<account_id_type> > account_to_account_memberships;
          map< public_key_type, set<account_id_type> > account_to_key_memberships;
          /** some accounts use address authorities in the genesis block */
          map< address, set<account_id_type> >         account_to_address_memberships;
 
-
       protected:
          set<account_id_type>  get_account_members( const account_object& a )const;
          set<public_key_type>  get_key_members( const account_object& a )const;
-         set<address>          get_address_members( const account_object& a )const;
+         set<address>          get_address_members(const account_object& a) const;
 
          set<account_id_type>  before_account_members;
          set<public_key_type>  before_key_members;
          set<address>          before_address_members;
    };
-
 
    /**
     *  @brief This secondary index will allow a reverse lookup of all accounts that have been referred by
@@ -603,57 +606,50 @@ namespace graphene { namespace chain {
     */
    typedef generic_index<restricted_account_object, restricted_account_index_type> restricted_account_index;
 
-   /**
-    * @ingroup object_index
-    */
-   typedef multi_index_container<
-      allow_create_asset_object,
-      indexed_by<
-      ordered_unique< tag<by_id>, member< object, object_id_type, &object::id > >,
-      ordered_unique< tag<by_acc_id>, member< allow_create_asset_object, account_id_type, &allow_create_asset_object::account > >
-    >
-   > allow_create_asset_index_type;
-
-   /**
-    * @ingroup object_index
-    */
-   typedef generic_index<allow_create_asset_object, allow_create_asset_index_type> allow_create_asset_account_index;
-
 }}
 
 FC_REFLECT( graphene::chain::SimpleUnit, (rank)(id)(name)(balance));
 FC_REFLECT( graphene::chain::bonus_balances_object::bonus_balances_info, (bonus_time)(balances)(referral));
 FC_REFLECT( graphene::chain::referral_balance_info, (history)(quantity)(rank) )
 FC_REFLECT( graphene::chain::mature_balances_history, (balance)(real_balance));
+
 FC_REFLECT_DERIVED( graphene::chain::Unit, (graphene::chain::SimpleUnit), (referrals)(level));
 FC_REFLECT( graphene::chain::ref_info,
             (level_1)(id)(name)(balance)(level_1_partners)(level_1_sum)(level_2_partners)
-            (all_partners)(all_sum)(bonus_percent)(rank) );
+            (all_partners)(all_sum)(bonus_percent)(rank)
+          );
 
 FC_REFLECT_DERIVED( graphene::chain::restricted_account_object,
-            (graphene::db::object),
-            (account)(restriction_type));
-
-FC_REFLECT_DERIVED( graphene::chain::allow_create_asset_object,
                     (graphene::db::object),
-                    (account)(allow));
+                    (account)(restriction_type)
+                  );
 
 FC_REFLECT_DERIVED( graphene::chain::accounts_online_object,
-            (graphene::db::object),
-            (online_info));
+                    (graphene::db::object),
+                    (online_info)
+                  );
+
+FC_REFLECT_DERIVED( graphene::chain::account_addresses_object,
+                    (graphene::db::object),
+                    (account)
+                    (addresses)
+                  );
 
 FC_REFLECT_DERIVED( graphene::chain::account_object,
                     (graphene::db::object),
                     (membership_expiration_date)(registrar)(referrer)(lifetime_referrer)
                     (network_fee_percentage)(lifetime_referrer_fee_percentage)(referrer_rewards_percentage)
-                    (name)(owner)(active)(options)(statistics)(whitelisting_accounts)(blacklisting_accounts)
+                    (name)(owner)(active)(addresses)(options)(statistics)(whitelisting_accounts)(blacklisting_accounts)
                     (whitelisted_accounts)(blacklisted_accounts)
                     (cashback_vb)
-                    (owner_special_authority)(active_special_authority)(addresses)
+                    (owner_special_authority)(active_special_authority)
                     (top_n_control_flags)
                     (allowed_assets)
-                    (register_datetime)(current_restriction)(verification_is_required)(can_create_and_update_asset)(can_create_addresses)(burning_mode_enabled)
-                    );
+                    (register_datetime)(last_generated_address)
+                    (current_restriction)(verification_is_required)
+                    (can_create_and_update_asset)(can_create_addresses)
+                    (burning_mode_enabled)(deposits_autorenewal_enabled)
+                  );
 
 FC_REFLECT_DERIVED( graphene::chain::bonus_balances_object,
                     (graphene::db::object),

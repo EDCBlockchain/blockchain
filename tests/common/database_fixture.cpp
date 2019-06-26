@@ -544,6 +544,7 @@ const asset_object& database_fixture::create_user_issued_asset( const string& na
 void database_fixture::issue_uia( const account_object& recipient, asset amount )
 {
    BOOST_TEST_MESSAGE( "Issuing UIA" );
+
    asset_issue_operation op;
    op.issuer = amount.asset_id(db).issuer;
    op.asset_to_issue = amount;

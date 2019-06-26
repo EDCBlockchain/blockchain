@@ -72,8 +72,8 @@ typedef multi_index_container<
       indexed_by<
          ordered_unique<tag<by_id>, member< object, object_id_type, &object::id>>,
          ordered_non_unique<tag<by_time>,
-         composite_key<operation_history_object,
-         member<operation_history_object, fc::time_point_sec, &operation_history_object::block_time>>
+            composite_key<operation_history_object,
+            member<operation_history_object, fc::time_point_sec, &operation_history_object::block_time>>
       >
    >
 > operation_history_multi_index_type;
@@ -118,7 +118,7 @@ public:
    //std::pair<account_id_type,operation_history_id_type>  account_op()const  { return std::tie( account, operation_id ); }
    //std::pair<account_id_type,uint32_t>                   account_seq()const { return std::tie( account, sequence );     }
 };
-   
+
 struct by_id;
 struct by_seq;
 struct by_op;

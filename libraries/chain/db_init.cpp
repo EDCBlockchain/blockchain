@@ -197,6 +197,8 @@ void database::initialize_evaluators()
    register_evaluator<set_burning_mode_evaluator>();
    register_evaluator<assets_update_fee_payer_evaluator>();
    register_evaluator<asset_update_exchange_rate_evaluator>();
+   register_evaluator<fund_set_fixed_percent_on_deposits_evaluator>();
+   register_evaluator<enable_autorenewal_deposits_evaluator>();
 }
 
 void database::initialize_indexes()
@@ -250,7 +252,7 @@ void database::initialize_indexes()
    add_index<primary_index<simple_index<account_properties_object >>>();
    add_index<primary_index<simple_index<accounts_online_object    >>>();
    add_index<primary_index<simple_index<fund_statistics_object    >>>();
-   add_index<primary_index<simple_index<fund_history_object    >>>();
+   add_index<primary_index<simple_index<fund_history_object       >>>();
 }
 
 void database::init_genesis(const genesis_state_type& genesis_state)
@@ -280,7 +282,7 @@ void database::init_genesis(const genesis_state_type& genesis_state)
    bsi.resize(0xffff+1);
 
    // Create blockchain accounts
-   fc::ecc::private_key null_private_key = fc::ecc::private_key::regenerate(fc::sha256::hash(string("null_key")));
+   //fc::ecc::private_key null_private_key = fc::ecc::private_key::regenerate(fc::sha256::hash(string("null_key")));
    create<account_balance_object>([](account_balance_object& b) {
       b.balance = GRAPHENE_MAX_SHARE_SUPPLY;
    });

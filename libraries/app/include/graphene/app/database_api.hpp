@@ -240,7 +240,13 @@ class database_api
        *
        * This function has semantics identical to @ref get_objects
        */
-      vector<optional<account_object>> get_accounts(const vector<account_id_type>& account_ids)const;
+      vector<optional<account_object>> get_accounts(const vector<account_id_type>& account_ids) const;
+
+      /**
+       * @brief Returns account addresses
+       */
+      std::pair<unsigned, vector<address>>
+      get_account_addresses(const string& name_or_id, unsigned from, unsigned limit) const;
     
       /**
        * @brief Get list of refferers of account
@@ -687,6 +693,7 @@ FC_API(graphene::app::database_api,
 
    // Accounts
    (get_accounts)
+   (get_account_addresses)
    (get_referrals)
    (get_referrals_by_id)
    (get_accounts_info)

@@ -192,6 +192,7 @@ void_result asset_issue_evaluator::do_evaluate( const asset_issue_operation& o )
 
 void_result asset_issue_evaluator::do_apply( const asset_issue_operation& o )
 { try {
+
    db().adjust_balance( o.issue_to_account, o.asset_to_issue );
 
    db().modify( *asset_dyn_data, [&]( asset_dynamic_data_object& data ){

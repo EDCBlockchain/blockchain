@@ -81,15 +81,15 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
       bool insufficient_balance = d.get_balance( from_account, asset_type ).amount >= op.amount.amount;
       FC_ASSERT( insufficient_balance,
                  "Insufficient Balance: ${balance}, unable to transfer '${total_transfer}' from account '${a}' to '${t}'", 
-                 ("a",from_account.name)("t",to_account_ptr->name)("total_transfer",d.to_pretty_string(op.amount))("balance",d.to_pretty_string(d.get_balance(from_account, asset_type))) );
+                 ("a", from_account.name)("t",to_account_ptr->name)
+                 ("total_transfer", d.to_pretty_string(op.amount))
+                 ("balance", d.to_pretty_string(d.get_balance(from_account, asset_type)))
+               );
 
       // see also 'asset_reserve_operation'
       if (to_account_ptr->burning_mode_enabled)
       {
          FC_ASSERT(!asset_type.is_market_issued(), "Cannot reserve (burn) ${sym} because it is a market-issued asset", ("sym", asset_type.symbol));
-
-         FC_ASSERT( is_authorized_asset( d, from_account, asset_type ) );
-         FC_ASSERT( not_restricted_account( d, from_account, directionality_type::payer) );
 
          asset_dyn_data_ptr = &asset_type.dynamic_asset_data_id(d);
          FC_ASSERT( (asset_dyn_data_ptr->current_supply - op.amount.amount) >= 0 );
@@ -156,9 +156,6 @@ void_result override_transfer_evaluator::do_evaluate( const override_transfer_op
    if (to_account_ptr->burning_mode_enabled)
    {
       FC_ASSERT(!asset_type.is_market_issued(), "Cannot reserve (burn) ${sym} because it is a market-issued asset", ("sym", asset_type.symbol));
-
-      FC_ASSERT( is_authorized_asset( d, from_account, asset_type ) );
-      FC_ASSERT( not_restricted_account( d, from_account, directionality_type::payer) );
 
       asset_dyn_data_ptr = &asset_type.dynamic_asset_data_id(d);
       FC_ASSERT( (asset_dyn_data_ptr->current_supply - op.amount.amount) >= 0 );

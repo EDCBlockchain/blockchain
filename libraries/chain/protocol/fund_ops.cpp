@@ -69,14 +69,4 @@ void fund_deposit_operation::validate() const
    FC_ASSERT( period > 0, "period must be > 0" );
 }
 
-void fund_withdrawal_operation::validate() const { }
-
-void fund_payment_operation::validate() const { }
-
-void fund_set_enable_operation::validate() const { }
-
-void fund_deposit_set_enable_operation::validate() const { }
-
-void fund_remove_operation::validate() const { }
-
 } } // namespace graphene::chain

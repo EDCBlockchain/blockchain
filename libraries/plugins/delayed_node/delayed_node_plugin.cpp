@@ -49,18 +49,14 @@ struct delayed_node_plugin_impl {
 }
 
 delayed_node_plugin::delayed_node_plugin()
-   : my(new detail::delayed_node_plugin_impl)
-{}
+   : my(new detail::delayed_node_plugin_impl) { }
 
-delayed_node_plugin::~delayed_node_plugin()
-{}
+delayed_node_plugin::~delayed_node_plugin() { }
 
 void delayed_node_plugin::plugin_set_program_options(bpo::options_description& cli, bpo::options_description& cfg)
 {
-   cli.add_options()
-         ("trusted-node", boost::program_options::value<std::string>()->required(), "RPC endpoint of a trusted validating node (required)")
-         ;
-   cfg.add(cli);
+   (void)cli; (void)cfg;
+   // for "trusted-node" see delayed_node/main.cpp
 }
 
 void delayed_node_plugin::connect()
@@ -72,8 +68,7 @@ void delayed_node_plugin::connect()
    });
 }
 
-void delayed_node_plugin::plugin_initialize(const boost::program_options::variables_map& options)
-{
+void delayed_node_plugin::plugin_initialize(const boost::program_options::variables_map& options) {
    my->remote_endpoint = "ws://" + options.at("trusted-node").as<std::string>();
 }
 

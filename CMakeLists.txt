@@ -40,14 +40,14 @@ get_git_head_revision( GIT_REFSPEC GIT_SHA2 )
 
 SET(BOOST_COMPONENTS)
 LIST(APPEND BOOST_COMPONENTS thread
-                             date_time
-                             system
-                             filesystem
-                             program_options
-                             chrono
-                             unit_test_framework
-                             context
-                             locale)
+        iostreams
+        date_time
+        system
+        filesystem
+        program_options
+        chrono
+        unit_test_framework
+        context)
 SET( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
 
 IF( WIN32 )

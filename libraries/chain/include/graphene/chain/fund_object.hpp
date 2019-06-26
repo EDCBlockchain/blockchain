@@ -91,6 +91,7 @@ namespace graphene { namespace chain {
    }; // fund_transaction_history_object
 
    struct by_id;
+   struct by_time;
    struct by_seq;
    struct by_op;
 
@@ -98,6 +99,10 @@ namespace graphene { namespace chain {
       fund_transaction_history_object,
       indexed_by<
          ordered_unique<tag<by_id>, member<object, object_id_type, &object::id>>,
+         ordered_non_unique<tag<by_time>,
+            composite_key<fund_transaction_history_object,
+            member<fund_transaction_history_object, fc::time_point_sec, &fund_transaction_history_object::block_time>>
+         >,
          ordered_unique<tag<by_seq>,
             composite_key<fund_transaction_history_object,
                member<fund_transaction_history_object, fund_id_type, &fund_transaction_history_object::fund>,
@@ -135,13 +140,14 @@ namespace graphene { namespace chain {
       fund_id_type       fund_id;        // fund to which the deposit belongs
       account_id_type    account_id;
       share_type         amount = 0;
-      bool               enabled = true; // don't charge percents if 'false'
+      bool               enabled = true;
       fc::time_point_sec datetime_begin; // datetime of creation
       fc::time_point_sec datetime_end;   // datetime of deposit's finishing
       fc::time_point_sec prev_maintenance_time_on_creation; // previous maintenance time at deposit's creation moment
 
       // lifetime of user's deposit (for paying percents), in days
       uint32_t           period = 30;
+      uint32_t           percent = 0;
 
    }; // fund_deposit_object
 
@@ -238,6 +244,11 @@ namespace graphene { namespace chain {
       fund_history_id_type history_id;
 
       /**
+       * if value is bigger than 0 then owner take this percent from user deposits
+       * instead of 'fund_rate' rules */
+      uint32_t fixed_percent_on_deposits = 0;
+
+      /**
        * @brief Payment percents to user according to its
        * deposit (on each maintenance interval).
        * Should contain value of user's deposit 'period'.
@@ -245,7 +256,7 @@ namespace graphene { namespace chain {
       std::vector<fund_options::payment_rate> payment_rates;
 
       /**
-       * @brief Payments to fund
+       * @brief Payments to fund owner
        */
       std::vector<fund_options::fund_rate> fund_rates;
 
@@ -308,7 +319,8 @@ FC_REFLECT_DERIVED( graphene::chain::fund_deposit_object,
                     (datetime_begin)
                     (datetime_end)
                     (prev_maintenance_time_on_creation)
-                    (period) );
+                    (period)
+                    (percent) );
 
 FC_REFLECT_DERIVED( graphene::chain::fund_object,
                     (graphene::db::object),
@@ -327,6 +339,7 @@ FC_REFLECT_DERIVED( graphene::chain::fund_object,
                     (min_deposit)
                     (statistics_id)
                     (history_id)
+                    (fixed_percent_on_deposits)
                     (payment_rates)
                     (fund_rates) );
 

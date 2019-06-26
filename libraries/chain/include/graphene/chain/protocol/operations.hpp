@@ -109,7 +109,6 @@ namespace graphene { namespace chain {
              * backward compatibility
              */
             asset_update2_operation,  // [idx: 55]
-            // funds
             fund_create_operation,
             fund_update_operation,
             fund_refill_operation,    // [idx: 58]
@@ -119,11 +118,12 @@ namespace graphene { namespace chain {
             fund_set_enable_operation,
             fund_deposit_set_enable_operation,
             fund_remove_operation,     // [idx: 64]
-            // -- funds
             allow_create_addresses_operation,
-            set_burning_mode_operation,          // [idx: 66]
-            assets_update_fee_payer_operation,
-            asset_update_exchange_rate_operation // [idx: 68]
+            set_burning_mode_operation,
+            assets_update_fee_payer_operation, // [idx: 67]
+            asset_update_exchange_rate_operation,
+            fund_set_fixed_percent_on_deposits_operation,
+            enable_autorenewal_deposits_operation  // [idx: 70]
          > operation;
 
    /// @} // operations group

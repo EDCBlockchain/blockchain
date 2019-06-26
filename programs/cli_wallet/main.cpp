@@ -50,7 +50,10 @@
 #include <fc/log/file_appender.hpp>
 #include <fc/log/logger.hpp>
 #include <fc/log/logger_config.hpp>
+#include <fc/asio.hpp>
+
 #include <graphene/chain/config.hpp>
+
 #ifdef WIN32
 # include <signal.h>
 #else
@@ -82,6 +85,7 @@ int main( int argc, char** argv )
          ("chain-id", bpo::value<string>(), "chain ID to connect to")
          ("delayed",  bpo::bool_switch(), "Connect to delayed node if specified")
          ("no-backups",  bpo::bool_switch(), "Disable before/after import key backups creation if specified")
+         ("io-threads", bpo::value<uint16_t>()->implicit_value(1), "Number of IO threads, default to 1")
          ;
 
       bpo::variables_map options;
@@ -92,6 +96,12 @@ int main( int argc, char** argv )
       {
          std::cout << opts << "\n";
          return 0;
+      }
+
+      if ( options.count("io-threads") )
+      {
+         const uint16_t num_threads = options["io-threads"].as<uint16_t>();
+         fc::asio::default_io_service_scope::set_num_threads(num_threads);
       }
 
       fc::path data_dir;
@@ -184,8 +194,9 @@ int main( int argc, char** argv )
       auto wapiptr = std::make_shared<wallet_api>( wdata, remote_api );
       wapiptr->set_wallet_filename( wallet_file.generic_string() );
       wapiptr->load_wallet_file();
-      if (options.count("no-backups") && options.at("no-backups").as<bool>())
+      if (options.count("no-backups") && options.at("no-backups").as<bool>()) {
          wapiptr->disable_backups();
+      }
          
       fc::api<wallet_api> wapi(wapiptr);
 

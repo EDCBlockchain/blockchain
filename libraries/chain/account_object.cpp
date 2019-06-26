@@ -300,12 +300,16 @@ set<public_key_type> account_member_index::get_key_members(const account_object&
 set<address> account_member_index::get_address_members(const account_object& a)const
 {
    set<address> result;
-   for( auto auth : a.owner.address_auths )
+   for (auto auth: a.owner.address_auths) {
       result.insert(auth.first);
-   for( auto auth : a.active.address_auths )
+   }
+   for (auto auth: a.active.address_auths) {
       result.insert(auth.first);
-   for( auto addr : a.addresses )
+   }
+   for (auto addr: a.addresses) {
       result.insert(addr);
+   }
+
    result.insert( a.options.memo_key );
    return result;
 }
@@ -316,16 +320,19 @@ void account_member_index::object_inserted(const object& obj)
     const account_object& a = static_cast<const account_object&>(obj);
 
     auto account_members = get_account_members(a);
-    for( auto item : account_members )
+    for (auto item: account_members) {
        account_to_account_memberships[item].insert(obj.id);
+    }
 
     auto key_members = get_key_members(a);
-    for( auto item : key_members )
+    for (auto item: key_members) {
        account_to_key_memberships[item].insert(obj.id);
+    }
 
     auto address_members = get_address_members(a);
-    for( auto item : address_members )
+    for (auto item: address_members) {
        account_to_address_memberships[item].insert(obj.id);
+    }
 }
 
 void account_member_index::object_removed(const object& obj)
@@ -334,16 +341,19 @@ void account_member_index::object_removed(const object& obj)
     const account_object& a = static_cast<const account_object&>(obj);
 
     auto key_members = get_key_members(a);
-    for( auto item : key_members )
+    for (auto item: key_members) {
        account_to_key_memberships[item].erase( obj.id );
+    }
 
     auto address_members = get_address_members(a);
-    for( auto item : address_members )
+    for (auto item : address_members) {
        account_to_address_memberships[item].erase( obj.id );
+    }
 
     auto account_members = get_account_members(a);
-    for( auto item : account_members )
+    for (auto item : account_members) {
        account_to_account_memberships[item].erase( obj.id );
+    }
 }
 
 void account_member_index::about_to_modify(const object& before)
@@ -381,7 +391,6 @@ void account_member_index::object_modified(const object& after)
           account_to_account_memberships[*itr].insert(after.id);
     }
 
-
     {
        set<public_key_type> after_key_members = get_key_members(a);
 
@@ -410,16 +419,18 @@ void account_member_index::object_modified(const object& after)
                            after_address_members.begin(), after_address_members.end(),
                            std::inserter(removed, removed.end()));
 
-       for( auto itr = removed.begin(); itr != removed.end(); ++itr )
+       for (auto itr = removed.begin(); itr != removed.end(); ++itr) {
           account_to_address_memberships[*itr].erase(after.id);
+       }
 
        vector<address> added; added.reserve(after_address_members.size());
        std::set_difference(after_address_members.begin(), after_address_members.end(),
                            before_address_members.begin(), before_address_members.end(),
                            std::inserter(added, added.end()));
 
-       for( auto itr = added.begin(); itr != added.end(); ++itr )
+       for (auto itr = added.begin(); itr != added.end(); ++itr) {
           account_to_address_memberships[*itr].insert(after.id);
+       }
     }
 
 }

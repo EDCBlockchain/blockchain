@@ -42,6 +42,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <fc/asio.hpp>
 
 #include <iostream>
 #include <fstream>
@@ -61,19 +62,19 @@ fc::optional<fc::logging_config> load_logging_config_from_ini_file(const fc::pat
 int main(int argc, char** argv) {
    try {
       app::application node;
+
       bpo::options_description app_options("Graphene Delayed Node");
       bpo::options_description cfg_options("Graphene Delayed Node");
       app_options.add_options()
             ("help,h", "Print this help message and exit.")
             ("data-dir,d", bpo::value<boost::filesystem::path>()->default_value("delayed_node_data_dir"), "Directory containing databases, configuration file, etc.")
             ("fast",  bpo::value<int>(), "Size of history in days")
-            ("io-threads", bpo::value<uint16_t>()->implicit_value(0), "Number of IO threads, default to 0 for auto-configuration")
+            ("trusted-node", bpo::value<std::string>()->required(), "RPC endpoint of a trusted validating node (required)")
             ("referrer_mode_enabled", "Any LTM-member can create accounts")
             ;
 
       bpo::variables_map options;
 
-      auto delayed_plug = node.register_plugin<delayed_node::delayed_node_plugin>();
       auto history_plug = node.register_plugin<history::history_plugin>();
       auto market_history_plug = node.register_plugin<market_history::market_history_plugin>();
 
@@ -163,6 +164,13 @@ int main(int argc, char** argv) {
          elog("Error parsing configuration file: ${e}", ("e", e.what()));
          return 1;
       }
+
+      if (options.count("io-threads")) {
+         fc::asio::default_io_service_scope::set_num_threads(options["io-threads"].as<uint16_t>());
+      }
+      // here (not above), because it creates 'default_io_service_scope' with default io-threads count
+      auto delayed_plug = node.register_plugin<delayed_node::delayed_node_plugin>();
+
       node.initialize(data_dir, options);
       node.initialize_plugins( options );
 

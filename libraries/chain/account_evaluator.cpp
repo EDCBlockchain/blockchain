@@ -232,8 +232,6 @@ object_id_type account_create_evaluator::do_apply( const account_create_operatio
    }
 
    const auto& new_acnt_object = db().create<account_object>( [&]( account_object& obj ){
-//         if( o.extensions.value.is_market.valid() )
-//            obj.is_market = *o.extensions.value.is_market;
          obj.registrar = o.registrar;
          obj.referrer = o.referrer;
          obj.lifetime_referrer = o.referrer(db()).lifetime_referrer;
@@ -439,11 +437,17 @@ void_result add_address_evaluator::do_apply(const add_address_operation& o)
 {
    database& d = db();
 
-   address addr = d.get_address();
+   if (account_ptr)
+   {
+      const address& addr = d.get_address();
 
-   d.modify(*account_ptr, [&](account_object& ao) {
-      ao.addresses.emplace_back(addr);
-   });
+      d.modify(*account_ptr, [&](account_object& obj)
+      {
+         obj.last_generated_address = addr;
+         obj.addresses.emplace_back(addr);
+      });
+   }
+
    return void_result();
 }
 
@@ -585,50 +589,6 @@ object_id_type account_restrict_evaluator::do_apply(const account_restrict_opera
    }
 
    return object_id_type();
-} FC_CAPTURE_AND_RETHROW( (o) ) }
-
-void_result account_allow_create_asset_evaluator::do_evaluate(const allow_create_asset_operation& o)
-{ try {
-   database& d = db();
-
-   const auto& idx = d.get_index_type<allow_create_asset_account_index>().indices().get<by_acc_id>();
-   auto itr = idx.find(o.to_account);
-
-   FC_ASSERT( itr != idx.end() );
-
-   if (itr != idx.end()) {
-      allow_create_asset_account = &*itr;
-   }
-
-   return void_result();
-} FC_CAPTURE_AND_RETHROW( (o) ) }
-
-object_id_type account_allow_create_asset_evaluator::do_apply(const allow_create_asset_operation& o)
-{ try {
-   database& d = db();
-
-   if (!o.value){
-      d.remove( *allow_create_asset_account );
-   }
-   else
-   {
-      if (allow_create_asset_account == nullptr)
-      {
-         const auto& new_object =
-         d.create< allow_create_asset_object>( [&]( allow_create_asset_object& acc )
-                                                  {
-                                                     acc.account = o.to_account;
-                                                     acc.allow = o.value;
-                                                  } );
-         return new_object.id;
-      }
-
-      d.modify<allow_create_asset_object> ( *allow_create_asset_account,[&]( allow_create_asset_object& ao) {
-         ao.allow = o.value;
-      } );
-  }
-
-  return object_id_type();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
 void_result account_allow_referrals_evaluator::do_evaluate(const account_allow_referrals_operation& o)

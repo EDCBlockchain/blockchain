@@ -68,8 +68,7 @@ int main(int argc, char** argv) {
             ("help,h", "Print this help message and exit.")
             ("data-dir,d", bpo::value<boost::filesystem::path>()->default_value("witness_node_data_dir"), "Directory containing databases, configuration file, etc.")
             ("key-path,K", bpo::value<boost::filesystem::path>()->default_value(""), "Path to file with EDC owner key")
-            ("fast",  bpo::value<int>(), "Size of history in days")
-            ("io-threads", bpo::value<uint16_t>()->implicit_value(0), "Number of IO threads, default to 0 for auto-configuration")
+            ("fast",  bpo::value<int>(0), "Size of history in days")
             ("referrer_mode_enabled", "Any LTM-member can create accounts")
             ;
 
@@ -162,7 +161,7 @@ int main(int argc, char** argv) {
          if (logging_config)
             fc::configure_logging(*logging_config);
       }
-       
+
       if ( options.count("key-path") )
       {
          auto key_path = options["key-path"].as<boost::filesystem::path>();
@@ -171,6 +170,7 @@ int main(int argc, char** argv) {
       }
 
       bpo::notify(options);
+
       node->initialize(data_dir, options);
       node->initialize_plugins( options );
 

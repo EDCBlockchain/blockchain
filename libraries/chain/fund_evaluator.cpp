@@ -75,9 +75,17 @@ void_result fund_update_evaluator::do_evaluate( const fund_update_operation& op 
    auto itr = idx.find(op.id);
    FC_ASSERT( itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id) );
 
-   const fund_object& fund_obj = *itr;
+   fund_obj_ptr = &(*itr);
+
+   const fund_object& fund_obj = *fund_obj_ptr;
    bool period_valid = (fund_obj.prev_maintenance_time_on_creation + (86400 * op.options.period)) >= d.get_dynamic_global_properties().next_maintenance_time;
-   FC_ASSERT( period_valid, "New period '${period}' for fund '${fund}' is invalid!", ("period", op.options.period)("fund", fund_obj.get_name()) );
+
+   FC_ASSERT( period_valid, "New period '${period}' for fund '${fund}' is invalid! Fund maint-time with new period: ${a}; node next maint-time: ${b}",
+                            ("period", op.options.period)
+                            ("fund", fund_obj.get_name())
+                            ("a", std::string(fund_obj.prev_maintenance_time_on_creation + (86400 * op.options.period)))
+                            ("b", std::string(d.get_dynamic_global_properties().next_maintenance_time))
+            );
 
    return void_result();
 
@@ -86,17 +94,19 @@ void_result fund_update_evaluator::do_evaluate( const fund_update_operation& op 
 void_result fund_update_evaluator::do_apply( const fund_update_operation& op )
 { try {
 
+   FC_ASSERT(fund_obj_ptr);
+
    database& d = db();
 
-   auto fund = d.get_index_type<fund_index>().indices().get<by_id>().find(op.id);
+   const fund_object& fund = *fund_obj_ptr;
 
-   d.modify(*fund, [&](chain::fund_object& o)
+   d.modify(fund, [&](chain::fund_object& o)
    {
       o.description               = op.options.description;
       o.rates_reduction_per_month = op.options.rates_reduction_per_month;
       o.period                    = op.options.period;
       // so we need also update 'datetime_end'
-      o.datetime_end              = fund->get_prev_maintenance_time_on_creation() + (86400 * op.options.period);
+      o.datetime_end              = fund.get_prev_maintenance_time_on_creation() + (86400 * op.options.period);
       o.min_deposit               = op.options.min_deposit;
       o.payment_rates             = op.options.payment_rates;
       o.fund_rates                = op.options.fund_rates;
@@ -117,14 +127,14 @@ void_result fund_refill_evaluator::do_evaluate( const fund_refill_operation& op 
    auto itr = idx.find(op.id);
    FC_ASSERT(itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id));
 
-   const fund_object& fund_obj = *itr;
+   fund_obj_ptr = &(*itr);
 
-   const asset_object& asset_obj = fund_obj.asset_id(d);
+   const asset_object& asset_obj = fund_obj_ptr->asset_id(d);
    const account_object& from_acc = op.from_account(d);
 
-   FC_ASSERT( from_acc.get_id() == fund_obj.owner
+   FC_ASSERT( from_acc.get_id() == fund_obj_ptr->owner
               , "Only owner can refill its own fund. Account id: ${acc_id}, fund owner id: ${fund_owner_id}"
-              , ("acc_id", from_acc.get_id())("fund_owner_id", fund_obj.owner) );
+              , ("acc_id", from_acc.get_id())("fund_owner_id", fund_obj_ptr->owner) );
 
    FC_ASSERT( itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id) );
 
@@ -132,9 +142,11 @@ void_result fund_refill_evaluator::do_evaluate( const fund_refill_operation& op 
    FC_ASSERT( insufficient_balance,
               "Insufficient balance: ${balance}, unable to refill fund '${fund}'",
               ("balance", d.to_pretty_string(d.get_balance(from_acc, asset_obj)))
-              ("fund", fund_obj.get_name()) );
+              ("fund", fund_obj_ptr->get_name()) );
 
-   FC_ASSERT( op.amount >= fund_obj.get_min_deposit(), "Minimum balance for refilling must be at least ${balance}", ("balance", fund_obj.get_min_deposit()));
+   FC_ASSERT( op.amount >= fund_obj_ptr->get_min_deposit()
+              , "Minimum balance for refilling must be at least ${balance}"
+              , ("balance", fund_obj_ptr->get_min_deposit()));
 
    return void_result();
 
@@ -143,16 +155,18 @@ void_result fund_refill_evaluator::do_evaluate( const fund_refill_operation& op 
 void_result fund_refill_evaluator::do_apply( const fund_refill_operation& op )
 { try {
 
-   database& d = db();
-   auto fund = d.get_index_type<fund_index>().indices().get<by_id>().find(op.id);
+   FC_ASSERT(fund_obj_ptr);
 
-   asset asst(op.amount, fund->get_asset_id());
+   database& d = db();
+   const fund_object& fund = *fund_obj_ptr;
+
+   asset asst(op.amount, fund.get_asset_id());
 
    // user (fund holder)
    d.adjust_balance(op.from_account, -asst);
 
    // fund
-   d.modify(*fund, [&](chain::fund_object& o)
+   d.modify(fund, [&](chain::fund_object& o)
    {
       o.balance       += op.amount;
       o.owner_balance += op.amount;
@@ -173,14 +187,12 @@ void_result fund_deposit_evaluator::do_evaluate( const fund_deposit_operation& o
    auto itr = idx.find(op.id);
    FC_ASSERT(itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id));
 
-   const fund_object& fund_obj = *itr;
+   fund_obj_ptr = &(*itr);
 
-   auto iter = std::find_if(fund_obj.payment_rates.begin(), fund_obj.payment_rates.end(), [&op](const fund_options::payment_rate& item) {
-      return (op.period == item.period);
-   });
-   FC_ASSERT(iter != fund_obj.payment_rates.end(), "Wrong period (${period}) for 'fund_deposit_create'", ("period", op.period));
+   p_rate = fund_obj_ptr->get_payment_rate(op.period);
+   FC_ASSERT(p_rate, "Wrong period (${period}) for 'fund_deposit_create'", ("period", op.period));
 
-   const asset_object& asset_obj = fund_obj.asset_id(d);
+   const asset_object& asset_obj = fund_obj_ptr->asset_id(d);
    const account_object& from_acc = op.from_account(d);
 
    FC_ASSERT( not_restricted_account( d, from_acc, directionality_type::payer), "account ${a} restricted by committee", ("a", from_acc.name) );
@@ -190,12 +202,14 @@ void_result fund_deposit_evaluator::do_evaluate( const fund_deposit_operation& o
               "Insufficient balance: ${balance}, user: {$user}, fund: '${fund}'. Unable to create deposit.",
               ("balance", d.to_pretty_string(d.get_balance(from_acc, asset_obj)))
               ("user", from_acc.name)
-              ("fund", fund_obj.get_name()) );
+              ("fund", fund_obj_ptr->get_name()) );
 
-   FC_ASSERT( op.amount >= fund_obj.get_min_deposit(), "Minimum balance for deposit must be at least ${balance}", ("balance", fund_obj.get_min_deposit()));
+   FC_ASSERT( op.amount >= fund_obj_ptr->get_min_deposit()
+              , "Minimum balance for deposit must be at least ${balance}"
+              , ("balance", fund_obj_ptr->get_min_deposit()));
 
    // lifetime of deposit must be less than fund's
-   bool check_period = fund_obj.get_datetime_end() >= (d.get_dynamic_global_properties().last_budget_time + op.period);
+   bool check_period = fund_obj_ptr->get_datetime_end() >= (d.get_dynamic_global_properties().last_budget_time + op.period);
    FC_ASSERT( check_period, "Wrong period of deposit (${p})!", ("p", op.period) );
 
    return void_result();
@@ -205,10 +219,12 @@ void_result fund_deposit_evaluator::do_evaluate( const fund_deposit_operation& o
 eval_fund_dep_apply_object fund_deposit_evaluator::do_apply( const fund_deposit_operation& op )
 { try {
 
+   FC_ASSERT(fund_obj_ptr);
+
    eval_fund_dep_apply_object result;
-      
+
    database& d = db();
-   auto fund = d.get_index_type<fund_index>().indices().get<by_id>().find(op.id);
+   const chain::fund_object& fund = *fund_obj_ptr;
 
    // new deposit object
    auto next_fund_deposit_id = d.get_index_type<fund_deposit_index>().get_next_id();
@@ -223,12 +239,16 @@ eval_fund_dep_apply_object fund_deposit_evaluator::do_apply( const fund_deposit_
       o.prev_maintenance_time_on_creation = d.get_dynamic_global_properties().last_budget_time;
       o.datetime_end                      = o.prev_maintenance_time_on_creation + (86400 * op.period);
       o.period = op.period;
-      
+
+      if (p_rate) {
+         o.percent = p_rate->percent;
+      }
+
       result.datetime_begin = o.datetime_begin;
       result.datetime_end   = o.datetime_end;
    });
 
-   asset asst(op.amount, fund->get_asset_id());
+   asset asst(op.amount, fund.get_asset_id());
 
    // fund statistics
    const auto& stats_obj = op.id(d).statistics_id(d);
@@ -254,12 +274,12 @@ eval_fund_dep_apply_object fund_deposit_evaluator::do_apply( const fund_deposit_
    d.adjust_balance( op.from_account, -asst );
 
    // fund: increasing balance
-   d.modify(*fund, [&](chain::fund_object& o) {
+   d.modify(fund, [&](chain::fund_object& o) {
       o.balance += op.amount;
    });
 
    FC_ASSERT(new_fund_deposit.id == next_fund_deposit_id);
-   
+
    result.id = new_fund_deposit.id;
 
    return result;
@@ -356,12 +376,11 @@ void_result fund_set_enable_evaluator::do_evaluate( const fund_set_enable_operat
 void_result fund_set_enable_evaluator::do_apply( const fund_set_enable_operation& op )
 { try {
 
-   if (fund_obj_ptr)
-   {
-      db().modify(*fund_obj_ptr, [&](fund_object& o) {
-         o.enabled = op.enabled;
-      });
-   }
+   FC_ASSERT(fund_obj_ptr);
+
+   db().modify(*fund_obj_ptr, [&](fund_object& o) {
+      o.enabled = op.enabled;
+   });
 
    return void_result();
 
@@ -387,12 +406,11 @@ void_result fund_deposit_set_enable_evaluator::do_evaluate( const fund_deposit_s
 void_result fund_deposit_set_enable_evaluator::do_apply( const fund_deposit_set_enable_operation& op )
 { try {
 
-   if (fund_dep_obj_ptr)
-   {
-      db().modify(*fund_dep_obj_ptr, [&](fund_deposit_object& o) {
-         o.enabled = op.enabled;
-      });
-   }
+   FC_ASSERT(fund_dep_obj_ptr);
+
+   db().modify(*fund_dep_obj_ptr, [&](fund_deposit_object& o) {
+      o.enabled = op.enabled;
+   });
 
    return void_result();
 
@@ -408,10 +426,8 @@ void_result fund_remove_evaluator::do_evaluate( const fund_remove_operation& op 
    const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
    auto itr = idx.find(op.id);
    FC_ASSERT( itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id) );
-   const fund_object& fund = *itr;
 
-   const fund_statistics_object* fund_stat_ptr = d.find(fc::variant(fund.get_statistics_id(), 1).as<fund_statistics_id_type>(1));
-   FC_ASSERT( fund_stat_ptr, "Where is no fund statistics with id '${id}'!", ("id", fund.get_statistics_id()) );
+   fund_obj_ptr = &(*itr);
 
    return void_result();
 
@@ -420,17 +436,23 @@ void_result fund_remove_evaluator::do_evaluate( const fund_remove_operation& op 
 void_result fund_remove_evaluator::do_apply( const fund_remove_operation& op )
 { try {
 
+   FC_ASSERT(fund_obj_ptr);
+
    database& d = db();
 
-   const chain::fund_object& fund = d.get<chain::fund_object>(op.id);
+   const chain::fund_object& fund = *fund_obj_ptr;
 
    // remove fund statistics
-   const chain::fund_statistics_object& fund_stat = d.get<chain::fund_statistics_object>(fund.get_statistics_id());
-   d.remove(fund_stat);
+   const fund_statistics_object* fund_stat_ptr = d.find(fc::variant(fund.get_statistics_id(), 1).as<fund_statistics_id_type>(1));
+   if (fund_stat_ptr) {
+      d.remove(*fund_stat_ptr);
+   }
 
    // remove history object
-   const chain::fund_history_object& history_obj = d.get<chain::fund_history_object>(fund.get_history_id());
-   d.remove(history_obj);
+   const fund_history_object* fund_hist_ptr = d.find(fc::variant(fund.get_history_id(), 1).as<fund_history_id_type>(1));
+   if (fund_hist_ptr) {
+      d.remove(*fund_hist_ptr);
+   }
 
    // remove fund
    d.remove(fund);
@@ -439,6 +461,70 @@ void_result fund_remove_evaluator::do_apply( const fund_remove_operation& op )
    auto range = db().get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(op.id);
    std::for_each(range.first, range.second, [&](const fund_deposit_object& dep) {
       d.remove(dep);
+   });
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+////////////////////////////////////////////////////////////////
+
+void_result fund_set_fixed_percent_on_deposits_evaluator::do_evaluate( const fund_set_fixed_percent_on_deposits_operation& op )
+{ try {
+
+   const database& d = db();
+
+   const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
+   auto itr = idx.find(op.id);
+   FC_ASSERT( itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id) );
+
+   fund_obj_ptr = &(*itr);
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+void_result fund_set_fixed_percent_on_deposits_evaluator::do_apply( const fund_set_fixed_percent_on_deposits_operation& op )
+{ try {
+
+   FC_ASSERT(fund_obj_ptr);
+
+   database& d = db();
+
+   d.modify(*fund_obj_ptr, [&](chain::fund_object& o) {
+      o.fixed_percent_on_deposits = op.percent;
+   });
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+////////////////////////////////////////////////////////////////
+
+void_result enable_autorenewal_deposits_evaluator::do_evaluate( const enable_autorenewal_deposits_operation& op )
+{ try {
+
+   const database& d = db();
+
+   const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
+   auto itr = idx.find(op.account);
+   FC_ASSERT( itr != idx.end(), "Where is no account with id '${id}'!", ("id", op.account) );
+
+   account_ptr = &(*itr);
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+void_result enable_autorenewal_deposits_evaluator::do_apply( const enable_autorenewal_deposits_operation& op )
+{ try {
+
+   FC_ASSERT(account_ptr);
+
+   database& d = db();
+
+   d.modify(*account_ptr, [&](account_object& o) {
+      o.deposits_autorenewal_enabled = op.enabled;
    });
 
    return void_result();

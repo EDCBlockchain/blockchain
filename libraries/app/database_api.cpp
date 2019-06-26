@@ -82,10 +82,15 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
       vector<vector<account_id_type>> get_address_references( vector<address> key )const;
 
       // Accounts
-      vector<optional<account_object>> get_accounts(const vector<account_id_type>& account_ids)const;
+      vector<optional<account_object>> get_accounts(const vector<account_id_type>& account_ids) const;
+
+      std::pair<unsigned, vector<address>>
+      get_account_addresses(const string& name_or_id, unsigned from, unsigned limit) const;
+
       std::map<string,full_account> get_full_accounts( const vector<string>& names_or_ids, bool subscribe );
       optional<bonus_balances_object> get_bonus_balances ( string name_or_id ) const;
-      optional<account_object> get_account_by_name( string name )const;
+      optional<account_object> get_account_by_name( string name ) const;
+      optional<account_object> get_account_by_name_or_id(const string& name_or_id) const;
       Unit get_referrals( optional<account_object> account ) const;
       ref_info get_referrals_by_id( optional<account_object> account ) const;
       vector<SimpleUnit> get_accounts_info(vector<optional<account_object>> accounts);
@@ -243,37 +248,38 @@ database_api_impl::~database_api_impl()
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-fc::variants database_api::get_objects(const vector<object_id_type>& ids)const
-{
+fc::variants database_api::get_objects(const vector<object_id_type>& ids) const {
    return my->get_objects( ids );
 }
 
-fc::variants database_api_impl::get_objects(const vector<object_id_type>& ids)const
+fc::variants database_api_impl::get_objects(const vector<object_id_type>& ids) const
 {
-   if( _subscribe_callback )  {
-      for( auto id : ids )
+   if (_subscribe_callback)
+   {
+      for (auto id: ids)
       {
-         if( id.type() == operation_history_object_type && id.space() == protocol_ids ) continue;
-         if( id.type() == impl_account_transaction_history_object_type && id.space() == implementation_ids ) continue;
+         if (id.type() == operation_history_object_type && id.space() == protocol_ids) continue;
+         if (id.type() == impl_account_transaction_history_object_type && id.space() == implementation_ids) continue;
 
          this->subscribe_to_item( id );
       }
    }
-   else
-   {
-      elog( "getObjects without subscribe callback??" );
-   }
+//   else
+//   {
+//      elog( "getObjects without subscribe callback??" );
+//   }
 
    fc::variants result;
    result.reserve(ids.size());
 
    std::transform(ids.begin(), ids.end(), std::back_inserter(result),
-                  [this](object_id_type id) -> fc::variant {
-      if(auto obj = _db.find_object(id)) {
-         return obj->to_variant();
-      }
-      return {};
-   });
+                  [this](object_id_type id) -> fc::variant
+                  {
+                     if (auto obj = _db.find_object(id)) {
+                        return obj->to_variant();
+                     }
+                     return {};
+                  });
 
    return result;
 }
@@ -284,16 +290,16 @@ fc::variants database_api_impl::get_objects(const vector<object_id_type>& ids)co
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-void database_api::set_subscribe_callback( std::function<void(const variant&)> cb, bool clear_filter )
-{
+void database_api::set_subscribe_callback(std::function<void(const variant&)> cb, bool clear_filter) {
    my->set_subscribe_callback( cb, clear_filter );
 }
 
-void database_api_impl::set_subscribe_callback( std::function<void(const variant&)> cb, bool clear_filter )
+void database_api_impl::set_subscribe_callback(std::function<void(const variant&)> cb, bool clear_filter)
 {
    edump((clear_filter));
    _subscribe_callback = cb;
-   if( clear_filter || !cb )
+
+   if (clear_filter || !cb)
    {
       static fc::bloom_parameters param;
       param.projected_element_count    = 10000;
@@ -465,35 +471,34 @@ dynamic_global_property_object database_api_impl::get_dynamic_global_properties(
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-vector<vector<account_id_type>> database_api::get_key_references( vector<public_key_type> key )const
-{
+vector<vector<account_id_type>> database_api::get_key_references( vector<public_key_type> key) const {
    return my->get_key_references( key );
 }
 
 /**
  *  @return all accounts that referr to the key or account id in their owner or active authorities.
  */
-vector<vector<account_id_type>> database_api_impl::get_key_references( vector<public_key_type> keys )const
+vector<vector<account_id_type>> database_api_impl::get_key_references( vector<public_key_type> keys) const
 {
    wdump( (keys) );
-   vector< vector<account_id_type> > final_result;
+   vector<vector<account_id_type>> final_result;
    final_result.reserve(keys.size());
 
-   for( auto& key : keys )
+   for (auto& key: keys)
    {
 
-      address a1( pts_address(key, false, 56) );
-      address a2( pts_address(key, true, 56) );
-      address a3( pts_address(key, false, 0)  );
-      address a4( pts_address(key, true, 0)  );
-      address a5( key );
+      address a1(pts_address(key, false, 56));
+      address a2(pts_address(key, true, 56));
+      address a3(pts_address(key, false, 0));
+      address a4(pts_address(key, true, 0));
+      address a5(key);
 
-      subscribe_to_item( key );
-      subscribe_to_item( a1 );
-      subscribe_to_item( a2 );
-      subscribe_to_item( a3 );
-      subscribe_to_item( a4 );
-      subscribe_to_item( a5 );
+      subscribe_to_item(key);
+      subscribe_to_item(a1);
+      subscribe_to_item(a2);
+      subscribe_to_item(a3);
+      subscribe_to_item(a4);
+      subscribe_to_item(a5);
 
       const auto& idx = _db.get_index_type<account_index>();
       const auto& aidx = dynamic_cast<const primary_index<account_index>&>(idx);
@@ -501,30 +506,33 @@ vector<vector<account_id_type>> database_api_impl::get_key_references( vector<pu
       auto itr = refs.account_to_key_memberships.find(key);
       vector<account_id_type> result;
 
-      for( auto& a : {a1,a2,a3,a4,a5} )
+      for (auto& a: {a1,a2,a3,a4,a5})
       {
-          auto itr = refs.account_to_address_memberships.find(a);
-          if( itr != refs.account_to_address_memberships.end() )
-          {
-             result.reserve( itr->second.size() );
-             for( auto item : itr->second )
-             {
-                wdump((a)(item)(item(_db).name));
-                result.push_back(item);
-             }
-          }
+         auto itr = refs.account_to_address_memberships.find(a);
+         if (itr != refs.account_to_address_memberships.end())
+         {
+            result.reserve(itr->second.size());
+            for (auto item: itr->second)
+            {
+               wdump((a)(item)(item(_db).name));
+               result.push_back(item);
+            }
+         }
       }
 
-      if( itr != refs.account_to_key_memberships.end() )
+      if (itr != refs.account_to_key_memberships.end())
       {
-         result.reserve( itr->second.size() );
-         for( auto item : itr->second ) result.push_back(item);
+         result.reserve(itr->second.size());
+         for (auto item: itr->second) {
+            result.push_back(item);
+         }
       }
-      final_result.emplace_back( std::move(result) );
+      final_result.emplace_back(std::move(result));
    }
 
-   for( auto i : final_result )
+   for (auto i: final_result) {
       subscribe_to_item(i);
+   }
 
    return final_result;
 }
@@ -534,49 +542,47 @@ vector<vector<account_id_type>> database_api_impl::get_key_references( vector<pu
 // Addresses                                                        //
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
-vector<vector<account_id_type>> database_api::get_address_references( vector<address> addresses )const
-{
+vector<vector<account_id_type>> database_api::get_address_references(vector<address> addresses) const {
    return my->get_address_references( addresses );
 }
 
-address database_api::get_address( int64_t block_num, int64_t transaction_num ) const
-{
-    return address( block_num, transaction_num );
+address database_api::get_address(int64_t block_num, int64_t transaction_num) const {
+   return address( block_num, transaction_num );
 }
 
 /**
  *  @return all accounts that referr to the address or account id in their owner or active authorities.
  */
-vector<vector<account_id_type>> database_api_impl::get_address_references( vector<address> addresses )const
+vector<vector<account_id_type>> database_api_impl::get_address_references(vector<address> addresses) const
 {
    wdump( (addresses) );
-   vector< vector<account_id_type> > final_result;
+   vector<vector<account_id_type>> final_result;
    final_result.reserve(addresses.size());
 
-   for( auto& addr : addresses )
+   for (auto& addr: addresses)
    {
-
       const auto& idx = _db.get_index_type<account_index>();
       const auto& aidx = dynamic_cast<const primary_index<account_index>&>(idx);
       const auto& refs = aidx.get_secondary_index<graphene::chain::account_member_index>();
       vector<account_id_type> result;
 
       auto a_itr = refs.account_to_address_memberships.find(addr);
-      if( a_itr != refs.account_to_address_memberships.end() )
+      if (a_itr != refs.account_to_address_memberships.end())
       {
-         result.reserve( a_itr->second.size() );
-         for( auto item : a_itr->second )
+         result.reserve(a_itr->second.size());
+         for (auto item: a_itr->second)
          {
-           wdump((addr)(item)(item(_db).name));
+            wdump((addr)(item)(item(_db).name));
             result.push_back(item);
          }
       }
-      
-      final_result.emplace_back( std::move(result) );
+
+      final_result.emplace_back(std::move(result));
    }
 
-   for( auto i : final_result )
+   for (auto i: final_result) {
       subscribe_to_item(i);
+   }
 
    return final_result;
 }
@@ -587,9 +593,13 @@ vector<vector<account_id_type>> database_api_impl::get_address_references( vecto
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-vector<optional<account_object>> database_api::get_accounts(const vector<account_id_type>& account_ids)const
-{
+vector<optional<account_object>> database_api::get_accounts(const vector<account_id_type>& account_ids) const {
    return my->get_accounts( account_ids );
+}
+
+std::pair<unsigned, vector<address>>
+database_api::get_account_addresses(const string& name_or_id, unsigned from, unsigned limit) const {
+   return my->get_account_addresses(name_or_id, from, limit);
 }
 
 vector<optional<account_object>> database_api_impl::get_accounts(const vector<account_id_type>& account_ids)const
@@ -605,6 +615,33 @@ vector<optional<account_object>> database_api_impl::get_accounts(const vector<ac
       return {};
    });
    return result;
+}
+
+std::pair<unsigned, vector<address>>
+database_api_impl::get_account_addresses(const string& name_or_id, unsigned from, unsigned limit) const
+{
+   unsigned all_count = 0;
+   vector<address> v_result;
+   v_result.reserve(limit);
+
+   optional<account_object> account_obj = get_account_by_name_or_id(name_or_id);
+   FC_ASSERT( account_obj, "No such account with name_or_id '${n}'!", ("n", name_or_id) );
+
+   all_count = account_obj->addresses.size();
+   FC_ASSERT( (from < all_count), "Invalid argument 'from' (${v})", ("v", from) );
+
+   auto itr = account_obj->addresses.begin() + from;
+
+   while (itr != account_obj->addresses.end())
+   {
+      if (v_result.size() == limit) { break;}
+
+      v_result.emplace_back(*itr);
+
+      ++itr;
+   }
+
+   return {all_count, v_result};
 }
 
 std::map<string,full_account> database_api::get_full_accounts(const vector<string>& names_or_ids, bool subscribe) {
@@ -708,22 +745,13 @@ optional<bonus_balances_object> database_api::get_bonus_balances( string name_or
 }
 optional<bonus_balances_object> database_api_impl::get_bonus_balances( string name_or_id ) const
 {
-   const account_object* account = nullptr;
-   if (std::isdigit(name_or_id[0])) {
-      account = _db.find(fc::variant(name_or_id, 1).as<account_id_type>(1));
-   }
-   else
-   {
-      const auto& idx = _db.get_index_type<account_index>().indices().get<by_name>();
-      auto itr = idx.find(name_or_id);
-      if (itr != idx.end())
-         account = &*itr;
-   }
-   if (account == nullptr)
+   optional<account_object> account_obj = get_account_by_name_or_id(name_or_id);
+   if (!account_obj) {
       return optional<bonus_balances_object>();
+   }
    optional<bonus_balances_object> obj;
    const auto& index = _db.get_index_type<bonus_balances_index>().indices().get<by_account>();
-   const auto& account_balances = index.find(account->id);
+   const auto& account_balances = index.find(account_obj->id);
    return account_balances == index.end() ? optional<bonus_balances_object>() : *account_balances;
 }
 
@@ -739,6 +767,30 @@ optional<account_object> database_api_impl::get_account_by_name( string name )co
    if (itr != idx.end())
       return *itr;
    return optional<account_object>();
+}
+
+optional<account_object> database_api_impl::get_account_by_name_or_id(const string& name_or_id) const
+{
+   optional<account_object> result;
+
+   const account_object* account_ptr = nullptr;
+   if (std::isdigit(name_or_id[0])) {
+      account_ptr = _db.find(fc::variant(name_or_id, 1).as<account_id_type>(1));
+   }
+   else
+   {
+      const auto& idx = _db.get_index_type<account_index>().indices().get<by_name>();
+      auto itr = idx.find(name_or_id);
+      if (itr != idx.end()) {
+         account_ptr = &*itr;
+      }
+   }
+
+   if (account_ptr) {
+      result = *account_ptr;
+   }
+
+   return result;
 }
 
 vector<account_id_type> database_api::get_account_references( account_id_type account_id )const

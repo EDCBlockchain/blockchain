@@ -2415,6 +2415,11 @@ public:
       return sign_transaction(tx, broadcast);
    } FC_CAPTURE_AND_RETHROW( (from)(to)(amount)(asset_symbol)(memo)(broadcast) ) }
 
+   std::pair<unsigned, vector<address>>
+   get_account_addresses(const string& name_or_id, unsigned from, unsigned limit) {
+      return _remote_db->get_account_addresses(name_or_id, from, limit);
+   }
+
    signed_transaction set_online_time( map<account_id_type, uint16_t> online_info)
    { try {
       bool broadcast = true;
@@ -3752,6 +3757,7 @@ std::pair<std::string, signed_transaction>
 wallet_api::transfer2(string from, string to, string amount, string asset_symbol, string memo )
 {
    auto trx = transfer( from, to, amount, asset_symbol, memo, true );
+   trx.id();
 
    const std::string& op_id = my->get_operation_id_after_transfer();
 
@@ -4041,8 +4047,9 @@ signed_transaction wallet_api::generate_address(const string& account_id_or_name
    return my->generate_address(account_id_or_name);
 }
 
-vector<address> wallet_api::get_account_addresses(string account) {
-   return get_account(account).addresses;
+std::pair<unsigned, vector<address>>
+wallet_api::get_account_addresses(const string& name_or_id, unsigned from, unsigned limit) {
+   return my->get_account_addresses(name_or_id, from, limit);
 }
 
 signed_transaction wallet_api::propose_fee_change(

@@ -144,6 +144,14 @@ struct get_impacted_account_visitor
    void operator()( const fund_remove_operation& op) {
       _impacted_accounts.insert(ALPHA_ACCOUNT_ID);
    }
+   void operator()( const fund_set_fixed_percent_on_deposits_operation& op)
+   {
+      _impacted_accounts.insert(ALPHA_ACCOUNT_ID);
+      _impacted_funds.insert(op.id);
+   }
+   void operator()( const enable_autorenewal_deposits_operation& op) {
+      _impacted_accounts.insert(op.account);
+   }
    void operator()( const asset_update_operation& op )
    {
       if ( op.new_issuer ) {

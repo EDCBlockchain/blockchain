@@ -38,9 +38,7 @@ namespace graphene { namespace chain {
     */
    struct fund_create_operation: public base_operation
    {
-      struct fee_parameters_type {
-         uint64_t fee = 0;
-      };
+      struct fee_parameters_type { uint64_t fee = 0; };
 
       asset           fee;
 
@@ -61,9 +59,7 @@ namespace graphene { namespace chain {
     */
    struct fund_update_operation: public base_operation
    {
-      struct fee_parameters_type {
-         uint64_t fee = 0;
-      };
+      struct fee_parameters_type { uint64_t fee = 0; };
 
       asset           fee;
 
@@ -83,9 +79,7 @@ namespace graphene { namespace chain {
     */
    struct fund_refill_operation: public base_operation
    {
-      struct fee_parameters_type {
-         uint64_t fee = 0;
-      };
+      struct fee_parameters_type { uint64_t fee = 0; };
 
       asset           fee;
 
@@ -105,9 +99,7 @@ namespace graphene { namespace chain {
     */
    struct fund_deposit_operation: public base_operation
    {
-      struct fee_parameters_type {
-         uint64_t fee = 0;
-      };
+      struct fee_parameters_type { uint64_t fee = 0; };
 
       asset           fee;
 
@@ -128,9 +120,7 @@ namespace graphene { namespace chain {
     */
    struct fund_withdrawal_operation: public base_operation
    {
-      struct fee_parameters_type {
-         uint64_t fee = 0;
-      };
+      struct fee_parameters_type { uint64_t fee = 0; };
 
       asset           fee;
       account_id_type issuer;
@@ -142,7 +132,7 @@ namespace graphene { namespace chain {
 
       extensions_type extensions;
       account_id_type fee_payer() const { return issuer; }
-      void            validate() const;
+      void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
    }; // fund_deposit_create_operation
@@ -152,9 +142,7 @@ namespace graphene { namespace chain {
     */
    struct fund_payment_operation: public base_operation
    {
-      struct fee_parameters_type {
-         uint64_t fee = 0;
-      };
+      struct fee_parameters_type { uint64_t fee = 0; };
 
       asset           fee;
       account_id_type issuer;
@@ -167,7 +155,7 @@ namespace graphene { namespace chain {
 
       extensions_type extensions;
       account_id_type fee_payer() const { return issuer; }
-      void            validate() const;
+      void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
    }; // fund_payment_operation
@@ -177,9 +165,7 @@ namespace graphene { namespace chain {
     */
    struct fund_set_enable_operation: public base_operation
    {
-      struct fee_parameters_type {
-         uint64_t fee = 0;
-      };
+      struct fee_parameters_type { uint64_t fee = 0; };
 
       asset           fee;
 
@@ -188,16 +174,14 @@ namespace graphene { namespace chain {
 
       extensions_type extensions;
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
-      void            validate() const;
+      void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
    }; // fund_set_enable_operation
 
    struct fund_deposit_set_enable_operation: public base_operation
    {
-      struct fee_parameters_type {
-         uint64_t fee = 0;
-      };
+      struct fee_parameters_type { uint64_t fee = 0; };
 
       asset fee;
 
@@ -206,16 +190,14 @@ namespace graphene { namespace chain {
 
       extensions_type extensions;
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
-      void            validate() const;
+      void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
    }; // fund_deposit_set_enable_operation
 
    struct fund_remove_operation: public base_operation
    {
-      struct fee_parameters_type {
-         uint64_t fee = 0;
-      };
+      struct fee_parameters_type { uint64_t fee = 0; };
 
       asset fee;
 
@@ -223,10 +205,42 @@ namespace graphene { namespace chain {
 
       extensions_type extensions;
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
-      void            validate() const;
+      void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
    }; // fund_remove_operation
+
+   struct fund_set_fixed_percent_on_deposits_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset fee;
+
+      fund_id_type id; // fund id
+      uint32_t percent = 0;
+
+      extensions_type extensions;
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+      share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
+
+   }; // fund_set_fixed_percent_on_deposits
+
+   struct enable_autorenewal_deposits_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset fee;
+
+      account_id_type account;
+      bool enabled = true;
+
+      extensions_type extensions;
+      account_id_type fee_payer() const { return account; }
+      void            validate() const { };
+      share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
+
+   }; // enable_autorenewal_deposits_operation
 
 } } // graphene::chain
 
@@ -274,4 +288,12 @@ FC_REFLECT( graphene::chain::fund_deposit_set_enable_operation,
 FC_REFLECT( graphene::chain::fund_remove_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::fund_remove_operation,
             (fee)(id)(extensions) )
+
+FC_REFLECT( graphene::chain::fund_set_fixed_percent_on_deposits_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::chain::fund_set_fixed_percent_on_deposits_operation,
+            (fee)(id)(percent)(extensions) )
+
+FC_REFLECT( graphene::chain::enable_autorenewal_deposits_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::chain::enable_autorenewal_deposits_operation,
+            (fee)(account)(enabled)(extensions) )
 
