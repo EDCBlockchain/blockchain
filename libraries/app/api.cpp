@@ -37,10 +37,13 @@
 #include <graphene/chain/withdraw_permission_object.hpp>
 #include <graphene/chain/worker_object.hpp>
 #include <graphene/chain/fund_object.hpp>
+#include <graphene/chain/receipt_object.hpp>
 #include <graphene/chain/operation_history_object.hpp>
 
 #include <fc/crypto/hex.hpp>
 #include <fc/smart_ref_impl.hpp>
+
+#include <boost/range/adaptor/reversed.hpp>
 
 namespace graphene { namespace app {
 
@@ -84,6 +87,9 @@ namespace graphene { namespace app {
        }
        else if (api_name == "history_api") {
           _history_api = std::make_shared< history_api >( _app );
+       }
+       else if (api_name == "secure_api") {
+          _secure_api = std::make_shared< secure_api >( _app );
        }
        else if (api_name == "network_node_api") {
           _network_node_api = std::make_shared< network_node_api >( std::ref(_app) );
@@ -278,6 +284,12 @@ namespace graphene { namespace app {
        return *_history_api;
     }
 
+    fc::api<secure_api> login_api::secure() const
+    {
+       FC_ASSERT(_secure_api);
+       return *_secure_api;
+    }
+
     fc::api<crypto_api> login_api::crypto() const
     {
        FC_ASSERT(_crypto_api);
@@ -375,11 +387,14 @@ namespace graphene { namespace app {
                break;
             } case restricted_account_object_type: {
                break;
-            } case account_addresses_object_type: {
+            } case market_address_object_type: {
                 break;
             } case fund_object_type: {
                 break;
             }
+             case receipt_object_type: {
+                break;
+             }
           }
        }
        else if( obj->id.space() == implementation_ids )
@@ -439,6 +454,8 @@ namespace graphene { namespace app {
                  case impl_fund_statistics_object_type:
                  case impl_fund_transaction_history_object_type:
                  case impl_fund_history_object_type:
+                 case impl_blind_transfer2_settings_object_type:
+                 case impl_blind_transfer2_object_type:
                   break;
           }
        }
@@ -824,30 +841,110 @@ namespace graphene { namespace app {
    vector<bucket_object> history_api::get_market_history( asset_id_type a, asset_id_type b,
                                                           uint32_t bucket_seconds, fc::time_point_sec start, fc::time_point_sec end )const
    { try {
-       FC_ASSERT(_app.chain_database());
-       const auto& db = *_app.chain_database();
-       vector<bucket_object> result;
-       result.reserve(200);
+      FC_ASSERT(_app.chain_database());
+      const auto& db = *_app.chain_database();
+      vector<bucket_object> result;
+      result.reserve(200);
 
-       if( a > b ) std::swap(a,b);
+      if (a > b) std::swap(a,b);
 
-       const auto& bidx = db.get_index_type<bucket_index>();
-       const auto& by_key_idx = bidx.indices().get<by_key>();
+      const auto& bidx = db.get_index_type<bucket_index>();
+      const auto& by_key_idx = bidx.indices().get<by_key>();
 
-       auto itr = by_key_idx.lower_bound( bucket_key( a, b, bucket_seconds, start ) );
-       while( itr != by_key_idx.end() && itr->key.open <= end && result.size() < 200 )
-       {
-          if( !(itr->key.base == a && itr->key.quote == b && itr->key.seconds == bucket_seconds) )
-          {
+      auto itr = by_key_idx.lower_bound( bucket_key( a, b, bucket_seconds, start ) );
+      while( itr != by_key_idx.end() && itr->key.open <= end && result.size() < 200 )
+      {
+         if (!(itr->key.base == a && itr->key.quote == b && itr->key.seconds == bucket_seconds)) {
             return result;
-          }
-          result.push_back(*itr);
-          ++itr;
-       }
-       return result;
-    } FC_CAPTURE_AND_RETHROW( (a)(b)(bucket_seconds)(start)(end) ) }
+         }
+         result.push_back(*itr);
+         ++itr;
+      }
+      return result;
 
-   crypto_api::crypto_api(){};
+   } FC_CAPTURE_AND_RETHROW( (a)(b)(bucket_seconds)(start)(end) ) }
+
+   ///////////////////////////////////////////////////////////////////////////////
+
+   fc::variants secure_api::get_objects(const vector<object_id_type>& ids) const
+   {
+      FC_ASSERT(_app.chain_database());
+      const auto& db = *_app.chain_database();
+
+      fc::variants result;
+      result.reserve(ids.size());
+
+      std::transform(ids.begin(), ids.end(), std::back_inserter(result),
+                     [&](object_id_type id) -> fc::variant
+                     {
+                        if (auto obj = db.find_object(id)) {
+                           return obj->to_variant();
+                        }
+                        return { };
+                     });
+
+      return result;
+   }
+
+   std::vector<receipt_object>
+   secure_api::get_account_receipts(account_id_type account_id, uint32_t start, uint32_t limit) const
+   {
+      FC_ASSERT(_app.chain_database());
+      const auto& db = *_app.chain_database();
+
+      std::vector<receipt_object> result;
+
+      const auto& idx = db.get_index_type<receipt_index>().indices().get<by_creation_datetime>();
+      auto itr = idx.rbegin();
+      uint32_t i = 0;
+
+      while (itr != idx.rend())
+      {
+         if ( (itr->maker == account_id) || (itr->taker == account_id) )
+         {
+            if (i >= start) {
+               result.emplace_back(*itr);
+            }
+            ++i;
+         }
+         if (result.size() == limit) { break; }
+         ++itr;
+      }
+
+      return result;
+   }
+
+   std::vector<blind_transfer2_object>
+   secure_api::get_account_blind_transfers2(account_id_type account_id, uint32_t start, uint32_t limit) const
+   {
+      FC_ASSERT(_app.chain_database());
+      const auto& db = *_app.chain_database();
+
+      std::vector<blind_transfer2_object> result;
+
+      const auto& idx = db.get_index_type<blind_transfer2_index>().indices().get<by_datetime>();
+      auto itr = idx.rbegin();
+      uint32_t i = 0;
+
+      while (itr != idx.rend())
+      {
+         if ( (itr->from == account_id) || (itr->to == account_id) )
+         {
+            if (i >= start) {
+               result.emplace_back(*itr);
+            }
+            ++i;
+         }
+         if (result.size() == limit) { break; }
+         ++itr;
+      }
+
+      return result;
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////
+
+   crypto_api::crypto_api() { }
 
    /*blind_signature crypto_api::blind_sign( const extended_private_key_type& key, const blinded_hash& hash, int i ) {
       return fc::ecc::extended_private_key( key ).blind_sign( hash, i );

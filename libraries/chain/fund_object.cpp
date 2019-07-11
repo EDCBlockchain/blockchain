@@ -159,9 +159,34 @@ void fund_object::process(database& db) const
                   {
                      dep_was_overdue = false;
 
-                     db.modify(dep, [&](fund_deposit_object& dep) {
-                        dep.datetime_end = db.get_dynamic_global_properties().last_budget_time + (86400 * dep.period);
-                     });
+                     if (db.head_block_time() > HARDFORK_625_TIME)
+                     {
+                        chain::deposit_renewal_operation op;
+                        op.account_id = dep.account_id;
+                        op.deposit_id = dep.get_id();
+                        op.percent = dep.percent;
+                        if (p_rate.valid()) {
+                           op.percent = p_rate->percent;
+                        }
+                        op.datetime_end = dep.datetime_end + (86400 * dep.period);
+
+                        try
+                        {
+                           op.validate();
+                           db.apply_operation(eval, op);
+                        } catch (fc::assert_exception& e) { }
+                     }
+                     // last_budget_time - not stable
+                     else
+                     {
+                        db.modify(dep, [&](fund_deposit_object& dep)
+                        {
+                           if (p_rate.valid()) {
+                              dep.percent = p_rate->percent;
+                           }
+                           dep.datetime_end = db.get_dynamic_global_properties().last_budget_time + (86400 * dep.period);
+                        });
+                     };
                   }
                }
             }
@@ -191,9 +216,9 @@ void fund_object::process(database& db) const
                });
 
                // disable deposit
-               //    db.modify(dep, [&](chain::fund_deposit_object& f) {
-               //    f.enabled = false;
-               // });
+               db.modify(dep, [&](chain::fund_deposit_object& f) {
+                  f.enabled = false;
+               });
             }
          }
       }
@@ -257,9 +282,12 @@ void fund_object::process(database& db) const
       }
    }
 
-   // erase overdue deposits
-   for (const object_id_type& obj_id: deps_to_remove) {
-      db.remove(db.get_object(obj_id));
+   // erase overdue deposits if no full-node
+   if (db.get_history_size() > 0)
+   {
+      for (const object_id_type& obj_id: deps_to_remove) {
+         db.remove(db.get_object(obj_id));
+      }
    }
 
    // erase old history items

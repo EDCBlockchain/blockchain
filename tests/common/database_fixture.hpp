@@ -304,6 +304,17 @@ struct database_fixture {
     , const fund_options& options
     , account_id_type owner = ALPHA_ACCOUNT_ID);
 
+   void make_receipt(
+   const string& rcp_code,
+   fc::time_point_sec expiration_datetime
+   ,asset_id_type asset_id
+   ,share_type    amount
+   , account_id_type owner);
+
+   void use_receipt(
+   const string& rcp_code,
+   account_id_type to_account);
+
 };
 
 namespace test {

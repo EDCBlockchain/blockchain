@@ -270,4 +270,65 @@ BOOST_AUTO_TEST_CASE(change_asset_fee_test)
 
 }
 
+BOOST_AUTO_TEST_CASE(blind_transfer2_test)
+{
+   BOOST_TEST_MESSAGE( "=== blind_transfer2_test ===" );
+
+   try {
+
+      ACTOR(abcde1); // for needed IDs
+      ACTOR(alice);
+      ACTOR(bob);
+
+      create_edc(asset(100, CORE_ASSET), asset(2, EDC_ASSET));
+      create_test_asset();
+
+      const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
+      const blind_transfer2_settings_object& b_settings = db.get(blind_transfer2_settings_id_type(0));
+
+      issue_uia(alice_id, asset(10000, EDC_ASSET));
+
+      BOOST_CHECK(b_settings.blind_fee.amount == 0);
+
+      // change settings of blind_transfer2
+      update_blind_transfer2_settings_operation s_op;
+      s_op.blind_fee = asset(1, EDC_ASSET);
+      trx.operations.push_back(s_op);
+      trx.validate();
+      db.push_transaction(trx, ~0);
+      trx.clear();
+
+      generate_block();
+
+      BOOST_CHECK(b_settings.blind_fee.amount == 1);
+
+      const asset_dynamic_data_object& asset_dyn_data = edc_asset.dynamic_asset_data_id(db);
+      BOOST_CHECK(asset_dyn_data.current_supply.value == 10000);
+
+      // make blind_transfer2
+      blind_transfer2_operation op2;
+      op2.from = alice_id;
+      op2.to   = bob_id;
+      op2.amount = asset(1000, EDC_ASSET);
+      trx.operations.push_back(op2);
+      trx.validate();
+      db.push_transaction(trx, ~0);
+      trx.clear();
+
+      generate_block();
+
+      // 1 EDC is fee
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 8999);
+
+      // 1 EDC burned (fee)
+      BOOST_CHECK(asset_dyn_data.current_supply.value == 9999);
+   }
+   catch (fc::exception& e)
+   {
+      edump((e.to_detail_string()));
+      throw;
+   }
+
+}
+
 BOOST_AUTO_TEST_SUITE_END()

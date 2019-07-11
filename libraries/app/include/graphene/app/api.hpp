@@ -164,6 +164,29 @@ namespace graphene { namespace app {
    };
 
    /**
+    * @brief The secure_api class implements the RPC API for secure elements
+    *
+    * This API contains methods to access various secure entities
+    */
+   class secure_api
+   {
+   public:
+      secure_api(application& app):_app(app) { }
+
+      fc::variants get_objects(const vector<object_id_type>& ids) const;
+
+      std::vector<blind_transfer2_object>
+      get_account_blind_transfers2(account_id_type account_id, uint32_t start, uint32_t limit) const;
+
+      std::vector<receipt_object>
+      get_account_receipts(account_id_type account_id, uint32_t start, uint32_t limit) const;
+
+   private:
+      application& _app;
+
+   };
+
+   /**
     * @brief The network_broadcast_api class allows broadcasting of transactions.
     */
    class network_broadcast_api : public std::enable_shared_from_this<network_broadcast_api>
@@ -327,6 +350,8 @@ namespace graphene { namespace app {
          fc::api<database_api> database()const;
          /// @brief Retrieve the history API
          fc::api<history_api> history()const;
+         /// @brief Retrieve the secure API
+         fc::api<secure_api> secure()const;
          /// @brief Retrieve the network node API
          fc::api<network_node_api> network_node()const;
          /// @brief Retrieve the cryptography API
@@ -339,12 +364,13 @@ namespace graphene { namespace app {
          void enable_api( const string& api_name );
 
          application& _app;
-         optional< fc::api<database_api> > _database_api;
-         optional< fc::api<network_broadcast_api> > _network_broadcast_api;
-         optional< fc::api<network_node_api> > _network_node_api;
-         optional< fc::api<history_api> >  _history_api;
-         optional< fc::api<crypto_api> > _crypto_api;
-         optional< fc::api<graphene::debug_witness::debug_api> > _debug_api;
+         optional<fc::api<database_api>>          _database_api;
+         optional<fc::api<network_broadcast_api>> _network_broadcast_api;
+         optional<fc::api<network_node_api>>      _network_node_api;
+         optional<fc::api<history_api>>           _history_api;
+         optional<fc::api<secure_api>>            _secure_api;
+         optional<fc::api<crypto_api>>            _crypto_api;
+         optional<fc::api<graphene::debug_witness::debug_api>> _debug_api;
    };
 
 }}  // graphene::app
@@ -372,6 +398,11 @@ FC_API(graphene::app::history_api,
        (get_market_history)
        (get_market_history_buckets)
      )
+FC_API(graphene::app::secure_api,
+       (get_objects)
+       (get_account_blind_transfers2)
+       (get_account_receipts)
+)
 FC_API(graphene::app::network_broadcast_api,
        (broadcast_transaction)
        (broadcast_transaction_with_callback)
@@ -403,6 +434,7 @@ FC_API(graphene::app::login_api,
        (network_broadcast)
        (database)
        (history)
+       (secure)
        (network_node)
        (crypto)
        (debug)

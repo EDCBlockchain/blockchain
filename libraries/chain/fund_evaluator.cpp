@@ -235,9 +235,20 @@ eval_fund_dep_apply_object fund_deposit_evaluator::do_apply( const fund_deposit_
       o.fund_id    = op.id;
       o.account_id = op.from_account;
       o.amount     = op.amount;
-      o.datetime_begin                    = d.head_block_time();
-      o.prev_maintenance_time_on_creation = d.get_dynamic_global_properties().last_budget_time;
-      o.datetime_end                      = o.prev_maintenance_time_on_creation + (86400 * op.period);
+      o.datetime_begin = d.head_block_time();
+
+      if (d.head_block_time() > HARDFORK_625_TIME)
+      {
+         o.prev_maintenance_time_on_creation = d.get_dynamic_global_properties().next_maintenance_time -
+                                               d.get_global_properties().parameters.maintenance_interval;
+      }
+      else
+      {
+         // last_budget_time - not stable
+         o.prev_maintenance_time_on_creation = d.get_dynamic_global_properties().last_budget_time;
+      }
+
+      o.datetime_end = o.prev_maintenance_time_on_creation + (86400 * op.period);
       o.period = op.period;
 
       if (p_rate) {
@@ -530,5 +541,38 @@ void_result enable_autorenewal_deposits_evaluator::do_apply( const enable_autore
    return void_result();
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+void_result deposit_renewal_evaluator::do_evaluate( const deposit_renewal_operation& op )
+{ try {
+
+   const database& d = db();
+
+   auto itr = d.find(op.deposit_id);
+   FC_ASSERT(itr, "deposit '${dep}' not found!", ("dep", op.deposit_id));
+
+   fund_deposit_ptr = &(*itr);
+
+   return void_result();
+
+}  FC_CAPTURE_AND_RETHROW( (op) ) }
+
+void_result deposit_renewal_evaluator::do_apply( const deposit_renewal_operation& o )
+{ try {
+   database& d = db();
+
+   if (fund_deposit_ptr)
+   {
+      d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep)
+      {
+         dep.percent = o.percent;
+         dep.datetime_end = o.datetime_end;
+      });
+   }
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (o) ) }
 
 } } // graphene::chain

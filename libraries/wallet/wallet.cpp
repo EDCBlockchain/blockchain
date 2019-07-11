@@ -128,6 +128,7 @@ public:
    std::string operator()(const account_create_operation& op)const;
    std::string operator()(const account_update_operation& op)const;
    std::string operator()(const asset_create_operation& op)const;
+   std::string operator()(const blind_transfer2_operation& op)const;
 };
 
 template<class T>
@@ -402,7 +403,8 @@ public:
         _remote_api(rapi),
         _remote_db(rapi->database()),
         _remote_net_broadcast(rapi->network_broadcast()),
-        _remote_hist(rapi->history())
+        _remote_hist(rapi->history()),
+        _remote_secure(rapi->secure())
    {
       chain_id_type remote_chain_id = _remote_db->get_chain_id();
       if (remote_chain_id != _chain_id)
@@ -1719,6 +1721,26 @@ public:
       return sign_transaction(tx, broadcast);
    } FC_CAPTURE_AND_RETHROW( (initiator)(asset_to_update)(core_exchange_rate)(expiration_time)(broadcast) ) }
 
+   signed_transaction set_market(const std::string& account, bool enabled)
+   { try {
+
+      account_object to_account = get_account(account);
+
+      set_market_operation op;
+      op.to_account = to_account.get_id();
+      op.enabled = enabled;
+
+      signed_transaction tx;
+      tx.operations.push_back(op);
+      set_operation_fees(tx, _remote_db->get_global_properties().parameters.current_fees);
+      tx.validate();
+
+      bool broadcast = true;
+
+      return sign_transaction( tx, broadcast);
+
+   } FC_CAPTURE_AND_RETHROW( (account)(enabled) ) }
+
    signed_transaction create_committee_member(string owner_account, string url, bool broadcast /* = false */)
    { try {
 
@@ -2420,6 +2442,20 @@ public:
       return _remote_db->get_account_addresses(name_or_id, from, limit);
    }
 
+   std::vector<blind_transfer2_object>
+   get_account_blind_transfers2(const string& name_or_id, unsigned from, unsigned limit)
+   {
+      const account_object& acc = get_account(name_or_id);
+      return _remote_secure->get_account_blind_transfers2(acc.get_id(), from, limit);
+   }
+
+   std::vector<receipt_object>
+   get_account_receipts(const string& name_or_id, unsigned from, unsigned limit)
+   {
+      const account_object& acc = get_account(name_or_id);
+      return _remote_secure->get_account_receipts(acc.get_id(), from, limit);
+   }
+
    signed_transaction set_online_time( map<account_id_type, uint16_t> online_info)
    { try {
       bool broadcast = true;
@@ -3020,8 +3056,9 @@ public:
    chain_id_type           _chain_id;
    fc::api<login_api>      _remote_api;
    fc::api<database_api>   _remote_db;
-   fc::api<network_broadcast_api>   _remote_net_broadcast;
+   fc::api<network_broadcast_api> _remote_net_broadcast;
    fc::api<history_api>    _remote_hist;
+   fc::api<secure_api>     _remote_secure;
    optional< fc::api<network_node_api> > _remote_net_node;
    optional< fc::api<graphene::debug_witness::debug_api> > _remote_debug;
 
@@ -3174,6 +3211,14 @@ std::string operation_printer::operator()(const asset_create_operation& op) cons
    out << "'" << op.symbol << "' with issuer " << wallet.get_account(op.issuer).name;
    return fee(op.fee);
 }
+
+std::string operation_printer::operator()(const blind_transfer2_operation& op) const
+{
+   out << "<hidden> ";
+   return "";
+}
+
+//std::string operator()(const blind_transfer2_operation& op)const;
 
 std::string operation_result_printer::operator()(const void_result& x) const
 {
@@ -3378,29 +3423,34 @@ vector<operation_history_object> wallet_api::get_account_operation_history4(acco
    return my->_remote_hist->get_account_operation_history4(account, start, limit, operation_types);
 }
 
-vector<bucket_object> wallet_api::get_market_history( string symbol1, string symbol2, uint32_t bucket )const
+vector<fund_deposit_object> wallet_api::get_account_deposits(const string& name_or_id, uint32_t start, uint32_t limit) const
 {
+   FC_ASSERT( name_or_id.size() > 0 );
+
+   const std::map<string, full_account>& accounts = my->_remote_db->get_full_accounts( { name_or_id }, false );
+
+   FC_ASSERT( accounts.size() > 0 );
+
+   return my->_remote_db->get_account_deposits(accounts.at(name_or_id).account.get_id(), start, limit);
+}
+
+vector<bucket_object> wallet_api::get_market_history(string symbol1, string symbol2, uint32_t bucket) const {
    return my->_remote_hist->get_market_history( get_asset_id(symbol1), get_asset_id(symbol2), bucket, fc::time_point_sec(), fc::time_point::now() );
 }
 
-vector<limit_order_object> wallet_api::get_limit_orders(string a, string b, uint32_t limit)const
-{
+vector<limit_order_object> wallet_api::get_limit_orders(string a, string b, uint32_t limit) const {
    return my->_remote_db->get_limit_orders(get_asset(a).id, get_asset(b).id, limit);
 }
 
-vector<call_order_object> wallet_api::get_call_orders(string a, uint32_t limit)const
-{
+vector<call_order_object> wallet_api::get_call_orders(string a, uint32_t limit) const {
    return my->_remote_db->get_call_orders(get_asset(a).id, limit);
 }
 
-vector<force_settlement_object> wallet_api::get_settle_orders(string a, uint32_t limit)const
-{
+vector<force_settlement_object> wallet_api::get_settle_orders(string a, uint32_t limit) const {
    return my->_remote_db->get_settle_orders(get_asset(a).id, limit);
 }
 
-
-map<account_id_type, uint16_t> wallet_api::get_online_info()const
-{
+map<account_id_type, uint16_t> wallet_api::get_online_info() const {
    return my->_remote_db->get_online_info();
 }
 
@@ -4050,6 +4100,16 @@ signed_transaction wallet_api::generate_address(const string& account_id_or_name
 std::pair<unsigned, vector<address>>
 wallet_api::get_account_addresses(const string& name_or_id, unsigned from, unsigned limit) {
    return my->get_account_addresses(name_or_id, from, limit);
+}
+
+std::vector<blind_transfer2_object>
+wallet_api::get_account_blind_transfers2(const string& name_or_id, unsigned from, unsigned limit) {
+   return my->get_account_blind_transfers2(name_or_id, from, limit);
+}
+
+std::vector<receipt_object>
+wallet_api::get_account_receipts(const string& name_or_id, unsigned from, unsigned limit) {
+   return my->get_account_receipts(name_or_id, from, limit);
 }
 
 signed_transaction wallet_api::propose_fee_change(
@@ -4979,6 +5039,10 @@ signed_transaction wallet_api::propose_update_asset_exchange_rate(
    , fc::time_point_sec expiration_time
    , bool broadcast) {
    return my->propose_update_asset_exchange_rate(initiator, asset_to_update, core_exchange_rate, expiration_time, broadcast);
+}
+
+signed_transaction wallet_api::set_market(const std::string& account, bool enabled) {
+   return my->set_market(account, enabled);
 }
 
 signed_block_with_info::signed_block_with_info( const signed_block& block )

@@ -394,6 +394,8 @@ class wallet_api
                                                                        , unsigned limit = 100
                                                                        , const vector<uint16_t>& operation_types = vector<uint16_t>()) const;
 
+      vector<fund_deposit_object> get_account_deposits(const string& name_or_id, uint32_t start, uint32_t limit) const;
+
       vector<bucket_object>             get_market_history(string symbol, string symbol2, uint32_t bucket)const;
       vector<limit_order_object>        get_limit_orders(string a, string b, uint32_t limit)const;
       vector<call_order_object>         get_call_orders(string a, uint32_t limit)const;
@@ -1429,6 +1431,27 @@ class wallet_api
       std::pair<unsigned, vector<address>>
       get_account_addresses(const string& name_or_id, unsigned from = 0, unsigned limit = 100);
 
+      /** Returns blind transfers (custom variant)
+       *
+       * @param limit maximum entities
+       * @param from from which transfer position start to count
+       *
+       * @return limited entities
+       */
+      std::vector<blind_transfer2_object>
+      get_account_blind_transfers2(const string& name_or_id, unsigned from = 0, unsigned limit = 100);
+
+
+      /** Returns account receipts (custom variant)
+       *
+       * @param limit maximum entities
+       * @param from from which receipt position start to count
+       *
+       * @return limited entities
+       */
+      std::vector<receipt_object>
+      get_account_receipts(const string& name_or_id, unsigned from = 0, unsigned limit = 100);
+
       /** Set your vote for the number of witnesses and committee_members in the system.
        *
        * Each account can voice their opinion on how many committee_members and how many 
@@ -1552,6 +1575,8 @@ class wallet_api
          , const variant_object& core_exchange_rate
          , fc::time_point_sec expiration_time
          , bool broadcast);
+
+      signed_transaction set_market(const std::string& account, bool enabled);
 
       void dbg_make_uia(string creator, string symbol);
       void dbg_make_mia(string creator, string symbol);
@@ -1741,6 +1766,7 @@ FC_API( graphene::wallet::wallet_api,
         (get_account_operation_history)
         (get_account_operation_history2)
         (get_account_operation_history4)
+        (get_account_deposits)
         (get_market_history)
         (get_global_properties)
         (get_dynamic_global_properties)
@@ -1785,4 +1811,7 @@ FC_API( graphene::wallet::wallet_api,
         (get_order_book)
         (generate_address)
         (get_account_addresses)
+        (get_account_blind_transfers2)
+        (get_account_receipts)
+        (set_market)
       )

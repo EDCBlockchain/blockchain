@@ -139,25 +139,26 @@ namespace graphene { namespace chain {
     */
    enum object_type
    {
-      null_object_type,
+      null_object_type,    // [idx: 0]
       base_object_type,
-      account_object_type,
+      account_object_type, // [idx: 2]
       asset_object_type,
-      force_settlement_object_type,
+      force_settlement_object_type, // [idx: 4]
       committee_member_object_type,
-      witness_object_type,
+      witness_object_type,          // [idx: 6]
       limit_order_object_type,
-      call_order_object_type,
+      call_order_object_type,       // [idx: 8]
       custom_object_type,
-      proposal_object_type,
+      proposal_object_type,         // [idx: 10]
       operation_history_object_type,
-      withdraw_permission_object_type,
+      withdraw_permission_object_type, // [idx: 12]
       vesting_balance_object_type,
-      worker_object_type,
+      worker_object_type,              // [idx: 14]
       balance_object_type,
-      restricted_account_object_type,
-      account_addresses_object_type, // deprecated. Must be deleted or replaced with another type
-      fund_object_type,
+      restricted_account_object_type,  // [idx: 16]
+      market_address_object_type,
+      fund_object_type,                // [idx: 18]
+      receipt_object_type,
       OBJECT_TYPE_COUNT ///< Sentry value which contains the number of different object types
    };
 
@@ -177,8 +178,9 @@ namespace graphene { namespace chain {
    class balance_object;
    class blinded_balance_object;
    class restricted_account_object;
-   class account_addresses_object;
+   class market_address_object;
    class fund_object;
+   class receipt_object;
 
    typedef object_id<protocol_ids, account_object_type,             account_object>             account_id_type;
    typedef object_id<protocol_ids, asset_object_type,               asset_object>               asset_id_type;
@@ -195,38 +197,41 @@ namespace graphene { namespace chain {
    typedef object_id<protocol_ids, worker_object_type,              worker_object>              worker_id_type;
    typedef object_id<protocol_ids, balance_object_type,             balance_object>             balance_id_type;
    typedef object_id<protocol_ids, restricted_account_object_type,  restricted_account_object>  banned_account_id_type;
-   typedef object_id<protocol_ids, account_addresses_object_type,   account_addresses_object>   account_addresses_id_type;
+   typedef object_id<protocol_ids, market_address_object_type,      market_address_object>      market_address_id_type;
    typedef object_id<protocol_ids, fund_object_type,                fund_object>                fund_id_type;
+   typedef object_id<protocol_ids, receipt_object_type,             receipt_object>             receipt_id_type;
 
    /*********** implementation types ***********/
 
    enum impl_object_type
    {
-      impl_global_property_object_type,
+      impl_global_property_object_type,         // [idx: 0]
       impl_dynamic_global_property_object_type,
-      impl_reserved0_object_type,      // formerly index_meta_object_type, TODO: delete me
+      impl_reserved0_object_type,               // [idx: 2], formerly index_meta_object_type, TODO: delete me
       impl_asset_dynamic_data_type,
-      impl_asset_bitasset_data_type,
+      impl_asset_bitasset_data_type,            // [idx: 4]
       impl_account_balance_object_type,
-      impl_account_statistics_object_type,
+      impl_account_statistics_object_type,      // [idx: 6]
       impl_transaction_object_type,
-      impl_block_summary_object_type,
+      impl_block_summary_object_type,           // [idx: 8]
       impl_account_transaction_history_object_type,
-      impl_blinded_balance_object_type,
+      impl_blinded_balance_object_type,         // [idx: 10]
       impl_chain_property_object_type,
-      impl_witness_schedule_object_type,
+      impl_witness_schedule_object_type,        // [idx: 12]
       impl_budget_record_object_type,
-      impl_special_authority_object_type,
+      impl_special_authority_object_type,       // [idx: 14]
       impl_buyback_object_type,
-      impl_fba_accumulator_object_type,
+      impl_fba_accumulator_object_type,         // [idx: 16]
       impl_account_mature_balance_object_type,
-      impl_account_properties_object_type,
+      impl_account_properties_object_type,      // [idx: 18]
       impl_accounts_online_object_type,
-      impl_bonus_balances_object_type,
+      impl_bonus_balances_object_type,          // [idx: 20]
       impl_fund_deposit_object_type,
-      impl_fund_statistics_object_type,
+      impl_fund_statistics_object_type,         // [idx: 22]
       impl_fund_transaction_history_object_type,
-      impl_fund_history_object_type
+      impl_fund_history_object_type,            // [idx: 24]
+      impl_blind_transfer2_settings_object_type,
+      impl_blind_transfer2_object_type          // [idx: 26]
    };
 
    class global_property_object;
@@ -252,6 +257,8 @@ namespace graphene { namespace chain {
    class fund_statistics_object;
    class fund_transaction_history_object;
    class fund_history_object;
+   class blind_transfer2_settings_object;
+   class blind_transfer2_object;
 
    typedef object_id<implementation_ids, impl_global_property_object_type,         global_property_object>         global_property_id_type;
    typedef object_id<implementation_ids, impl_dynamic_global_property_object_type, dynamic_global_property_object> dynamic_global_property_id_type;
@@ -280,6 +287,8 @@ namespace graphene { namespace chain {
    typedef object_id<implementation_ids, impl_fund_statistics_object_type,          fund_statistics_object>             fund_statistics_id_type;
    typedef object_id<implementation_ids, impl_fund_transaction_history_object_type, fund_transaction_history_object>    fund_transaction_history_id_type;
    typedef object_id<implementation_ids, impl_fund_history_object_type,             fund_history_object>                fund_history_id_type;
+   typedef object_id<implementation_ids, impl_blind_transfer2_settings_object_type, blind_transfer2_settings_object>    blind_transfer2_settings_id_type;
+   typedef object_id<implementation_ids, impl_blind_transfer2_object_type,          blind_transfer2_object>             blind_transfer2_object_id_type;
 
    typedef fc::array<char, GRAPHENE_MAX_ASSET_SYMBOL_LENGTH> symbol_type;
    typedef fc::ripemd160                                     block_id_type;
@@ -396,7 +405,8 @@ FC_REFLECT_ENUM( graphene::chain::object_type,
                  (balance_object_type)
                  (restricted_account_object_type)
                  (fund_object_type)
-                 (account_addresses_object_type)
+                 (market_address_object_type)
+                 (receipt_object_type)
                  (OBJECT_TYPE_COUNT)
                )
 FC_REFLECT_ENUM( graphene::chain::impl_object_type,
@@ -425,6 +435,8 @@ FC_REFLECT_ENUM( graphene::chain::impl_object_type,
                  (impl_fund_statistics_object_type)
                  (impl_fund_transaction_history_object_type)
                  (impl_fund_history_object_type)
+                 (impl_blind_transfer2_settings_object_type)
+                 (impl_blind_transfer2_object_type)
                )
 
 FC_REFLECT_TYPENAME( graphene::chain::share_type )
@@ -460,11 +472,13 @@ FC_REFLECT_TYPENAME( graphene::chain::buyback_id_type )
 FC_REFLECT_TYPENAME( graphene::chain::fba_accumulator_id_type )
 FC_REFLECT_TYPENAME( graphene::chain::account_properties_id_type )
 FC_REFLECT_TYPENAME( graphene::chain::accounts_online_id_type )
-FC_REFLECT_TYPENAME( graphene::chain::account_addresses_id_type )
+FC_REFLECT_TYPENAME( graphene::chain::market_address_id_type )
 FC_REFLECT_TYPENAME( graphene::chain::fund_id_type )
 FC_REFLECT_TYPENAME( graphene::chain::fund_deposit_id_type )
 FC_REFLECT_TYPENAME( graphene::chain::fund_statistics_id_type )
 FC_REFLECT_TYPENAME( graphene::chain::fund_transaction_history_id_type )
+FC_REFLECT_TYPENAME( graphene::chain::receipt_id_type )
+
 
 FC_REFLECT( graphene::chain::void_t, )
 

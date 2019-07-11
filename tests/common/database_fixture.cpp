@@ -1163,6 +1163,53 @@ void database_fixture::make_fund(
    trx.clear();
 }
 
+      void database_fixture::make_receipt(
+      const string& rcp_code,
+      fc::time_point_sec expiration_datetime
+      ,asset_id_type asset_id
+      ,share_type    amount
+      , account_id_type owner)
+      {
+   try
+   {
+      receipt_create_operation rco;
+
+      rco.fee = asset();
+      rco.receipt_code = rcp_code;
+      rco.expiration_datetime = expiration_datetime;
+      rco.maker = owner;
+      //rco.asset_id = asset_id;
+      rco.amount = asset(amount, EDC_ASSET);
+
+
+      set_expiration(db, trx);
+      trx.operations.push_back(std::move(rco));
+      trx.validate();
+      db.push_transaction(trx, ~0);
+      trx.clear();
+   }FC_CAPTURE_AND_RETHROW()
+
+      }
+
+      void database_fixture::use_receipt(
+      const string& rcp_code,
+      account_id_type to_account)
+      {
+   try
+   {
+      receipt_use_operation ruo;
+
+      ruo.fee = asset();
+      ruo.receipt_code = rcp_code;
+      ruo.taker = to_account;
+
+      set_expiration(db, trx);
+      trx.operations.push_back(std::move(ruo));
+      trx.validate();
+      db.push_transaction(trx, ~0);
+      trx.clear();
+   }FC_CAPTURE_AND_RETHROW()
+      }
 namespace test {
 
 void set_expiration( const database& db, transaction& tx )

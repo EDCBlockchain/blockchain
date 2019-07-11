@@ -154,4 +154,18 @@ namespace graphene { namespace chain {
 
    };
 
+   /////////////////////////////////////////////////////
+
+   class deposit_renewal_evaluator: public evaluator<deposit_renewal_evaluator>
+   {
+   public:
+      typedef deposit_renewal_operation operation_type;
+
+      void_result do_evaluate( const deposit_renewal_operation& o );
+      void_result do_apply( const deposit_renewal_operation& o );
+
+      const fund_deposit_object* fund_deposit_ptr = nullptr;
+
+   };
+
 } } // graphene::chain

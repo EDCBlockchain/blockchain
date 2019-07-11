@@ -135,6 +135,8 @@ void verify_account_votes( const database& db, const account_options& options )
 
 }
 
+//////////////////////////////////////////////////////////////////////////////////////
+
 void_result account_create_evaluator::do_evaluate( const account_create_operation& op )
 { try {
    database& d = db();
@@ -307,6 +309,7 @@ object_id_type account_create_evaluator::do_apply( const account_create_operatio
    return new_acnt_object.id;
 } FC_CAPTURE_AND_RETHROW((o)) }
 
+//////////////////////////////////////////////////////////////////////////////////////
 
 void_result account_update_evaluator::do_evaluate( const account_update_operation& o )
 { try {
@@ -417,6 +420,8 @@ void_result account_update_evaluator::do_apply( const account_update_operation& 
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
+//////////////////////////////////////////////////////////////////////////////////////
+
 void_result add_address_evaluator::do_evaluate(const add_address_operation& o) 
 {
    database& d = db();
@@ -450,6 +455,8 @@ void_result add_address_evaluator::do_apply(const add_address_operation& o)
 
    return void_result();
 }
+
+//////////////////////////////////////////////////////////////////////////////////////
 
 void_result account_whitelist_evaluator::do_evaluate(const account_whitelist_operation& o)
 { try {
@@ -494,6 +501,8 @@ void_result account_whitelist_evaluator::do_apply(const account_whitelist_operat
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
+//////////////////////////////////////////////////////////////////////////////////////
+
 void_result account_upgrade_evaluator::do_evaluate(const account_upgrade_evaluator::operation_type& o)
 { try {
    database& d = db();
@@ -536,6 +545,8 @@ void_result account_upgrade_evaluator::do_apply(const account_upgrade_evaluator:
 
    return {};
 } FC_RETHROW_EXCEPTIONS( error, "Unable to upgrade account '${a}'", ("a",o.account_to_upgrade(db()).name) ) }
+
+//////////////////////////////////////////////////////////////////////////////////////
 
 void_result account_restrict_evaluator::do_evaluate(const account_restrict_operation& o)
 { try {
@@ -591,6 +602,8 @@ object_id_type account_restrict_evaluator::do_apply(const account_restrict_opera
    return object_id_type();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
+//////////////////////////////////////////////////////////////////////////////////////
+
 void_result account_allow_referrals_evaluator::do_evaluate(const account_allow_referrals_operation& o)
 { try {
    database& d = db();
@@ -625,6 +638,8 @@ object_id_type account_allow_referrals_evaluator::do_apply(const account_allow_r
    return object_id_type();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
+//////////////////////////////////////////////////////////////////////////////////////
+
 void_result set_online_time_evaluator::do_evaluate(const set_online_time_operation& o)
 { try {
    return void_result();
@@ -641,6 +656,8 @@ void_result set_online_time_evaluator::do_apply(const set_online_time_operation&
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
+//////////////////////////////////////////////////////////////////////////////////////
+
 void_result set_verification_is_required_evaluator::do_evaluate(const set_verification_is_required_operation& o)
 { try {
    return void_result();
@@ -656,6 +673,8 @@ void_result set_verification_is_required_evaluator::do_apply(const set_verificat
 
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
+
+//////////////////////////////////////////////////////////////////////////////////////
 
 void_result allow_create_addresses_evaluator::do_evaluate(const allow_create_addresses_operation& o)
 { try {
@@ -685,6 +704,8 @@ void_result allow_create_addresses_evaluator::do_apply(const allow_create_addres
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
+//////////////////////////////////////////////////////////////////////////////////////
+
 void_result set_burning_mode_evaluator::do_evaluate(const set_burning_mode_operation& o)
 { try {
    database& d = db();
@@ -712,6 +733,8 @@ void_result set_burning_mode_evaluator::do_apply(const set_burning_mode_operatio
 
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
+
+//////////////////////////////////////////////////////////////////////////////////////
 
 void_result assets_update_fee_payer_evaluator::do_evaluate(const assets_update_fee_payer_operation& o)
 { try {
@@ -744,6 +767,8 @@ void_result assets_update_fee_payer_evaluator::do_apply(const assets_update_fee_
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
+//////////////////////////////////////////////////////////////////////////////////////
+
 void_result asset_update_exchange_rate_evaluator::do_evaluate(const asset_update_exchange_rate_operation& op)
 { try {
    database& d = db();
@@ -767,6 +792,36 @@ void_result asset_update_exchange_rate_evaluator::do_apply(const asset_update_ex
       d.modify<asset_object>(*asset_ptr, [&](asset_object& o) {
          o.options.core_exchange_rate = op.core_exchange_rate;
       } );
+   }
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+//////////////////////////////////////////////////////////////////////////////////////
+
+void_result set_market_evaluator::do_evaluate(const set_market_operation& op)
+{ try {
+   database& d = db();
+
+   const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
+   auto itr = idx.find(op.to_account);
+
+   FC_ASSERT(itr != idx.end(), "Account with ID ${id} not exists!", ("a", op.to_account));
+
+   account_ptr = &*itr;
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+void_result set_market_evaluator::do_apply(const set_market_operation& op)
+{ try {
+   database& d = db();
+
+   if (account_ptr)
+   {
+      d.modify<account_object>(*account_ptr, [&](account_object& acc) {
+         acc.is_market = op.enabled;
+      });
    }
 
    return void_result();

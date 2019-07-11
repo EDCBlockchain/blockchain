@@ -900,6 +900,8 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
       issue_bonuses_old();
    }
 
+   process_receipts();
+
    if (head_block_time() != HARDFORK_616_MAINTENANCE_CHANGE_TIME) {
       clear_account_mature_balance_index();
    }
@@ -918,6 +920,14 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
       {
          auto history_index = get_index_type<fund_transaction_history_index>().indices().get<by_time>().lower_bound(tp);
          auto begin_iter = get_index_type<fund_transaction_history_index>().indices().get<by_time>().begin();
+         while (begin_iter != history_index) {
+            remove(*begin_iter++);
+         }
+      }
+      // blind transfers
+      {
+         auto history_index = get_index_type<blind_transfer2_index>().indices().get<by_datetime>().lower_bound(tp);
+         auto begin_iter = get_index_type<blind_transfer2_index>().indices().get<by_datetime>().begin();
          while (begin_iter != history_index) {
             remove(*begin_iter++);
          }
@@ -952,6 +962,32 @@ void database::process_funds()
          fund_obj.finish(*this);
       }
    }
+}
+
+void database::process_receipts()
+{
+    const dynamic_global_property_object& dpo = get_dynamic_global_properties();
+    const global_property_object& gpo = get_global_properties();
+    const auto& idx_receipts = get_index_type<receipt_index>().indices().get<by_id>();
+    transaction_evaluation_state eval(this);
+
+    // we need to remove expired receipts and return amounts to the owners balances
+    for (auto itr_receipt = idx_receipts.begin(); itr_receipt != idx_receipts.end(); ++itr_receipt)
+    {
+       const receipt_object& receipt_obj = *itr_receipt;
+
+       // change receipt status from 'receipt_new' to 'receipt_undo' and return amount to owner if overdue
+       if ( (receipt_obj.receipt_status == receipt_new)
+            && ((dpo.next_maintenance_time - gpo.parameters.maintenance_interval) >= receipt_obj.get_expiration_datetime()) )
+       {
+          chain::receipt_undo_operation op;
+          op.receipt_code = receipt_obj.receipt_code;
+          try {
+             op.validate();
+             apply_operation(eval, op);
+          } catch (fc::assert_exception& e) {  }
+       }
+    }
 }
 
 void database::issue_bonuses()

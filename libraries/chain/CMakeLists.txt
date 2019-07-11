@@ -48,6 +48,7 @@ add_library( graphene_chain
              protocol/withdraw_permission.cpp
              protocol/asset_ops.cpp
              protocol/fund_ops.cpp
+             protocol/receipt_ops.cpp
              protocol/memo.cpp
              protocol/worker.cpp
              protocol/custom.cpp
@@ -71,6 +72,7 @@ add_library( graphene_chain
              committee_member_evaluator.cpp
              asset_evaluator.cpp
              fund_evaluator.cpp
+             receipt_evaluator.cpp
              transfer_evaluator.cpp
              proposal_evaluator.cpp
              market_evaluator.cpp
@@ -88,7 +90,6 @@ add_library( graphene_chain
              proposal_object.cpp
              vesting_balance_object.cpp
              fund_object.cpp
-
              block_database.cpp
 
              is_authorized_asset.cpp

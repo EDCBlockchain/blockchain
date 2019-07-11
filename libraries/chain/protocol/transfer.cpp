@@ -42,6 +42,14 @@ void transfer_operation::validate()const
    FC_ASSERT( amount.amount > 0 );
 }
 
+void blind_transfer2_operation::validate()const
+{
+   FC_ASSERT( fee.amount >= 0 );
+
+   FC_ASSERT( from != to );
+   FC_ASSERT( amount.amount > 0 );
+}
+
 share_type override_transfer_operation::calculate_fee( const fee_parameters_type& schedule )const
 {
    share_type core_fee_required = schedule.fee;

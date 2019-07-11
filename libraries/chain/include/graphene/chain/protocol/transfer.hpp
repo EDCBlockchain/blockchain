@@ -42,11 +42,12 @@ namespace graphene { namespace chain {
     *  @return n/a
     */
 
-   typedef flat_set<static_variant<void_t, string>>      transfer_extensions;
+   typedef flat_set<static_variant<void_t, string>> transfer_extensions;
 
-   struct transfer_operation : public base_operation
+   struct transfer_operation: public base_operation
    {
-      struct fee_parameters_type {
+      struct fee_parameters_type
+      {
          uint64_t fee       = 20 * GRAPHENE_BLOCKCHAIN_PRECISION;
          uint32_t price_per_kbyte = 10 * GRAPHENE_BLOCKCHAIN_PRECISION; /// only required for large memos.
       };
@@ -70,6 +71,58 @@ namespace graphene { namespace chain {
    };
 
    /**
+    *  @class update_blind_transfer2_settings_operation
+    *  @brief Allows update settings for blind_transfer2_operation
+    *  @ingroup operations
+    */
+   struct update_blind_transfer2_settings_operation: public base_operation
+   {
+      struct fee_parameters_type
+      {
+         uint64_t fee = 0;
+         uint32_t price_per_kbyte = 0;
+      };
+
+      asset fee;
+      asset blind_fee;
+
+      transfer_extensions extensions;
+
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+      share_type      calculate_fee(const fee_parameters_type& k) const { return 0; };
+   };
+
+   /**
+    * @ingroup operations
+    *
+    * @brief Transfers an amount of one asset from one account to another in blind mode
+    *
+    *  Fees are burned
+    */
+   struct blind_transfer2_operation: public base_operation
+   {
+      struct fee_parameters_type
+      {
+         uint64_t fee = 0;
+         uint32_t price_per_kbyte = 0;
+      };
+
+      asset            fee;
+
+      account_id_type  from;
+      account_id_type  to;
+      asset            amount;
+
+      optional<memo_data> memo;
+      transfer_extensions extensions;
+
+      account_id_type fee_payer() const { return from; }
+      void            validate() const;
+      share_type      calculate_fee(const fee_parameters_type& k) const { return 0; };
+   };
+
+   /**
     *  @class override_transfer_operation
     *  @brief Allows the issuer of an asset to transfer an asset from any account to any account if they have override_authority
     *  @ingroup operations
@@ -77,9 +130,10 @@ namespace graphene { namespace chain {
     *  @pre amount.asset_id->issuer == issuer
     *  @pre issuer != from  because this is pointless, use a normal transfer operation
     */
-   struct override_transfer_operation : public base_operation
+   struct override_transfer_operation: public base_operation
    {
-      struct fee_parameters_type {
+      struct fee_parameters_type
+      {
          uint64_t fee       = 20 * GRAPHENE_BLOCKCHAIN_PRECISION;
          uint32_t price_per_kbyte = 10; /// only required for large memos.
       };
@@ -105,8 +159,20 @@ namespace graphene { namespace chain {
 }} // graphene::chain
 
 FC_REFLECT_TYPENAME( graphene::chain::transfer_extensions )
-FC_REFLECT( graphene::chain::transfer_operation::fee_parameters_type, (fee)(price_per_kbyte) )
-FC_REFLECT( graphene::chain::override_transfer_operation::fee_parameters_type, (fee)(price_per_kbyte) )
 
-FC_REFLECT( graphene::chain::override_transfer_operation, (fee)(issuer)(from)(to)(amount)(memo)(extensions) )
+FC_REFLECT( graphene::chain::transfer_operation::fee_parameters_type, (fee)(price_per_kbyte) )
 FC_REFLECT( graphene::chain::transfer_operation, (fee)(from)(to)(amount)(memo)(extensions) )
+
+FC_REFLECT( graphene::chain::update_blind_transfer2_settings_operation::fee_parameters_type, (fee)(price_per_kbyte) )
+FC_REFLECT( graphene::chain::update_blind_transfer2_settings_operation, (fee)(blind_fee)(extensions) )
+
+FC_REFLECT( graphene::chain::blind_transfer2_operation::fee_parameters_type, (fee)(price_per_kbyte) )
+FC_REFLECT( graphene::chain::blind_transfer2_operation, (fee)(from)(to)(amount)(memo)(extensions) )
+
+FC_REFLECT( graphene::chain::override_transfer_operation::fee_parameters_type, (fee)(price_per_kbyte) )
+FC_REFLECT( graphene::chain::override_transfer_operation, (fee)(issuer)(from)(to)(amount)(memo)(extensions) )
+
+
+
+
+

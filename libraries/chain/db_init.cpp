@@ -47,6 +47,7 @@
 #include <graphene/chain/witness_object.hpp>
 #include <graphene/chain/witness_schedule_object.hpp>
 #include <graphene/chain/worker_object.hpp>
+#include <graphene/chain/receipt_object.hpp>
 
 #include <graphene/chain/account_evaluator.hpp>
 #include <graphene/chain/asset_evaluator.hpp>
@@ -63,6 +64,7 @@
 #include <graphene/chain/witness_evaluator.hpp>
 #include <graphene/chain/worker_evaluator.hpp>
 #include <graphene/chain/fund_evaluator.hpp>
+#include <graphene/chain/receipt_evaluator.hpp>
 
 #include <graphene/chain/protocol/fee_schedule.hpp>
 
@@ -199,6 +201,13 @@ void database::initialize_evaluators()
    register_evaluator<asset_update_exchange_rate_evaluator>();
    register_evaluator<fund_set_fixed_percent_on_deposits_evaluator>();
    register_evaluator<enable_autorenewal_deposits_evaluator>();
+   register_evaluator<update_blind_transfer2_settings_evaluator>();
+   register_evaluator<blind_transfer2_evaluator>();
+   register_evaluator<deposit_renewal_evaluator>();
+   register_evaluator<set_market_evaluator>();
+   register_evaluator<receipt_create_evaluator>();
+   register_evaluator<receipt_use_evaluator>();
+   register_evaluator<receipt_undo_evaluator>();
 }
 
 void database::initialize_indexes()
@@ -211,6 +220,7 @@ void database::initialize_indexes()
    add_index<primary_index<force_settlement_index>>();
    add_index<primary_index<fund_index>>();
    add_index<primary_index<fund_deposit_index>>();
+   add_index<primary_index<receipt_index>>();
 
    auto acnt_index = add_index<primary_index<account_index>>();
    acnt_index->add_secondary_index<account_member_index>();
@@ -247,12 +257,15 @@ void database::initialize_indexes()
    add_index<primary_index<simple_index<budget_record_object           >>>();
    add_index<primary_index<special_authority_index                     >>();
    add_index<primary_index<buyback_index                               >>();
+   add_index<primary_index<blind_transfer2_index                       >>();
+   add_index<primary_index<market_address_index                        >>();
 
    add_index<primary_index<simple_index<fba_accumulator_object    >>>();
    add_index<primary_index<simple_index<account_properties_object >>>();
    add_index<primary_index<simple_index<accounts_online_object    >>>();
    add_index<primary_index<simple_index<fund_statistics_object    >>>();
    add_index<primary_index<simple_index<fund_history_object       >>>();
+   add_index<primary_index<simple_index<blind_transfer2_settings_object >>>();
 }
 
 void database::init_genesis(const genesis_state_type& genesis_state)
@@ -439,12 +452,14 @@ void database::init_genesis(const genesis_state_type& genesis_state)
       p.recent_slots_filled = fc::uint128::max_value();
    });
 
-   create<account_properties_object>([&](account_properties_object& p) {
-   });
+   create<account_properties_object>([&](account_properties_object& p) { });
 
    create<accounts_online_object>([&](accounts_online_object& p) {
        p.online_info = map<account_id_type, uint16_t>();
    });
+
+   // settings for 'custom' blind transfers
+   create<blind_transfer2_settings_object>([&](blind_transfer2_settings_object& obj) { });
 
    FC_ASSERT( (genesis_state.immutable_parameters.min_witness_count & 1) == 1, "min_witness_count must be odd" );
    FC_ASSERT( (genesis_state.immutable_parameters.min_committee_member_count & 1) == 1, "min_committee_member_count must be odd" );

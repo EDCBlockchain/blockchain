@@ -154,6 +154,7 @@ public:
 
    void_result do_evaluate(const assets_update_fee_payer_operation& o);
    void_result do_apply(const assets_update_fee_payer_operation& o);
+
 };
 
 class asset_update_exchange_rate_evaluator: public evaluator<asset_update_exchange_rate_evaluator>
@@ -165,6 +166,18 @@ public:
    void_result do_apply(const asset_update_exchange_rate_operation& op);
 
    const asset_object* asset_ptr = nullptr;
+
+};
+
+class set_market_evaluator: public evaluator<set_market_evaluator>
+{
+public:
+   typedef set_market_operation operation_type;
+
+   void_result do_evaluate(const set_market_operation& o);
+   void_result do_apply(const set_market_operation& o);
+
+   const account_object* account_ptr = nullptr;
 
 };
 

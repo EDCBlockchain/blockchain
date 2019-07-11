@@ -28,7 +28,7 @@
 
 namespace graphene { namespace chain {
 
-   class transfer_evaluator : public evaluator<transfer_evaluator>
+   class transfer_evaluator: public evaluator<transfer_evaluator>
    {
       public:
          typedef transfer_operation operation_type;
@@ -40,7 +40,29 @@ namespace graphene { namespace chain {
          const account_object*            to_account_ptr = nullptr;
    };
 
-   class override_transfer_evaluator : public evaluator<override_transfer_evaluator>
+   class update_blind_transfer2_settings_evaluator: public evaluator<update_blind_transfer2_settings_evaluator>
+   {
+   public:
+      typedef update_blind_transfer2_settings_operation operation_type;
+
+      void_result do_evaluate( const update_blind_transfer2_settings_operation& o );
+      void_result do_apply( const update_blind_transfer2_settings_operation& o );
+
+   };
+
+   class blind_transfer2_evaluator: public evaluator<blind_transfer2_evaluator>
+   {
+   public:
+      typedef blind_transfer2_operation operation_type;
+
+      void_result do_evaluate( const blind_transfer2_operation& o );
+      void_result do_apply( const blind_transfer2_operation& o );
+
+      const asset_dynamic_data_object* asset_dyn_data_ptr = nullptr;
+      const account_object*            to_account_ptr = nullptr;
+   };
+
+   class override_transfer_evaluator: public evaluator<override_transfer_evaluator>
    {
       public:
          typedef override_transfer_operation operation_type;

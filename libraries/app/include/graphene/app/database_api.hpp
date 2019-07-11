@@ -41,6 +41,7 @@
 #include <graphene/chain/worker_object.hpp>
 #include <graphene/chain/witness_object.hpp>
 #include <graphene/chain/fund_object.hpp>
+#include <graphene/chain/receipt_object.hpp>
 
 #include <graphene/market_history/market_history_plugin.hpp>
 
@@ -159,33 +160,33 @@ class database_api
        * @param block_num Height of the block whose header should be returned
        * @return header of the referenced block, or null if no matching block was found
        */
-      optional<block_header> get_block_header(uint32_t block_num)const;
+      optional<block_header> get_block_header(uint32_t block_num) const;
 
       /**
        * @brief Retrieve a full, signed block
        * @param block_num Height of the block to be returned
        * @return the referenced block, or null if no matching block was found
        */
-      optional<signed_block> get_block(uint32_t block_num)const;
+      optional<signed_block> get_block(uint32_t block_num) const;
 
       /**
        * @brief Retrieve a full, signed block
        * @param block_id Id of the block to be returned
        * @return the referenced block, or null if no matching block was found
        */
-      optional<signed_block> get_block_by_id(string block_id)const;
+      optional<signed_block> get_block_by_id(string block_id) const;
 
       /**
        * @brief used to fetch an individual transaction.
        */
-      processed_transaction get_transaction( uint32_t block_num, uint32_t trx_in_block )const;
+      processed_transaction get_transaction( uint32_t block_num, uint32_t trx_in_block ) const;
 
       /**
        * If the transaction has not expired, this method will return the transaction for the given ID or
        * it will return NULL if it is not known.  Just because it is not known does not mean it wasn't
        * included in the blockchain.
        */
-      optional<signed_transaction> get_recent_transaction_by_id( const transaction_id_type& id )const;
+      optional<signed_transaction> get_recent_transaction_by_id( const transaction_id_type& id ) const;
 
       /////////////
       // Globals //
@@ -410,6 +411,12 @@ class database_api
        * @return asset sum of all user's deposits
        */
       asset get_fund_deposits_amount_by_account(fund_id_type fund_id, account_id_type account_id) const;
+
+      /**
+       * @brief Get sum of all user's deposits
+       * @param account_id ID of account
+       */
+      vector<fund_deposit_object> get_account_deposits(account_id_type account_id, uint32_t start, uint32_t limit) const;
 
       /////////////////////
       // Markets / feeds //
@@ -649,9 +656,12 @@ class database_api
        */
       vector<blinded_balance_object> get_blinded_balances( const flat_set<commitment_type>& commitments )const;
 
+      optional<signed_block> get_block_reserved(uint32_t block_num) const;
+
    private:
-      std::shared_ptr< database_api_impl > my;
-};
+      std::shared_ptr<database_api_impl> my;
+
+}; // database_api
 
 } }
 
@@ -660,6 +670,7 @@ FC_REFLECT( graphene::app::order_book, (base)(quote)(bids)(asks) );
 FC_REFLECT( graphene::app::market_ticker, (base)(quote)(latest)(lowest_ask)(highest_bid)(percent_change)(base_volume)(quote_volume) );
 FC_REFLECT( graphene::app::market_volume, (base)(quote)(base_volume)(quote_volume) );
 FC_REFLECT( graphene::app::market_trade, (date)(price)(amount)(value) );
+
 FC_API(graphene::app::database_api,
    // Objects
    (get_objects)
@@ -676,6 +687,7 @@ FC_API(graphene::app::database_api,
    (get_block)
    (get_transaction)
    (get_recent_transaction_by_id)
+   (get_block_reserved)
 
    // Globals
    (get_chain_properties)
@@ -726,6 +738,7 @@ FC_API(graphene::app::database_api,
    (get_fund_deposits)
    (get_all_fund_deposits_by_period)
    (get_fund_deposits_amount_by_account)
+   (get_account_deposits)
 
    // Markets / feeds
    (get_order_book)

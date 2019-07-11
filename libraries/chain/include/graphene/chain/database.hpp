@@ -490,6 +490,9 @@ namespace graphene { namespace chain {
          // funds, commission charges
          void process_funds();
 
+         // receipts (including removing of them)
+         void process_receipts();
+
          template<class... Types>
          void perform_account_maintenance(std::tuple<Types...> helpers);
          ///@}

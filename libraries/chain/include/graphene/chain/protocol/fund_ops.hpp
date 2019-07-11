@@ -113,7 +113,7 @@ namespace graphene { namespace chain {
       void            validate() const;
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_deposit_create_operation
+   }; // fund_deposit_operation
 
    /**
     * @ingroup operations
@@ -135,7 +135,7 @@ namespace graphene { namespace chain {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_deposit_create_operation
+   }; // fund_withdrawal_operation
 
    /**
     * @ingroup operations
@@ -224,7 +224,7 @@ namespace graphene { namespace chain {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_set_fixed_percent_on_deposits
+   }; // fund_set_fixed_percent_on_deposits_operation
 
    struct enable_autorenewal_deposits_operation: public base_operation
    {
@@ -241,6 +241,26 @@ namespace graphene { namespace chain {
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
    }; // enable_autorenewal_deposits_operation
+
+   struct deposit_renewal_operation: public base_operation
+   {
+      struct fee_parameters_type
+      {
+         uint64_t fee = 0;
+         uint32_t price_per_kbyte = 0;
+      };
+
+      asset            fee;
+
+      account_id_type      account_id;
+      fund_deposit_id_type deposit_id;
+      uint32_t             percent = 0;
+      fc::time_point_sec   datetime_end;
+
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+      share_type      calculate_fee(const fee_parameters_type& k) const { return 0; };
+   };
 
 } } // graphene::chain
 
@@ -297,3 +317,5 @@ FC_REFLECT( graphene::chain::enable_autorenewal_deposits_operation::fee_paramete
 FC_REFLECT( graphene::chain::enable_autorenewal_deposits_operation,
             (fee)(account)(enabled)(extensions) )
 
+FC_REFLECT( graphene::chain::deposit_renewal_operation::fee_parameters_type, (fee)(price_per_kbyte) )
+FC_REFLECT( graphene::chain::deposit_renewal_operation, (fee)(account_id)(deposit_id)(percent)(datetime_end) )

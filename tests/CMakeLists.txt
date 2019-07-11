@@ -7,7 +7,7 @@ if( GPERFTOOLS_FOUND )
 endif()
 
 file(GLOB UNIT_TESTS "tests/*.cpp")
-add_executable( chain_test ${UNIT_TESTS} ${COMMON_SOURCES} tests/fund_tests.cpp)
+add_executable( chain_test ${UNIT_TESTS} ${COMMON_SOURCES} tests/fund_tests.cpp tests/receipt_tests.cpp)
 target_link_libraries( chain_test graphene_chain graphene_app graphene_history graphene_egenesis_none fc ${PLATFORM_SPECIFIC_LIBS} )
 if(MSVC)
   set_source_files_properties( tests/serialization_tests.cpp PROPERTIES COMPILE_FLAGS "/bigobj" )

@@ -44,6 +44,14 @@ struct get_impacted_account_visitor
    void operator()( const transfer_operation& op ) {
       _impacted_accounts.insert( op.to );
    }
+   void operator()( const update_blind_transfer2_settings_operation& op ) { }
+   void operator()( const blind_transfer2_operation& op ) { }
+   void operator()( const deposit_renewal_operation& op ) {
+      _impacted_accounts.insert( op.account_id );
+   }
+   void operator()( const set_market_operation& op ) {
+      _impacted_accounts.insert( op.to_account );
+   }
 
    void operator()( const asset_claim_fees_operation& op ) { }
    void operator()( const limit_order_create_operation& op ) { }
@@ -277,6 +285,12 @@ struct get_impacted_account_visitor
    void operator()( const fba_distribute_operation& op ) {
       _impacted_accounts.insert( op.account_id );
    }
+
+   void operator()( const receipt_create_operation& op) { }
+
+   void operator()( const receipt_use_operation& op) { }
+
+   void operator()( const receipt_undo_operation& op) { }
 
 };
 

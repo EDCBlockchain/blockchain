@@ -64,9 +64,11 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
 
       // Blocks and transactions
       optional<block_header> get_block_header(uint32_t block_num)const;
-      optional<signed_block> get_block(uint32_t block_num)const;
-      optional<signed_block> get_block_by_id(string block_num)const;
-      processed_transaction get_transaction( uint32_t block_num, uint32_t trx_in_block )const;
+      optional<signed_block> get_block(uint32_t block_num);
+      optional<signed_block> get_block_by_id(string block_num);
+      void clear_ops(std::vector<operation>& ops);
+      processed_transaction get_transaction(uint32_t block_num, uint32_t trx_in_block);
+      optional<signed_block> get_block_reserved(uint32_t block_num);
 
       // Globals
       chain_property_object get_chain_properties()const;
@@ -122,6 +124,7 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
       pair<vector<fund_deposit_object>, uint32_t>
                                       get_all_fund_deposits_by_period(uint32_t period, uint32_t start, uint32_t limit) const;
       asset                           get_fund_deposits_amount_by_account(fund_id_type fund_id, account_id_type account_id) const;
+      vector<fund_deposit_object>     get_account_deposits(account_id_type account_id, uint32_t start, uint32_t limit) const;
 
       // Markets / feeds
       vector<limit_order_object>      get_limit_orders(asset_id_type a, asset_id_type b, uint32_t limit)const;
@@ -202,12 +205,12 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
       std::function<void(const fc::variant&)> _pending_trx_callback;
       std::function<void(const fc::variant&)> _block_applied_callback;
 
-      boost::signals2::scoped_connection                                                                                           _change_connection;
-      boost::signals2::scoped_connection                                                                                           _removed_connection;
-      boost::signals2::scoped_connection                                                                                           _applied_block_connection;
-      boost::signals2::scoped_connection                                                                                           _pending_trx_connection;
-      map< pair<asset_id_type,asset_id_type>, std::function<void(const variant&)> >      _market_subscriptions;
-      graphene::chain::database&                                                                                                            _db;
+      boost::signals2::scoped_connection _change_connection;
+      boost::signals2::scoped_connection _removed_connection;
+      boost::signals2::scoped_connection _applied_block_connection;
+      boost::signals2::scoped_connection _pending_trx_connection;
+      map<pair<asset_id_type,asset_id_type>, std::function<void(const variant&)>> _market_subscriptions;
+      graphene::chain::database&                                                  _db;
 };
 
 //////////////////////////////////////////////////////////////////////
@@ -264,10 +267,9 @@ fc::variants database_api_impl::get_objects(const vector<object_id_type>& ids) c
          this->subscribe_to_item( id );
       }
    }
-//   else
-//   {
-//      elog( "getObjects without subscribe callback??" );
-//   }
+   else {
+      elog( "getObjects without subscribe callback??" );
+   }
 
    fc::variants result;
    result.reserve(ids.size());
@@ -275,10 +277,14 @@ fc::variants database_api_impl::get_objects(const vector<object_id_type>& ids) c
    std::transform(ids.begin(), ids.end(), std::back_inserter(result),
                   [this](object_id_type id) -> fc::variant
                   {
+                     // exceptions
+                     if (id.type() == impl_blind_transfer2_object_type) return { };
+                     if (id.type() == receipt_object_type) return { };
+
                      if (auto obj = _db.find_object(id)) {
                         return obj->to_variant();
                      }
-                     return {};
+                     return { };
                   });
 
    return result;
@@ -360,53 +366,99 @@ optional<block_header> database_api_impl::get_block_header(uint32_t block_num) c
    return {};
 }
 
-optional<signed_block> database_api::get_block(uint32_t block_num)const
-{
+optional<signed_block> database_api::get_block(uint32_t block_num) const {
    return my->get_block( block_num );
 }
 
-optional<signed_block> database_api_impl::get_block(uint32_t block_num)const
+void database_api_impl::clear_ops(std::vector<operation>& ops)
 {
-   auto block = _db.fetch_block_by_number(block_num);
-   FC_ASSERT(block.valid(), "invalid block");
-   block->update();
-   return block;
+   for (auto itr = ops.begin(); itr != ops.end();)
+   {
+      if (itr->which() == operation::tag<blind_transfer2_operation>::value ||
+          itr->which() == operation::tag<receipt_create_operation>::value  ||
+          itr->which() == operation::tag<receipt_use_operation>::value     ||
+          itr->which() == operation::tag<receipt_undo_operation>::value) {
+         itr = ops.erase(itr);
+      }
+      else {
+         ++itr;
+      }
+   }
 }
 
-optional<signed_block> database_api::get_block_by_id(string block_id)const
+optional<signed_block> database_api_impl::get_block(uint32_t block_num)
 {
+   auto block = _db.fetch_block_by_number(block_num);
+
+   FC_ASSERT(block.valid(), "invalid block");
+   block->update();
+
+   signed_block b = *block;
+   for (processed_transaction& tr: b.transactions) {
+      clear_ops(tr.operations);
+   }
+   return b;
+}
+
+optional<signed_block> database_api::get_block_reserved(uint32_t block_num) const {
+   return my->get_block_reserved(block_num);
+}
+
+optional<signed_block> database_api_impl::get_block_reserved(uint32_t block_num)
+{
+   auto block = _db.fetch_block_by_number(block_num);
+
+   FC_ASSERT(block.valid(), "invalid block");
+   block->update();
+
+   return *block;
+}
+
+optional<signed_block> database_api::get_block_by_id(string block_id) const {
    return my->get_block_by_id( block_id );
 }
 
-optional<signed_block> database_api_impl::get_block_by_id(string block_id)const
+optional<signed_block> database_api_impl::get_block_by_id(string block_id)
 {
    auto block = _db.fetch_block_by_id( fc::ripemd160(block_id) );
    FC_ASSERT(block.valid(), "invalid block");
    block->update();
-   return block; 
+
+   signed_block b = *block;
+   for (processed_transaction& tr: b.transactions) {
+      clear_ops(tr.operations);
+   }
+
+   return b;
 }
 
-processed_transaction database_api::get_transaction( uint32_t block_num, uint32_t trx_in_block )const
-{
+processed_transaction database_api::get_transaction(uint32_t block_num, uint32_t trx_in_block) const {
    return my->get_transaction( block_num, trx_in_block );
 }
 
 optional<signed_transaction> database_api::get_recent_transaction_by_id( const transaction_id_type& id )const
 {
-   try {
-      return my->_db.get_recent_transaction( id );
+   try
+   {
+      signed_transaction tr = my->_db.get_recent_transaction(id);
+      my->clear_ops(tr.operations);
+
+      return tr;
    } catch ( ... ) {
       return optional<signed_transaction>();
    }
 }
 
-processed_transaction database_api_impl::get_transaction(uint32_t block_num, uint32_t trx_num)const
+processed_transaction database_api_impl::get_transaction(uint32_t block_num, uint32_t trx_num)
 {
    auto opt_block = _db.fetch_block_by_number(block_num);
    FC_ASSERT( opt_block );
    FC_ASSERT( opt_block->transactions.size() > trx_num );
 
-   return opt_block->transactions[trx_num];
+   processed_transaction& tr = opt_block->transactions[trx_num];
+   clear_ops(tr.operations);
+
+   return tr;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -559,11 +611,12 @@ vector<vector<account_id_type>> database_api_impl::get_address_references(vector
    vector<vector<account_id_type>> final_result;
    final_result.reserve(addresses.size());
 
+   const auto& idx = _db.get_index_type<account_index>();
+   const auto& aidx = dynamic_cast<const primary_index<account_index>&>(idx);
+   const auto& refs = aidx.get_secondary_index<graphene::chain::account_member_index>();
+
    for (auto& addr: addresses)
    {
-      const auto& idx = _db.get_index_type<account_index>();
-      const auto& aidx = dynamic_cast<const primary_index<account_index>&>(idx);
-      const auto& refs = aidx.get_secondary_index<graphene::chain::account_member_index>();
       vector<account_id_type> result;
 
       auto a_itr = refs.account_to_address_memberships.find(addr);
@@ -793,8 +846,7 @@ optional<account_object> database_api_impl::get_account_by_name_or_id(const stri
    return result;
 }
 
-vector<account_id_type> database_api::get_account_references( account_id_type account_id )const
-{
+vector<account_id_type> database_api::get_account_references( account_id_type account_id ) const {
    return my->get_account_references( account_id );
 }
 
@@ -1214,6 +1266,28 @@ asset database_api_impl::get_fund_deposits_amount_by_account(fund_id_type fund_i
    }
 
    return asset(0, fund_ptr->get_asset_id());
+}
+
+vector<fund_deposit_object> database_api::get_account_deposits(account_id_type account_id, uint32_t start, uint32_t limit) const {
+   return my->get_account_deposits(account_id, start, limit);
+}
+
+vector<fund_deposit_object> database_api_impl::get_account_deposits(account_id_type account_id, uint32_t start, uint32_t limit) const
+{
+   vector<fund_deposit_object> result;
+
+   const auto& range = _db.get_index_type<fund_deposit_index>().indices().get<by_account_id>().equal_range(account_id);
+   uint32_t i = 0;
+   for (const fund_deposit_object& item: boost::make_iterator_range(range.first, range.second) | boost::adaptors::reversed)
+   {
+      if ( (i >= start) && (result.size() < limit) ) {
+         result.emplace_back(item);
+      }
+      if (result.size() == limit) { break; }
+      ++i;
+   }
+
+   return result;
 }
 
 //////////////////////////////////////////////////////////////////////
