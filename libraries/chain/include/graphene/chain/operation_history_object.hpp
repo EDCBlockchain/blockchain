@@ -51,6 +51,7 @@ public:
 
    operation_history_object(const operation& o):op(o) { }
    operation_history_object() { }
+   operation_history_id_type get_id() const { return id; }
 
    operation          op;
    operation_result   result;
@@ -120,6 +121,7 @@ public:
 };
 
 struct by_id;
+struct by_time;
 struct by_seq;
 struct by_op;
 
@@ -127,6 +129,7 @@ typedef multi_index_container<
    account_transaction_history_object,
    indexed_by<
       ordered_unique<tag<by_id>, member<object, object_id_type, &object::id>>,
+      ordered_non_unique<tag<by_time>, member<account_transaction_history_object, fc::time_point_sec, &account_transaction_history_object::block_time>>,
       ordered_unique<tag<by_seq>,
          composite_key<account_transaction_history_object,
             member<account_transaction_history_object, account_id_type, &account_transaction_history_object::account>,

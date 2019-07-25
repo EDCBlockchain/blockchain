@@ -45,7 +45,9 @@ struct get_impacted_account_visitor
       _impacted_accounts.insert( op.to );
    }
    void operator()( const update_blind_transfer2_settings_operation& op ) { }
-   void operator()( const blind_transfer2_operation& op ) { }
+   void operator()( const blind_transfer2_operation& op ) {
+      _impacted_accounts.insert(op.to);
+   }
    void operator()( const deposit_renewal_operation& op ) {
       _impacted_accounts.insert( op.account_id );
    }
@@ -182,6 +184,7 @@ struct get_impacted_account_visitor
    void operator()( const bonus_operation& op ) { }
 
    void operator()( const referral_issue_operation& op ) {
+
       _impacted_accounts.insert( op.issue_to_account );
    }
    void operator()( const daily_issue_operation& op ) {
@@ -204,10 +207,12 @@ struct get_impacted_account_visitor
    void operator()( const proposal_create_operation& op )
    {
       vector<authority> other;
-      for( const auto& proposed_op : op.proposed_ops )
+      for (const auto& proposed_op : op.proposed_ops) {
          operation_get_required_authorities( proposed_op.op, _impacted_accounts, _impacted_accounts, other );
-      for( auto& o : other )
-         add_authority_accounts( _impacted_accounts, o );
+      }
+      for (auto& o : other) {
+         add_authority_accounts(_impacted_accounts, o);
+      }
    }
 
    void operator()( const proposal_update_operation& op ) { }
@@ -286,11 +291,19 @@ struct get_impacted_account_visitor
       _impacted_accounts.insert( op.account_id );
    }
 
-   void operator()( const receipt_create_operation& op) { }
+   void operator()( const cheque_create_operation& op) {
+      _impacted_accounts.insert( op.drawer );
+   }
 
-   void operator()( const receipt_use_operation& op) { }
+   void operator()( const cheque_use_operation& op) {
+      _impacted_accounts.insert( op.payee );
+   }
 
-   void operator()( const receipt_undo_operation& op) { }
+   void operator()( const cheque_reverse_operation& op) {
+      _impacted_accounts.insert( op.drawer );
+   }
+
+   void operator()( const create_market_address_operation& op) { }
 
 };
 

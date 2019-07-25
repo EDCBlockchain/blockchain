@@ -181,4 +181,15 @@ public:
 
 };
 
+class create_market_address_evaluator: public evaluator<create_market_address_evaluator>
+{
+public:
+   typedef create_market_address_operation operation_type;
+
+   void_result do_evaluate(const create_market_address_operation& op);
+   market_address do_apply(const create_market_address_operation& op);
+
+   fc::optional<address> addr;
+};
+
 } } // graphene::chain

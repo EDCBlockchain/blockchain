@@ -41,7 +41,7 @@
 #include <graphene/chain/worker_object.hpp>
 #include <graphene/chain/witness_object.hpp>
 #include <graphene/chain/fund_object.hpp>
-#include <graphene/chain/receipt_object.hpp>
+#include <graphene/chain/cheque_object.hpp>
 
 #include <graphene/market_history/market_history_plugin.hpp>
 
@@ -57,8 +57,6 @@
 #include <map>
 #include <memory>
 #include <vector>
-
-
 
 namespace graphene { namespace app {
 
@@ -111,6 +109,16 @@ struct market_trade
    double                     value;
 };
 
+struct cheque_info_object
+{
+   cheque_id_type id;
+   fc::time_point_sec datetime_expiration;
+
+   // amount for each payee
+   asset payee_amount;
+
+}; // cheque_info_object
+
 /**
  * @brief The database_api class implements the RPC API for the chain database.
  *
@@ -136,6 +144,8 @@ class database_api
        * If any of the provided IDs does not map to an object, a null variant is returned in its position.
        */
       fc::variants get_objects(const vector<object_id_type>& ids)const;
+
+      optional<object_id_type> get_last_object_id(object_id_type id) const;
 
       ///////////////////
       // Subscriptions //
@@ -228,6 +238,7 @@ class database_api
       ///////////////
 
       vector<vector<account_id_type>> get_address_references( vector<address> addresses )const;
+      fc::optional<account_id_type> get_market_reference(const address& key) const;
       address get_address( int64_t block_num, int64_t transaction_num )const;
 
       //////////////
@@ -421,6 +432,12 @@ class database_api
       /////////////////////
       // Markets / feeds //
       /////////////////////
+
+      /**
+       * @brief Get addresses of the market
+       * @param account_id market's ID of account
+       */
+      vector<market_address_object> get_market_addresses(account_id_type account_id, uint32_t start, uint32_t limit) const;
 
       /**
        * @brief Get limit orders in a given market
@@ -656,6 +673,16 @@ class database_api
        */
       vector<blinded_balance_object> get_blinded_balances( const flat_set<commitment_type>& commitments )const;
 
+      //////////////////////
+      //     Cheques      //
+      //////////////////////
+
+      optional<cheque_info_object> get_cheque_by_code(const std::string& code) const;
+
+      //////////////////////
+      //     Others       //
+      //////////////////////
+
       optional<signed_block> get_block_reserved(uint32_t block_num) const;
 
    private:
@@ -670,10 +697,16 @@ FC_REFLECT( graphene::app::order_book, (base)(quote)(bids)(asks) );
 FC_REFLECT( graphene::app::market_ticker, (base)(quote)(latest)(lowest_ask)(highest_bid)(percent_change)(base_volume)(quote_volume) );
 FC_REFLECT( graphene::app::market_volume, (base)(quote)(base_volume)(quote_volume) );
 FC_REFLECT( graphene::app::market_trade, (date)(price)(amount)(value) );
+FC_REFLECT( graphene::app::cheque_info_object,
+            (id)
+            (datetime_expiration)
+            (payee_amount)
+          );
 
 FC_API(graphene::app::database_api,
    // Objects
    (get_objects)
+   (get_last_object_id)
 
    // Subscriptions
    (set_subscribe_callback)
@@ -701,6 +734,7 @@ FC_API(graphene::app::database_api,
 
    // Adresses
    (get_address_references)
+   (get_market_reference)
    (get_address)
 
    // Accounts
@@ -741,6 +775,7 @@ FC_API(graphene::app::database_api,
    (get_account_deposits)
 
    // Markets / feeds
+   (get_market_addresses)
    (get_order_book)
    (get_limit_orders)
    (get_call_orders)
@@ -784,4 +819,7 @@ FC_API(graphene::app::database_api,
 
    // Blinded balances
    (get_blinded_balances)
+
+   // cheques
+   (get_cheque_by_code)
 )

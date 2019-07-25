@@ -55,6 +55,7 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
 
       // Objects
       fc::variants get_objects(const vector<object_id_type>& ids)const;
+      optional<object_id_type> get_last_object_id(object_id_type id) const;
 
       // Subscriptions
       void set_subscribe_callback( std::function<void(const variant&)> cb, bool clear_filter );
@@ -71,17 +72,20 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
       optional<signed_block> get_block_reserved(uint32_t block_num);
 
       // Globals
-      chain_property_object get_chain_properties()const;
-      global_property_object get_global_properties()const;
-      fc::variant_object get_config()const;
-      chain_id_type get_chain_id()const;
-      dynamic_global_property_object get_dynamic_global_properties()const;
+      chain_property_object get_chain_properties() const;
+      global_property_object get_global_properties() const;
+      fc::variant_object get_config() const;
+      chain_id_type get_chain_id() const;
+      dynamic_global_property_object get_dynamic_global_properties() const;
 
       // Keys
-      vector<vector<account_id_type>> get_key_references( vector<public_key_type> key )const;
+      vector<vector<account_id_type>> get_key_references( vector<public_key_type> key ) const;
 
       // Addresses
-      vector<vector<account_id_type>> get_address_references( vector<address> key )const;
+      vector<vector<account_id_type>> get_address_references( vector<address> key ) const;
+
+      // market addresses
+      fc::optional<account_id_type> get_market_reference(const address& key) const;
 
       // Accounts
       vector<optional<account_object>> get_accounts(const vector<account_id_type>& account_ids) const;
@@ -125,6 +129,7 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
                                       get_all_fund_deposits_by_period(uint32_t period, uint32_t start, uint32_t limit) const;
       asset                           get_fund_deposits_amount_by_account(fund_id_type fund_id, account_id_type account_id) const;
       vector<fund_deposit_object>     get_account_deposits(account_id_type account_id, uint32_t start, uint32_t limit) const;
+      vector<market_address_object>   get_market_addresses(account_id_type account_id, uint32_t start, uint32_t limit) const;
 
       // Markets / feeds
       vector<limit_order_object>      get_limit_orders(asset_id_type a, asset_id_type b, uint32_t limit)const;
@@ -168,6 +173,8 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
 
       // Blinded balances
       vector<blinded_balance_object> get_blinded_balances( const flat_set<commitment_type>& commitments )const;
+
+      optional<cheque_info_object> get_cheque_by_code(const std::string& code) const;
 
    //private:
       template<typename T>
@@ -267,9 +274,9 @@ fc::variants database_api_impl::get_objects(const vector<object_id_type>& ids) c
          this->subscribe_to_item( id );
       }
    }
-   else {
-      elog( "getObjects without subscribe callback??" );
-   }
+//   else {
+//      elog( "getObjects without subscribe callback??" );
+//   }
 
    fc::variants result;
    result.reserve(ids.size());
@@ -279,15 +286,61 @@ fc::variants database_api_impl::get_objects(const vector<object_id_type>& ids) c
                   {
                      // exceptions
                      if (id.type() == impl_blind_transfer2_object_type) return { };
-                     if (id.type() == receipt_object_type) return { };
+                     if (id.type() == cheque_object_type) return { };
 
-                     if (auto obj = _db.find_object(id)) {
+                     if (auto obj = _db.find_object(id))
+                     {
+                        if (id.type() == operation_history_object_type)
+                        {
+                           operation_history_object obj2 = _db.get<operation_history_object>(id);
+
+                           if (obj2.op.which() == operation::tag<blind_transfer2_operation>::value) {
+                              obj2.op = blind_transfer2_operation();
+                           }
+                           else if (obj2.op.which() == operation::tag<cheque_create_operation>::value) {
+                              obj2.op.get<cheque_create_operation>().code.clear();
+                           }
+                           else if (obj2.op.which() == operation::tag<cheque_use_operation>::value) {
+                              obj2.op.get<cheque_use_operation>().code.clear();
+                           }
+                           return obj2.to_variant();
+                        }
+
                         return obj->to_variant();
                      }
                      return { };
                   });
 
    return result;
+}
+
+optional<object_id_type> database_api::get_last_object_id(object_id_type id) const {
+   return my->get_last_object_id(id);
+}
+
+optional<object_id_type> database_api_impl::get_last_object_id(object_id_type id) const
+{
+   optional<object_id_type> result_id;
+
+   if (id.type() == operation_history_object_type)
+   {
+      if (_db.get_index_type<operation_history_index>().indices().size() > 0)
+      {
+         auto idx = --_db.get_index_type<operation_history_index>().indices().get<by_id>().end();
+         result_id = idx->get_id();
+      }
+   }
+   else if (id.type() == account_object_type)
+   {
+      if (_db.get_index_type<account_index>().indices().size() > 0)
+      {
+         auto idx = --_db.get_index_type<account_index>().indices().get<by_id>().end();
+         result_id = idx->get_id();
+      }
+   }
+   // ...
+
+   return result_id;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -353,17 +406,18 @@ void database_api_impl::cancel_all_subscriptions()
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-optional<block_header> database_api::get_block_header(uint32_t block_num)const
-{
+optional<block_header> database_api::get_block_header(uint32_t block_num) const {
    return my->get_block_header( block_num );
 }
 
 optional<block_header> database_api_impl::get_block_header(uint32_t block_num) const
 {
    auto result = _db.fetch_block_by_number(block_num);
-   if(result)
+   if (result) {
       return *result;
-   return {};
+   }
+
+   return { };
 }
 
 optional<signed_block> database_api::get_block(uint32_t block_num) const {
@@ -372,16 +426,16 @@ optional<signed_block> database_api::get_block(uint32_t block_num) const {
 
 void database_api_impl::clear_ops(std::vector<operation>& ops)
 {
-   for (auto itr = ops.begin(); itr != ops.end();)
+   for (operation& op: ops)
    {
-      if (itr->which() == operation::tag<blind_transfer2_operation>::value ||
-          itr->which() == operation::tag<receipt_create_operation>::value  ||
-          itr->which() == operation::tag<receipt_use_operation>::value     ||
-          itr->which() == operation::tag<receipt_undo_operation>::value) {
-         itr = ops.erase(itr);
+      if (op.which() == operation::tag<blind_transfer2_operation>::value) {
+         op = blind_transfer2_operation();
       }
-      else {
-         ++itr;
+      else if (op.which() == operation::tag<cheque_create_operation>::value) {
+         op.get<cheque_create_operation>().code.clear();
+      }
+      else if (op.which() == operation::tag<cheque_use_operation>::value) {
+         op.get<cheque_use_operation>().code.clear();
       }
    }
 }
@@ -594,8 +648,13 @@ vector<vector<account_id_type>> database_api_impl::get_key_references( vector<pu
 // Addresses                                                        //
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
+
 vector<vector<account_id_type>> database_api::get_address_references(vector<address> addresses) const {
    return my->get_address_references( addresses );
+}
+
+fc::optional<account_id_type> database_api::get_market_reference(const address& key) const {
+   return my->get_market_reference(key);
 }
 
 address database_api::get_address(int64_t block_num, int64_t transaction_num) const {
@@ -638,6 +697,19 @@ vector<vector<account_id_type>> database_api_impl::get_address_references(vector
    }
 
    return final_result;
+}
+
+fc::optional<account_id_type> database_api_impl::get_market_reference(const address& key) const
+{
+   fc::optional<account_id_type> result;
+
+   auto itr = _db.get_index_type<market_address_index>().indices().get<by_address>().find(key);
+   FC_ASSERT(itr != _db.get_index_type<market_address_index>().indices().get<by_address>().end()
+             , "There is no markets associated with this address: ${a}", ("a", key));
+
+   result = itr->market_account_id;
+
+   return result;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1296,8 +1368,29 @@ vector<fund_deposit_object> database_api_impl::get_account_deposits(account_id_t
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-vector<limit_order_object> database_api::get_limit_orders(asset_id_type a, asset_id_type b, uint32_t limit)const
+vector<market_address_object> database_api::get_market_addresses(account_id_type account_id, uint32_t start, uint32_t limit) const {
+   return my->get_market_addresses(account_id, start, limit);
+}
+
+vector<market_address_object> database_api_impl::get_market_addresses(account_id_type account_id, uint32_t start, uint32_t limit) const
 {
+   vector<market_address_object> result;
+
+   const auto& range = _db.get_index_type<market_address_index>().indices().get<by_market_account_id>().equal_range(account_id);
+   uint32_t i = 0;
+   for (const market_address_object& item: boost::make_iterator_range(range.first, range.second) /*| boost::adaptors::reversed*/)
+   {
+      if ( (i >= start) && (result.size() < limit) ) {
+         result.emplace_back(item);
+      }
+      if (result.size() == limit) { break; }
+      ++i;
+   }
+
+   return result;
+}
+
+vector<limit_order_object> database_api::get_limit_orders(asset_id_type a, asset_id_type b, uint32_t limit) const {
    return my->get_limit_orders( a, b, limit );
 }
 
@@ -2027,18 +2120,15 @@ bool database_api_impl::verify_account_authority( const string& name_or_id, cons
    return verify_authority( trx );
 }
 
-processed_transaction database_api::validate_transaction( const signed_transaction& trx )const
-{
-   return my->validate_transaction( trx );
+processed_transaction database_api::validate_transaction(const signed_transaction& trx) const {
+   return my->validate_transaction(trx);
 }
 
-processed_transaction database_api_impl::validate_transaction( const signed_transaction& trx )const
-{
+processed_transaction database_api_impl::validate_transaction(const signed_transaction& trx) const {
    return _db.validate_transaction(trx);
 }
 
-vector< fc::variant > database_api::get_required_fees( const vector<operation>& ops, asset_id_type id )const
-{
+vector<fc::variant> database_api::get_required_fees(const vector<operation>& ops, asset_id_type id) const {
    return my->get_required_fees( ops, id );
 }
 
@@ -2049,19 +2139,16 @@ vector< fc::variant > database_api::get_required_fees( const vector<operation>& 
 struct get_required_fees_helper
 {
    get_required_fees_helper(
-      const fee_schedule& _current_fee_schedule,
-      const price& _core_exchange_rate,
-      uint32_t _max_recursion
-      )
-      : current_fee_schedule(_current_fee_schedule),
-        core_exchange_rate(_core_exchange_rate),
-        max_recursion(_max_recursion)
-   {}
+      const fee_schedule& _current_fee_schedule
+      , const price& _core_exchange_rate
+      , uint32_t _max_recursion):
+         current_fee_schedule(_current_fee_schedule)
+         , core_exchange_rate(_core_exchange_rate)
+         , max_recursion(_max_recursion) { }
 
    fc::variant set_op_fees( operation& op )
    {
-      if( op.which() == operation::tag<proposal_create_operation>::value )
-      {
+      if (op.which() == operation::tag<proposal_create_operation>::value) {
          return set_proposal_create_op_fees( op );
       }
       else
@@ -2126,9 +2213,8 @@ vector< fc::variant > database_api_impl::get_required_fees( const vector<operati
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-vector<proposal_object> database_api::get_proposed_transactions( account_id_type id )const
-{
-   return my->get_proposed_transactions( id );
+vector<proposal_object> database_api::get_proposed_transactions(account_id_type id) const {
+   return my->get_proposed_transactions(id);
 }
 
 /** TODO: add secondary index that will accelerate this process */
@@ -2155,8 +2241,7 @@ vector<proposal_object> database_api_impl::get_proposed_transactions( account_id
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-vector<blinded_balance_object> database_api::get_blinded_balances( const flat_set<commitment_type>& commitments )const
-{
+vector<blinded_balance_object> database_api::get_blinded_balances(const flat_set<commitment_type>& commitments) const {
    return my->get_blinded_balances( commitments );
 }
 
@@ -2172,6 +2257,29 @@ vector<blinded_balance_object> database_api_impl::get_blinded_balances( const fl
          result.push_back( *itr );
    }
    return result;
+}
+
+optional<cheque_info_object> database_api::get_cheque_by_code(const std::string& code) const {
+   return my->get_cheque_by_code(code);
+}
+
+optional<cheque_info_object> database_api_impl::get_cheque_by_code(const std::string& code) const
+{
+   FC_ASSERT(code.length() == 16, "invalid cheque code!");
+
+   optional<cheque_info_object> result;
+
+   auto idx = _db.get_index_type<cheque_index>().indices().get<by_code>().find(code);
+   FC_ASSERT(idx != _db.get_index_type<cheque_index>().indices().get<by_code>().end(), "There is no cheque with this code!");
+
+   const cheque_object& ch_obj = *idx;
+
+   cheque_info_object obj;
+   obj.id                  = ch_obj.get_id();
+   obj.datetime_expiration = ch_obj.datetime_expiration;
+   obj.payee_amount        = asset(ch_obj.amount_payee, ch_obj.asset_id);
+
+   return obj;
 }
 
 //////////////////////////////////////////////////////////////////////

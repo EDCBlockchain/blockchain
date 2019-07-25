@@ -28,7 +28,7 @@
 #include <graphene/chain/protocol/assert.hpp>
 #include <graphene/chain/protocol/asset_ops.hpp>
 #include <graphene/chain/protocol/fund_ops.hpp>
-#include <graphene/chain/protocol/receipt_ops.hpp>
+#include <graphene/chain/protocol/cheque_ops.hpp>
 #include <graphene/chain/protocol/balance.hpp>
 #include <graphene/chain/protocol/custom.hpp>
 #include <graphene/chain/protocol/committee_member.hpp>
@@ -129,9 +129,10 @@ namespace graphene { namespace chain {
             blind_transfer2_operation,
             deposit_renewal_operation,  // [idx: 73] extend the deposit's time
             set_market_operation,
-            receipt_create_operation,
-            receipt_use_operation, // [idx: 76]
-            receipt_undo_operation
+            cheque_create_operation,
+            cheque_use_operation, // [idx: 76]
+            cheque_reverse_operation,
+            create_market_address_operation
          > operation;
 
    /// @} // operations group

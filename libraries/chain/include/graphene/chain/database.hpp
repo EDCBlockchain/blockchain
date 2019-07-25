@@ -478,6 +478,7 @@ namespace graphene { namespace chain {
          void process_budget();
          void pay_workers( share_type& budget );
          void perform_chain_maintenance(const signed_block& next_block, const global_property_object& global_props);
+         void clear_old_entities();
          void issue_bonuses_old();
          void issue_bonuses_before_620();
          void issue_bonuses();
@@ -490,8 +491,8 @@ namespace graphene { namespace chain {
          // funds, commission charges
          void process_funds();
 
-         // receipts (including removing of them)
-         void process_receipts();
+         // cheques (including removing of them)
+         void process_cheques();
 
          template<class... Types>
          void perform_account_maintenance(std::tuple<Types...> helpers);

@@ -47,7 +47,7 @@
 #include <graphene/chain/witness_object.hpp>
 #include <graphene/chain/witness_schedule_object.hpp>
 #include <graphene/chain/worker_object.hpp>
-#include <graphene/chain/receipt_object.hpp>
+#include <graphene/chain/cheque_object.hpp>
 
 #include <graphene/chain/account_evaluator.hpp>
 #include <graphene/chain/asset_evaluator.hpp>
@@ -64,7 +64,7 @@
 #include <graphene/chain/witness_evaluator.hpp>
 #include <graphene/chain/worker_evaluator.hpp>
 #include <graphene/chain/fund_evaluator.hpp>
-#include <graphene/chain/receipt_evaluator.hpp>
+#include <graphene/chain/cheque_evaluator.hpp>
 
 #include <graphene/chain/protocol/fee_schedule.hpp>
 
@@ -205,9 +205,10 @@ void database::initialize_evaluators()
    register_evaluator<blind_transfer2_evaluator>();
    register_evaluator<deposit_renewal_evaluator>();
    register_evaluator<set_market_evaluator>();
-   register_evaluator<receipt_create_evaluator>();
-   register_evaluator<receipt_use_evaluator>();
-   register_evaluator<receipt_undo_evaluator>();
+   register_evaluator<cheque_create_evaluator>();
+   register_evaluator<cheque_use_evaluator>();
+   register_evaluator<cheque_reverse_evaluator>();
+   register_evaluator<create_market_address_evaluator>();
 }
 
 void database::initialize_indexes()
@@ -220,7 +221,7 @@ void database::initialize_indexes()
    add_index<primary_index<force_settlement_index>>();
    add_index<primary_index<fund_index>>();
    add_index<primary_index<fund_deposit_index>>();
-   add_index<primary_index<receipt_index>>();
+   add_index<primary_index<cheque_index>>();
 
    auto acnt_index = add_index<primary_index<account_index>>();
    acnt_index->add_secondary_index<account_member_index>();

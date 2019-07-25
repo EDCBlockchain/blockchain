@@ -262,16 +262,18 @@ share_type account_upgrade_operation::calculate_fee(const fee_parameters_type& k
    return k.membership_annual_fee;
 }
 
-
-void account_upgrade_operation::validate() const
-{
+void account_upgrade_operation::validate() const {
    FC_ASSERT( fee.amount >= 0 );
 }
 
-void account_transfer_operation::validate()const
-{
+void account_transfer_operation::validate() const {
    FC_ASSERT( fee.amount >= 0 );
 }
 
+void create_market_address_operation::validate() const
+{
+   FC_ASSERT( market_account_id != GRAPHENE_COMMITTEE_ACCOUNT );
+   FC_ASSERT( notes.length() <= 50 );
+}
 
 } } // graphene::chain

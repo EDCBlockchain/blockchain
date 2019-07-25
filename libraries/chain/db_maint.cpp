@@ -900,8 +900,13 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
       issue_bonuses_old();
    }
 
-   process_receipts();
+   process_cheques();
 
+   clear_old_entities();
+}
+
+void database::clear_old_entities()
+{
    if (head_block_time() != HARDFORK_616_MAINTENANCE_CHANGE_TIME) {
       clear_account_mature_balance_index();
    }
@@ -910,6 +915,7 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
    {
       fc::time_point tp = head_block_time() - fc::days(history_size);
 
+      // all history objects
       {
          auto history_index = get_index_type<operation_history_index>().indices().get<by_time>().lower_bound(tp);
          auto begin_iter = get_index_type<operation_history_index>().indices().get<by_time>().begin();
@@ -917,6 +923,17 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
             remove(*begin_iter++);
          }
       }
+      // issue_bonuses_old() depends on account_transaction_history_object
+      if (head_block_time() > HARDFORK_617_TIME)
+      {
+         // test:
+         auto history_index = get_index_type<account_transaction_history_index>().indices().get<by_time>().lower_bound(tp);
+         auto begin_iter = get_index_type<account_transaction_history_index>().indices().get<by_time>().begin();
+         while (begin_iter != history_index) {
+            remove(*begin_iter++);
+         }
+      }
+      // reference-objects for fund operations
       {
          auto history_index = get_index_type<fund_transaction_history_index>().indices().get<by_time>().lower_bound(tp);
          auto begin_iter = get_index_type<fund_transaction_history_index>().indices().get<by_time>().begin();
@@ -924,10 +941,18 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
             remove(*begin_iter++);
          }
       }
-      // blind transfers
+      // blind transfers objects
       {
          auto history_index = get_index_type<blind_transfer2_index>().indices().get<by_datetime>().lower_bound(tp);
          auto begin_iter = get_index_type<blind_transfer2_index>().indices().get<by_datetime>().begin();
+         while (begin_iter != history_index) {
+            remove(*begin_iter++);
+         }
+      }
+      // cheques objects
+      {
+         auto history_index = get_index_type<cheque_index>().indices().get<by_datetime_creation>().lower_bound(tp);
+         auto begin_iter = get_index_type<cheque_index>().indices().get<by_datetime_creation>().begin();
          while (begin_iter != history_index) {
             remove(*begin_iter++);
          }
@@ -949,11 +974,10 @@ void database::process_funds()
    const global_property_object& gpo = get_global_properties();
 
    const auto& idx_funds = get_index_type<fund_index>().indices().get<by_id>();
-   for (auto itr_fund = idx_funds.begin(); itr_fund != idx_funds.end(); ++itr_fund)
+   for (const fund_object& fund_obj: idx_funds)
    {
-      const fund_object& fund_obj = *itr_fund;
       // fund is overdue
-      if ( (fund_obj.get_datetime_end() < head_block_time()) || !fund_obj.enabled ) { continue; }
+      if ( !fund_obj.enabled || (fund_obj.get_datetime_end() < head_block_time()) ) { continue; }
 
       fund_obj.process(*this);
 
@@ -964,30 +988,34 @@ void database::process_funds()
    }
 }
 
-void database::process_receipts()
+void database::process_cheques()
 {
-    const dynamic_global_property_object& dpo = get_dynamic_global_properties();
-    const global_property_object& gpo = get_global_properties();
-    const auto& idx_receipts = get_index_type<receipt_index>().indices().get<by_id>();
-    transaction_evaluation_state eval(this);
+   const dynamic_global_property_object& dpo = get_dynamic_global_properties();
+   const global_property_object& gpo = get_global_properties();
+   const auto& idx_cheques = get_index_type<cheque_index>().indices().get<by_id>();
+   transaction_evaluation_state eval(this);
 
-    // we need to remove expired receipts and return amounts to the owners balances
-    for (auto itr_receipt = idx_receipts.begin(); itr_receipt != idx_receipts.end(); ++itr_receipt)
-    {
-       const receipt_object& receipt_obj = *itr_receipt;
+   // we need to remove expired cheques and return amounts to the owners balances
+   for (const cheque_object& cheque_obj: idx_cheques)
+   {
+      /**
+       * change cheque status from 'cheque_status::new' to 'cheque_status::cheque_undo'
+       * and return amount to the maker if overdue */
+      if ( (cheque_obj.status == cheque_status::cheque_new)
+           && ((dpo.next_maintenance_time - gpo.parameters.maintenance_interval) >= cheque_obj.get_expiration_datetime()) )
+      {
+         chain::cheque_reverse_operation op;
+         op.id = cheque_obj.get_id();
+         op.drawer = cheque_obj.drawer;
+         op.amount = cheque_obj.get_remaining_amount();
 
-       // change receipt status from 'receipt_new' to 'receipt_undo' and return amount to owner if overdue
-       if ( (receipt_obj.receipt_status == receipt_new)
-            && ((dpo.next_maintenance_time - gpo.parameters.maintenance_interval) >= receipt_obj.get_expiration_datetime()) )
-       {
-          chain::receipt_undo_operation op;
-          op.receipt_code = receipt_obj.receipt_code;
-          try {
-             op.validate();
-             apply_operation(eval, op);
-          } catch (fc::assert_exception& e) {  }
-       }
-    }
+         try
+         {
+            op.validate();
+            apply_operation(eval, op);
+         } catch (fc::assert_exception& e) {  }
+      }
+   }
 }
 
 void database::issue_bonuses()

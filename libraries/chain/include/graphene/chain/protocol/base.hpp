@@ -82,9 +82,7 @@ namespace graphene { namespace chain {
 
    struct void_result{};
 
-   /**
-    * Contains information about fund's deposit apply procedure
-    */
+   // contains information about fund's deposit apply procedure
    class eval_fund_dep_apply_object
    {
    public:
@@ -92,10 +90,24 @@ namespace graphene { namespace chain {
       object_id_type id;
       fc::time_point datetime_begin;
       fc::time_point datetime_end;
+      std::uint32_t  percent; // current deposit percent
 
    }; // eval_fund_dep_apply_object
 
-   typedef fc::static_variant<void_result,object_id_type,asset,eval_fund_dep_apply_object> operation_result;
+   struct market_address
+   {
+      object_id_type id;
+      std::string addr;
+
+   }; // market_address
+
+   typedef fc::static_variant<
+            void_result,
+            object_id_type,
+            asset,
+            eval_fund_dep_apply_object,
+            market_address
+           > operation_result;
 
    struct base_operation
    {
@@ -141,4 +153,5 @@ FC_REFLECT( graphene::chain::eval_fund_dep_apply_object,
 FC_REFLECT_TYPENAME( graphene::chain::operation_result )
 FC_REFLECT_TYPENAME( graphene::chain::future_extensions )
 FC_REFLECT( graphene::chain::void_result, )
-// FC_REFLECT( graphene::chain::ext_type, (to_address) )
+
+FC_REFLECT( graphene::chain::market_address, (id)(addr) )

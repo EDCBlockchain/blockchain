@@ -37,7 +37,7 @@
 #include <graphene/chain/withdraw_permission_object.hpp>
 #include <graphene/chain/worker_object.hpp>
 #include <graphene/chain/fund_object.hpp>
-#include <graphene/chain/receipt_object.hpp>
+#include <graphene/chain/cheque_object.hpp>
 #include <graphene/chain/operation_history_object.hpp>
 
 #include <fc/crypto/hex.hpp>
@@ -385,16 +385,11 @@ namespace graphene { namespace app {
             } case balance_object_type:{
                /** these are free from any accounts */
                break;
-            } case restricted_account_object_type: {
-               break;
-            } case market_address_object_type: {
-                break;
-            } case fund_object_type: {
-                break;
-            }
-             case receipt_object_type: {
-                break;
-             }
+            } case restricted_account_object_type:
+              case market_address_object_type:
+              case fund_object_type:
+              case cheque_object_type:
+              break;
           }
        }
        else if( obj->id.space() == implementation_ids )
@@ -487,7 +482,20 @@ namespace graphene { namespace app {
        return result;
     }
 
-    vector<operation_history_object> history_api::get_account_history( account_id_type account, 
+    inline void reserve_op(operation_history_object& h_obj)
+    {
+       if (h_obj.op.which() == operation::tag<blind_transfer2_operation>::value) {
+          h_obj.op = blind_transfer2_operation();
+       }
+       else if (h_obj.op.which() == operation::tag<cheque_create_operation>::value) {
+          h_obj.op.get<cheque_create_operation>().code.clear();
+       }
+       else if (h_obj.op.which() == operation::tag<cheque_use_operation>::value) {
+          h_obj.op.get<cheque_use_operation>().code.clear();
+       }
+    }
+
+    vector<operation_history_object> history_api::get_account_history( account_id_type account,
                                                                        operation_history_id_type stop, 
                                                                        unsigned limit, 
                                                                        operation_history_id_type start ) const
@@ -497,55 +505,84 @@ namespace graphene { namespace app {
        FC_ASSERT( limit <= 100 );
        vector<operation_history_object> result;
        const auto& stats = account(db).statistics(db);
-       if( stats.most_recent_op == account_transaction_history_id_type() ) return result;
+       if (stats.most_recent_op == account_transaction_history_id_type()) { return result; }
        const account_transaction_history_object* node = &stats.most_recent_op(db);
-       if( start == operation_history_id_type() )
+       if (start == operation_history_id_type()) {
           start = node->operation_id;
-          
-       while(node && node->operation_id.instance.value > stop.instance.value && result.size() < limit)
+       }
+
+       while (node && (node->operation_id.instance.value > stop.instance.value) && (result.size() < limit) )
        {
-          if( node->operation_id.instance.value <= start.instance.value ) {
-            try {
-              result.push_back( node->operation_id(db) );
-            } catch(fc::exception e) { break; }
+          if (node->operation_id.instance.value <= start.instance.value)
+          {
+             try
+             {
+                operation_history_object op_h = node->operation_id(db);
+                reserve_op(op_h);
+                result.push_back(std::move(op_h));
+             } catch(fc::exception e) { break; }
           }
-          if( node->next == account_transaction_history_id_type() )
+          if (node->next == account_transaction_history_id_type()) {
              node = nullptr;
-          else node = &node->next(db);
+          }
+          else
+          {
+             auto f_idx = db.get_index_type<account_transaction_history_index>().indices().get<by_id>().find(node->next);
+             if (f_idx == db.get_index_type<account_transaction_history_index>().indices().get<by_id>().end()) {
+                node = nullptr;
+             }
+             else {
+                node = &(*f_idx);
+             }
+          }
        }
        
        return result;
     }
-   vector<listtransactions_result> history_api::listtransactions( account_id_type account, 
-                                                             vector<string> addresses, 
-                                                             int count )const
+
+   vector<listtransactions_result>
+   history_api::listtransactions(account_id_type account, vector<string> addresses, int count) const
    {
-      FC_ASSERT( _app.chain_database() );
+      FC_ASSERT(_app.chain_database());
       const auto& db = *_app.chain_database();       
-      FC_ASSERT( count <= 100 );
+      FC_ASSERT(count <= 100);
       vector<listtransactions_result> result;
       const auto& stats = account(db).statistics(db);
-      if( stats.most_recent_op == account_transaction_history_id_type() ) return result;
+      if (stats.most_recent_op == account_transaction_history_id_type()) { return result; }
       const account_transaction_history_object* node = &stats.most_recent_op(db);
       const uint32_t current_block = db.head_block_num();
-      while( node != nullptr && result.size() < (uint32_t)count )
+      while ((node != nullptr) && (result.size() < (uint32_t)count))
       {
          auto op_hist = node->operation_id(db);
-         if( op_hist.op.which() == operation::tag<transfer_operation>::value ) {
+         if (op_hist.op.which() == operation::tag<transfer_operation>::value)
+         {
             auto ext = op_hist.op.get<transfer_operation>().extensions;
-            auto tr_address = ext.begin() != ext.end() ? ext.begin()->get<string>() : "";
-            if( addresses.size() && 
-                std::find( addresses.begin(), addresses.end(), tr_address ) == addresses.end() ) {
-               node = &node->next(db); 
+            auto tr_address = ext.begin() != ext.end() ? ext.begin()->get<string>(): "";
+            if (addresses.size() && std::find(addresses.begin(), addresses.end(), tr_address) == addresses.end())
+            {
+               node = &node->next(db);
                continue;
             }
-            try {
-               result.push_back( listtransactions_result{op_hist.op.get<transfer_operation>(), (int)(current_block - op_hist.block_num)} );
-            } catch(fc::exception e) { break; }
+            try
+            {
+               result.push_back(listtransactions_result{op_hist.op.get<transfer_operation>(),
+                                                        (int)(current_block - op_hist.block_num)});
+            } catch (fc::exception e)
+            { break; }
          }
-         if( node->next == account_transaction_history_id_type() )
+         if (node->next == account_transaction_history_id_type()) {
             node = nullptr;
-         else node = &node->next(db);
+         }
+         else
+         {
+            auto f_idx = db.get_index_type<account_transaction_history_index>().indices().get<by_id>().find(node->next);
+            if (f_idx == db.get_index_type<account_transaction_history_index>().indices().get<by_id>().end()) {
+               node = nullptr;
+            }
+            else {
+               node = &(*f_idx);
+            }
+         }
       }
        
       return result;
@@ -572,8 +609,11 @@ namespace graphene { namespace app {
        
        while ( itr != itr_stop && result.size() < limit )
        {
-          try {
-            result.push_back( itr->operation_id(db) );
+          try
+          {
+             operation_history_object op_h = itr->operation_id(db);
+             reserve_op(op_h);
+             result.push_back(std::move(op_h));
           } catch(fc::exception e) { break; }
           --itr;
        }
@@ -581,9 +621,8 @@ namespace graphene { namespace app {
        return result;
     }
 
-    vector<operation_history_object> history_api::get_account_operation_history(account_id_type account,
-                                                                                unsigned operation_type,
-                                                                                unsigned limit) const
+    vector<operation_history_object>
+    history_api::get_account_operation_history(account_id_type account, unsigned operation_type, unsigned limit) const
     {
       FC_ASSERT( _app.chain_database() );
       const auto& db = *_app.chain_database();       
@@ -599,16 +638,26 @@ namespace graphene { namespace app {
         try
         {
           const operation_history_object& hist = node->operation_id(db);
-          if ((unsigned)hist.op.which() == operation_type) {
-             result.push_back(hist);
+          if ((unsigned)hist.op.which() == operation_type)
+          {
+             operation_history_object op_h = hist;
+             reserve_op(op_h);
+             result.push_back(std::move(op_h));
           }
         }
         catch(fc::exception e) { break; }
         if ( node->next == account_transaction_history_id_type() ) {
            node = nullptr;
         }
-        else {
-           node = &node->next(db);
+        else
+        {
+           auto f_idx = db.get_index_type<account_transaction_history_index>().indices().get<by_id>().find(node->next);
+           if (f_idx == db.get_index_type<account_transaction_history_index>().indices().get<by_id>().end()) {
+              node = nullptr;
+           }
+           else {
+              node = &(*f_idx);
+           }
         }
       }
       
@@ -642,8 +691,11 @@ namespace graphene { namespace app {
           auto& hist = node->operation_id(db);
           if (node->operation_id.instance.value <= start.instance.value)
           {
-             if ((unsigned) hist.op.which() == operation_type) {
-                result.push_back(hist);
+             if ((unsigned)hist.op.which() == operation_type)
+             {
+                operation_history_object op_h = hist;
+                reserve_op(op_h);
+                result.push_back(std::move(op_h));
              }
           }
         }
@@ -651,8 +703,15 @@ namespace graphene { namespace app {
         if (node->next == account_transaction_history_id_type()) {
            node = nullptr;
         }
-        else {
-           node = &node->next(db);
+        else
+        {
+           auto f_idx = db.get_index_type<account_transaction_history_index>().indices().get<by_id>().find(node->next);
+           if (f_idx == db.get_index_type<account_transaction_history_index>().indices().get<by_id>().end()) {
+              node = nullptr;
+           }
+           else {
+              node = &(*f_idx);
+           }
         }
       }
 
@@ -683,22 +742,24 @@ namespace graphene { namespace app {
       {
          try
          {
-            const operation_history_object& hist = node->operation_id(db);
+            operation_history_object hist = node->operation_id(db);
+            reserve_op(hist);
+
             if (node->operation_id.instance.value <= start.instance.value)
             {
                std::for_each(operation_types.begin(), operation_types.end(), [&account, &hist, &result](const uint16_t& op_type)
                {
-                  if ((unsigned) hist.op.which() == op_type)
+                  if ((unsigned)hist.op.which() == op_type)
                   {
                      // fund_payment_operation
                      if (hist.op.which() == operation::tag<fund_payment_operation>::value)
                      {
                         if (hist.op.get<fund_payment_operation>().issue_to_account == account) {
-                           result.push_back(hist);
+                           result.push_back(std::move(hist));
                         }
                      }
                      else {
-                        result.push_back(hist);
+                        result.push_back(std::move(hist));
                      }
                   }
                });
@@ -708,8 +769,15 @@ namespace graphene { namespace app {
          if (node->next == account_transaction_history_id_type()) {
             node = nullptr;
          }
-         else {
-            node = &node->next(db);
+         else
+         {
+            auto f_idx = db.get_index_type<account_transaction_history_index>().indices().get<by_id>().find(node->next);
+            if (f_idx == db.get_index_type<account_transaction_history_index>().indices().get<by_id>().end()) {
+               node = nullptr;
+            }
+            else {
+               node = &(*f_idx);
+            }
          }
       }
 
@@ -729,31 +797,54 @@ namespace graphene { namespace app {
       result.reserve(limit);
 
       const auto& idx = db.get_index_type<operation_history_index>().indices().get<by_id>();
+      auto itr = idx.begin();
 
-      auto itr = idx.find(start);
-      if (itr == idx.end()) { return result; }
-      ++itr;
+      auto is_valid_operation = [&operation_types, &account](const operation_history_object& op) -> bool
+      {
+         for (const uint16_t& op_type: operation_types)
+         {
+            if ((unsigned)op.op.which() == op_type)
+            {
+               // transfer operation
+               if (op.op.which() == operation::tag<transfer_operation>::value)
+               {
+                  const transfer_operation& tr_op = op.op.get<transfer_operation>();
+                  if ((tr_op.from == account) || (tr_op.to == account)) {
+                     return true;
+                  }
+               }
+               // ...
+            }
+         }
+         return false;
+      };
+
+      if (start == operation_history_id_type())
+      {
+         while (itr != idx.end())
+         {
+            // find first valid operation
+            if (is_valid_operation(*itr)) {
+               break;
+            }
+            ++itr;
+         }
+      }
+      else
+      {
+         itr = idx.find(start);
+         if (itr == idx.end()) { return result; }
+      }
 
       while (itr != idx.end())
       {
          if (result.size() == limit) { break;}
 
-         std::for_each(operation_types.begin(), operation_types.end(), [&account, &itr, &result](const uint16_t& op_type)
-         {
-            if ((unsigned)itr->op.which() == op_type)
-            {
-               // transfer operation
-               if (itr->op.which() == operation::tag<transfer_operation>::value)
-               {
-                  const transfer_operation& op = itr->op.get<transfer_operation>();
-                  if ((op.from == account) || (op.to == account)) {
-                     result.emplace_back(*itr);
-                  }
-               }
-               // ..._operation
+         const operation_history_object& op = *itr;
 
-            }
-         });
+         if (is_valid_operation(op)) {
+            result.emplace_back(op);
+         }
 
          ++itr;
       }
@@ -799,8 +890,15 @@ namespace graphene { namespace app {
          if (node->next == fund_transaction_history_id_type()) {
             node = nullptr;
          }
-         else {
-            node = &node->next(db);
+         else
+         {
+            auto f_idx = db.get_index_type<fund_transaction_history_index>().indices().get<by_id>().find(node->next);
+            if (f_idx == db.get_index_type<fund_transaction_history_index>().indices().get<by_id>().end()) {
+               node = nullptr;
+            }
+            else {
+               node = &(*f_idx);
+            }
          }
       }
 
@@ -864,8 +962,6 @@ namespace graphene { namespace app {
 
    } FC_CAPTURE_AND_RETHROW( (a)(b)(bucket_seconds)(start)(end) ) }
 
-   ///////////////////////////////////////////////////////////////////////////////
-
    fc::variants secure_api::get_objects(const vector<object_id_type>& ids) const
    {
       FC_ASSERT(_app.chain_database());
@@ -886,26 +982,37 @@ namespace graphene { namespace app {
       return result;
    }
 
-   std::vector<receipt_object>
-   secure_api::get_account_receipts(account_id_type account_id, uint32_t start, uint32_t limit) const
+   std::vector<cheque_object>
+   secure_api::get_account_cheques(account_id_type account_id, uint32_t start, uint32_t limit) const
    {
       FC_ASSERT(_app.chain_database());
       const auto& db = *_app.chain_database();
 
-      std::vector<receipt_object> result;
+      std::vector<cheque_object> result;
 
-      const auto& idx = db.get_index_type<receipt_index>().indices().get<by_creation_datetime>();
+      const auto& idx = db.get_index_type<cheque_index>().indices().get<by_datetime_creation>();
       auto itr = idx.rbegin();
       uint32_t i = 0;
 
       while (itr != idx.rend())
       {
-         if ( (itr->maker == account_id) || (itr->taker == account_id) )
+         if (itr->drawer == account_id)
          {
             if (i >= start) {
                result.emplace_back(*itr);
             }
             ++i;
+         }
+
+         for (const cheque_object::payee_item& item: itr->payees)
+         {
+            if (item.payee == account_id)
+            {
+               if (i >= start) {
+                  result.emplace_back(*itr);
+               }
+               ++i;
+            }
          }
          if (result.size() == limit) { break; }
          ++itr;

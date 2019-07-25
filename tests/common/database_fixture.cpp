@@ -1163,53 +1163,54 @@ void database_fixture::make_fund(
    trx.clear();
 }
 
-      void database_fixture::make_receipt(
-      const string& rcp_code,
-      fc::time_point_sec expiration_datetime
-      ,asset_id_type asset_id
-      ,share_type    amount
-      , account_id_type owner)
-      {
+void database_fixture::make_cheque(
+const string& rcp_code,
+fc::time_point_sec expiration_datetime
+,asset_id_type asset_id
+,share_type    amount_per_payee,
+uint32_t payees_count
+, account_id_type owner)
+{
    try
    {
-      receipt_create_operation rco;
+      cheque_create_operation cco;
 
-      rco.fee = asset();
-      rco.receipt_code = rcp_code;
-      rco.expiration_datetime = expiration_datetime;
-      rco.maker = owner;
-      //rco.asset_id = asset_id;
-      rco.amount = asset(amount, EDC_ASSET);
-
+      cco.fee = asset();
+      cco.code = rcp_code;
+      cco.expiration_datetime = expiration_datetime;
+      cco.drawer = owner;
+      cco.payee_amount = asset(amount_per_payee, EDC_ASSET);
+      cco.payee_count = payees_count;
 
       set_expiration(db, trx);
-      trx.operations.push_back(std::move(rco));
+      trx.operations.push_back(std::move(cco));
       trx.validate();
       db.push_transaction(trx, ~0);
       trx.clear();
    }FC_CAPTURE_AND_RETHROW()
 
-      }
+}
 
-      void database_fixture::use_receipt(
-      const string& rcp_code,
-      account_id_type to_account)
-      {
+void database_fixture::use_cheque(
+   const string& rcp_code,
+   account_id_type to_account)
+{
    try
    {
-      receipt_use_operation ruo;
+      cheque_use_operation ruo;
 
       ruo.fee = asset();
-      ruo.receipt_code = rcp_code;
-      ruo.taker = to_account;
+      ruo.code = rcp_code;
+      ruo.payee = to_account;
+      ruo.amount = asset(1000, EDC_ASSET);
 
       set_expiration(db, trx);
       trx.operations.push_back(std::move(ruo));
       trx.validate();
       db.push_transaction(trx, ~0);
       trx.clear();
-   }FC_CAPTURE_AND_RETHROW()
-      }
+   } FC_CAPTURE_AND_RETHROW()
+}
 namespace test {
 
 void set_expiration( const database& db, transaction& tx )

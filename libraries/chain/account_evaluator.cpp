@@ -827,4 +827,50 @@ void_result set_market_evaluator::do_apply(const set_market_operation& op)
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
+//////////////////////////////////////////////////////////////////////////////////////
+
+void_result create_market_address_evaluator::do_evaluate(const create_market_address_operation& op)
+{ try {
+   database& d = db();
+
+   const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
+   auto itr = idx.find(op.market_account_id);
+
+   FC_ASSERT(itr != idx.end(), "Account with ID ${id} not exists!", ("a", op.market_account_id));
+   FC_ASSERT(itr->is_market, "Account with ID ${id} is not a market!", ("a", op.market_account_id));
+
+   addr = d.get_address();
+
+   auto addr_itr = d.get_index_type<market_address_index>().indices().get<by_address>().find(*addr);
+   FC_ASSERT(addr_itr == d.get_index_type<market_address_index>().indices().get<by_address>().end()
+             , "The same address ('${a}') is already exists!", ("a", addr));
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+market_address create_market_address_evaluator::do_apply(const create_market_address_operation& op)
+{ try {
+
+   FC_ASSERT(addr);
+
+   database& d = db();
+   market_address result;
+
+   auto next_id = d.get_index_type<market_address_index>().get_next_id();
+
+   const market_address_object& obj = d.create<market_address_object>([&](market_address_object& obj) {
+      obj.market_account_id = op.market_account_id;
+      obj.addr = *addr;
+      obj.create_datetime = d.head_block_time();
+   });
+   FC_ASSERT(obj.id == next_id);
+
+   result.id = next_id;
+   result.addr = std::string(*addr);
+
+   return result;
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
 } } // graphene::chain

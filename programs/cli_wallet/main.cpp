@@ -192,6 +192,11 @@ int main( int argc, char** argv )
       FC_ASSERT( remote_api->login( wdata.ws_user, wdata.ws_password ), "Failed to log in to API server" );
 
       auto wapiptr = std::make_shared<wallet_api>( wdata, remote_api );
+
+      if (wdata.ws_user.length() > 1) {
+         wapiptr->set_secure_api(remote_api->secure());
+      }
+
       wapiptr->set_wallet_filename( wallet_file.generic_string() );
       wapiptr->load_wallet_file();
       if (options.count("no-backups") && options.at("no-backups").as<bool>()) {

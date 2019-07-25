@@ -99,6 +99,7 @@ public:
    std::string operator()(const asset& a);
    std::string operator()(const string& s);
    std::string operator()(const eval_fund_dep_apply_object& x) const;
+   std::string operator()(const market_address& x) const;
 };
 
 // BLOCK  TRX  OP  VOP
@@ -403,8 +404,7 @@ public:
         _remote_api(rapi),
         _remote_db(rapi->database()),
         _remote_net_broadcast(rapi->network_broadcast()),
-        _remote_hist(rapi->history()),
-        _remote_secure(rapi->secure())
+        _remote_hist(rapi->history())
    {
       chain_id_type remote_chain_id = _remote_db->get_chain_id();
       if (remote_chain_id != _chain_id)
@@ -419,9 +419,9 @@ public:
          on_block_applied(block_id);
       } );
 
-      _wallet.chain_id = _chain_id;
-      _wallet.ws_server = initial_data.ws_server;
-      _wallet.ws_user = initial_data.ws_user;
+      _wallet.chain_id    = _chain_id;
+      _wallet.ws_server   = initial_data.ws_server;
+      _wallet.ws_user     = initial_data.ws_user;
       _wallet.ws_password = initial_data.ws_password;
    }
    virtual ~wallet_api_impl()
@@ -1741,6 +1741,17 @@ public:
 
    } FC_CAPTURE_AND_RETHROW( (account)(enabled) ) }
 
+   account_object get_market_by_address(const std::string& addr) const
+   { try {
+
+      fc::optional<account_id_type> market_account_id = _remote_db->get_market_reference(address(addr));
+      FC_ASSERT(market_account_id, "Where is no market associated with this address: ${a}", ("a", addr));
+      const vector<optional<account_object>>& v = _remote_db->get_accounts({*market_account_id});
+      FC_ASSERT(v.size() == 1);
+      return *v[0];
+
+   } FC_CAPTURE_AND_RETHROW( (addr) ) }
+
    signed_transaction create_committee_member(string owner_account, string url, bool broadcast /* = false */)
    { try {
 
@@ -2398,13 +2409,30 @@ public:
       {
          to_address = address(to);
          auto accounts = _remote_db->get_address_references({*to_address})[0];
-         FC_ASSERT(accounts.size() == 1);
-         to_account = *_remote_db->get_accounts({accounts[0]})[0];
+
+         // user's address
+         if (accounts.size() == 1)
+         {
+            to_account = *_remote_db->get_accounts({accounts[0]})[0];
+            to = to_account.name;
+         }
+         // market's address
+         else
+         {
+            fc::optional<account_id_type> market_account_id = _remote_db->get_market_reference(address(to));
+            FC_ASSERT(market_account_id);
+            const vector<optional<account_object>>& v = _remote_db->get_accounts({*market_account_id});
+            FC_ASSERT(v.size() == 1);
+            FC_ASSERT(v[0]);
+
+            to_account = *v[0];
+         }
          to = to_account.name;
       }
       else {
          to_account = get_account(to);
       }
+
       account_object from_account = get_account(from);
       account_id_type from_id = from_account.id;
       account_id_type to_id = get_account_id(to);
@@ -2445,15 +2473,29 @@ public:
    std::vector<blind_transfer2_object>
    get_account_blind_transfers2(const string& name_or_id, unsigned from, unsigned limit)
    {
-      const account_object& acc = get_account(name_or_id);
-      return _remote_secure->get_account_blind_transfers2(acc.get_id(), from, limit);
+      std::vector<blind_transfer2_object> result;
+
+      if (_remote_secure)
+      {
+         const account_object& acc = get_account(name_or_id);
+         return (*_remote_secure)->get_account_blind_transfers2(acc.get_id(), from, limit);
+      }
+
+      return result;
    }
 
-   std::vector<receipt_object>
-   get_account_receipts(const string& name_or_id, unsigned from, unsigned limit)
+   std::vector<cheque_object>
+   get_account_cheques(const string& name_or_id, unsigned from, unsigned limit)
    {
-      const account_object& acc = get_account(name_or_id);
-      return _remote_secure->get_account_receipts(acc.get_id(), from, limit);
+      std::vector<cheque_object> result;
+
+      if (_remote_secure)
+      {
+         const account_object& acc = get_account(name_or_id);
+         return (*_remote_secure)->get_account_cheques(acc.get_id(), from, limit);
+      }
+
+      return result;
    }
 
    signed_transaction set_online_time( map<account_id_type, uint16_t> online_info)
@@ -2724,6 +2766,23 @@ public:
 
       add_address_operation op;
       op.to_account = acc.get_id();
+
+      signed_transaction tx;
+      tx.operations.push_back(op);
+      tx.validate();
+
+      return sign_transaction(tx, true);
+   }
+
+   signed_transaction generate_market_address(const string& account_id_or_name, const std::string& notes)
+   {
+      const account_object& acc = get_account(account_id_or_name);
+
+      FC_ASSERT(acc.is_market, "Account ${a} isn't a market!", ("a", acc.name));
+
+      create_market_address_operation op;
+      op.market_account_id = acc.get_id();
+      op.notes = notes;
 
       signed_transaction tx;
       tx.operations.push_back(op);
@@ -3058,9 +3117,9 @@ public:
    fc::api<database_api>   _remote_db;
    fc::api<network_broadcast_api> _remote_net_broadcast;
    fc::api<history_api>    _remote_hist;
-   fc::api<secure_api>     _remote_secure;
-   optional< fc::api<network_node_api> > _remote_net_node;
-   optional< fc::api<graphene::debug_witness::debug_api> > _remote_debug;
+   optional<fc::api<secure_api>> _remote_secure;
+   optional<fc::api<network_node_api>> _remote_net_node;
+   optional<fc::api<graphene::debug_witness::debug_api>> _remote_debug;
 
    // last transfer operation info
    struct last_transfer_info
@@ -3245,7 +3304,17 @@ std::string operation_result_printer::operator()(const eval_fund_dep_apply_objec
    std::ostringstream os;
    os << "{\"id\":\"" << std::string(obj.id) << "\""
       << ",\"datetime_begin\":\"" << std::string(obj.datetime_begin) << "\","
-      << ",\"datetime_end\":\"" << std::string(obj.datetime_end) << "\"}";
+      << ",\"datetime_end\":\"" << std::string(obj.datetime_end) << "\","
+      << ",\"percent\":\"" << std::to_string(obj.percent) << "\"}";
+
+   return os.str();
+}
+
+std::string operation_result_printer::operator()(const market_address& obj) const
+{
+   std::ostringstream os;
+   os << "{\"id\":\"" << std::string(obj.id) << "\""
+      << ",\"addr\":\"" << std::string(obj.addr) << "\"}";
 
    return os.str();
 }
@@ -3255,41 +3324,39 @@ std::string operation_result_printer::operator()(const eval_fund_dep_apply_objec
 namespace graphene { namespace wallet {
 
 wallet_api::wallet_api(const wallet_data& initial_data, fc::api<login_api> rapi)
-   : my(new detail::wallet_api_impl(*this, initial_data, rapi))
-{
+   : my(new detail::wallet_api_impl(*this, initial_data, rapi)) { }
+
+wallet_api::~wallet_api() { }
+
+void wallet_api::set_secure_api(fc::api<secure_api> s_api) {
+   my->_remote_secure = s_api;
 }
 
-wallet_api::~wallet_api()
-{
-}
-
-bool wallet_api::copy_wallet_file(string destination_filename)
-{
+bool wallet_api::copy_wallet_file(string destination_filename) {
    return my->copy_wallet_file(destination_filename);
 }
 
-optional<signed_block_with_info> wallet_api::get_block(uint32_t num)
-{
+optional<signed_block_with_info> wallet_api::get_block(uint32_t num) {
    return my->_remote_db->get_block(num);
 }
 
-address wallet_api::get_address(int64_t block_num, int64_t transaction_num) const
-{
+optional<cheque_info_object> wallet_api::get_cheque_by_code(const std::string& code) const {
+   return my->_remote_db->get_cheque_by_code(code);
+}
+
+address wallet_api::get_address(int64_t block_num, int64_t transaction_num) const {
    return address( block_num, transaction_num);
 }
 
-uint64_t wallet_api::get_account_count() const
-{
+uint64_t wallet_api::get_account_count() const {
    return my->_remote_db->get_account_count();
 }
 
-vector<account_object> wallet_api::list_my_accounts()
-{
+vector<account_object> wallet_api::list_my_accounts() {
    return vector<account_object>(my->_wallet.my_accounts.begin(), my->_wallet.my_accounts.end());
 }
 
-map<string,account_id_type> wallet_api::list_accounts(const string& lowerbound, uint32_t limit)
-{
+map<string,account_id_type> wallet_api::list_accounts(const string& lowerbound, uint32_t limit) {
    return my->_remote_db->lookup_accounts(lowerbound, limit);
 }
 
@@ -3434,6 +3501,20 @@ vector<fund_deposit_object> wallet_api::get_account_deposits(const string& name_
    return my->_remote_db->get_account_deposits(accounts.at(name_or_id).account.get_id(), start, limit);
 }
 
+vector<market_address_object> wallet_api::get_market_addresses(const string& name_or_id, uint32_t start, uint32_t limit) const
+{
+   FC_ASSERT( name_or_id.size() > 0 );
+
+   const std::map<string, full_account>& accounts = my->_remote_db->get_full_accounts( { name_or_id }, false );
+
+   FC_ASSERT( accounts.size() > 0 );
+
+   const account_object& acc = accounts.at(name_or_id).account;
+   FC_ASSERT( acc.is_market, "Account ${a} is not a market!", ("a", name_or_id) );
+
+   return my->_remote_db->get_market_addresses(acc.get_id(), start, limit);
+}
+
 vector<bucket_object> wallet_api::get_market_history(string symbol1, string symbol2, uint32_t bucket) const {
    return my->_remote_hist->get_market_history( get_asset_id(symbol1), get_asset_id(symbol2), bucket, fc::time_point_sec(), fc::time_point::now() );
 }
@@ -3491,6 +3572,18 @@ string wallet_api::serialize_transaction( signed_transaction tx )const
 
 variant wallet_api::get_object( object_id_type id ) const {
    return my->_remote_db->get_objects({id});
+}
+
+variant wallet_api::get_secure_object( object_id_type id ) const
+{
+   if (my->_remote_secure) {
+      return (*my->_remote_secure)->get_objects({id});
+   }
+   return variant();
+}
+
+optional<object_id_type> wallet_api::get_last_object_id(object_id_type id) const {
+   return my->_remote_db->get_last_object_id(id);
 }
 
 variant wallet_api::get_history_operation( object_id_type id ) const {
@@ -4022,8 +4115,7 @@ signed_transaction wallet_api::set_desired_witness_and_committee_member_count(st
                                                      desired_number_of_committee_members, broadcast);
 }
 
-void wallet_api::set_wallet_filename(string wallet_filename)
-{
+void wallet_api::set_wallet_filename(string wallet_filename) {
    my->_wallet_filename = wallet_filename;
 }
 
@@ -4032,8 +4124,7 @@ signed_transaction wallet_api::sign_transaction(signed_transaction tx, bool broa
    return my->sign_transaction( tx, broadcast);
 } FC_CAPTURE_AND_RETHROW( (tx) ) }
 
-operation wallet_api::get_prototype_operation(string operation_name)
-{
+operation wallet_api::get_prototype_operation(string operation_name) {
    return my->get_prototype_operation( operation_name );
 }
 
@@ -4097,6 +4188,10 @@ signed_transaction wallet_api::generate_address(const string& account_id_or_name
    return my->generate_address(account_id_or_name);
 }
 
+signed_transaction wallet_api::generate_market_address(const string& account_id_or_name, const std::string& notes) {
+   return my->generate_market_address(account_id_or_name, notes);
+}
+
 std::pair<unsigned, vector<address>>
 wallet_api::get_account_addresses(const string& name_or_id, unsigned from, unsigned limit) {
    return my->get_account_addresses(name_or_id, from, limit);
@@ -4107,9 +4202,9 @@ wallet_api::get_account_blind_transfers2(const string& name_or_id, unsigned from
    return my->get_account_blind_transfers2(name_or_id, from, limit);
 }
 
-std::vector<receipt_object>
-wallet_api::get_account_receipts(const string& name_or_id, unsigned from, unsigned limit) {
-   return my->get_account_receipts(name_or_id, from, limit);
+std::vector<cheque_object>
+wallet_api::get_account_cheques(const string& name_or_id, unsigned from, unsigned limit) {
+   return my->get_account_cheques(name_or_id, from, limit);
 }
 
 signed_transaction wallet_api::propose_fee_change(
@@ -5043,6 +5138,10 @@ signed_transaction wallet_api::propose_update_asset_exchange_rate(
 
 signed_transaction wallet_api::set_market(const std::string& account, bool enabled) {
    return my->set_market(account, enabled);
+}
+
+account_object wallet_api::get_market_by_address(const std::string& addr) const {
+   return my->get_market_by_address(addr);
 }
 
 signed_block_with_info::signed_block_with_info( const signed_block& block )

@@ -394,10 +394,9 @@ namespace detail {
             _force_validate = true;
          }
 
-
-         if( _options->count("api-access") )
-            _apiaccess = fc::json::from_file( _options->at("api-access").as<boost::filesystem::path>() )
-               .as<api_access>(20);
+         if ( _options->count("api-access") ) {
+            _apiaccess = fc::json::from_file(_options->at("api-access").as<boost::filesystem::path>()).as<api_access>(20);
+         }
          else
          {
             // TODO:  Remove this generous default access policy
@@ -409,7 +408,6 @@ namespace detail {
             wild_access.allowed_apis.push_back( "database_api" );
             wild_access.allowed_apis.push_back( "network_broadcast_api" );
             wild_access.allowed_apis.push_back( "history_api" );
-            wild_access.allowed_apis.push_back( "secure_api" );
             wild_access.allowed_apis.push_back( "crypto_api" );
             _apiaccess.permission_map["*"] = wild_access;
          }

@@ -76,6 +76,8 @@ namespace graphene { namespace app {
       string                        message_out;
    };
 
+   inline void reserve_op(operation_history_object& h_obj);
+
    /**
     * @brief The history_api class implements the RPC API for account history
     *
@@ -159,6 +161,7 @@ namespace graphene { namespace app {
          vector<bucket_object> get_market_history( asset_id_type a, asset_id_type b, uint32_t bucket_seconds,
                                                    fc::time_point_sec start, fc::time_point_sec end )const;
          flat_set<uint32_t> get_market_history_buckets()const;
+
       private:
            application& _app;
    };
@@ -166,7 +169,7 @@ namespace graphene { namespace app {
    /**
     * @brief The secure_api class implements the RPC API for secure elements
     *
-    * This API contains methods to access various secure entities
+    * This API contains methods to access to various secure entities
     */
    class secure_api
    {
@@ -178,8 +181,8 @@ namespace graphene { namespace app {
       std::vector<blind_transfer2_object>
       get_account_blind_transfers2(account_id_type account_id, uint32_t start, uint32_t limit) const;
 
-      std::vector<receipt_object>
-      get_account_receipts(account_id_type account_id, uint32_t start, uint32_t limit) const;
+      std::vector<cheque_object>
+      get_account_cheques(account_id_type account_id, uint32_t start, uint32_t limit) const;
 
    private:
       application& _app;
@@ -401,7 +404,7 @@ FC_API(graphene::app::history_api,
 FC_API(graphene::app::secure_api,
        (get_objects)
        (get_account_blind_transfers2)
-       (get_account_receipts)
+       (get_account_cheques)
 )
 FC_API(graphene::app::network_broadcast_api,
        (broadcast_transaction)

@@ -106,6 +106,14 @@ void history_plugin_impl::update_histories(const signed_block& b)
       vector<authority> other;
       operation_get_required_authorities(op.op, impacted_acc, impacted_acc, other);
 
+//      //////// hidden operations
+//      if ( (op.op.which() == operation::tag<blind_transfer2_operation>::value)
+//            || (op.op.which() == operation::tag<cheque_create_operation>::value)
+//            || (op.op.which() == operation::tag<cheque_use_operation>::value)
+//            || (op.op.which() == operation::tag<cheque_undo_operation>::value) ) {
+//         impacted_acc.clear();
+//      }
+
       if (op.op.which() == operation::tag<account_create_operation>::value) {
          impacted_acc.insert( oho.result.get<object_id_type>() );
       }
@@ -115,8 +123,8 @@ void history_plugin_impl::update_histories(const signed_block& b)
 
       for (auto& a: other)
       {
-         for (auto& item: a.account_auths) {
-            impacted_acc.insert(item.first);
+         for (std::pair<account_id_type,weight_type>& item_pair: a.account_auths) {
+            impacted_acc.insert(item_pair.first);
          }
       }
 

@@ -257,6 +257,7 @@ eval_fund_dep_apply_object fund_deposit_evaluator::do_apply( const fund_deposit_
 
       result.datetime_begin = o.datetime_begin;
       result.datetime_end   = o.datetime_end;
+      result.percent        = o.percent;
    });
 
    asset asst(op.amount, fund.get_asset_id());

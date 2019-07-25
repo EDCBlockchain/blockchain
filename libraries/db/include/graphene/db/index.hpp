@@ -28,6 +28,7 @@
 #include <fc/io/json.hpp>
 #include <fc/crypto/sha256.hpp>
 #include <fstream>
+#include <iostream>
 
 namespace graphene { namespace db {
    class object_database;
@@ -73,7 +74,7 @@ namespace graphene { namespace db {
          virtual uint8_t object_space_id()const = 0;
          virtual uint8_t object_type_id()const = 0;
 
-         virtual object_id_type get_next_id()const = 0;
+         virtual object_id_type get_next_id() const = 0;
          virtual void           use_next_id() = 0;
          virtual void           set_next_id( object_id_type id ) = 0;
 
@@ -212,9 +213,9 @@ namespace graphene { namespace db {
          virtual uint8_t object_type_id()const override
          { return object_type::type_id; }
 
-         virtual object_id_type get_next_id()const override              { return _next_id;    }
-         virtual void           use_next_id()override                    { ++_next_id.number;  }
-         virtual void           set_next_id( object_id_type id )override { _next_id = id;      }
+         virtual object_id_type get_next_id() const override              { return _next_id;    }
+         virtual void           use_next_id() override                    { ++_next_id.number;  }
+         virtual void           set_next_id( object_id_type id ) override { _next_id = id;      }
 
          fc::sha256 get_object_version()const
          {

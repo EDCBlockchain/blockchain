@@ -272,20 +272,23 @@ class wallet_api
       wallet_api( const wallet_data& initial_data, fc::api<login_api> rapi );
       virtual ~wallet_api();
 
+      void set_secure_api(fc::api<secure_api> s_api);
       bool copy_wallet_file( string destination_filename );
 
       fc::ecc::private_key derive_private_key(const std::string& prefix_string, int sequence_number) const;
 
-      variant                           info();
+      variant                          info();
       /** Returns info such as client version, git version of graphene/fc, version of boost, openssl.
        * @returns compile time info and client and dependencies versions
        */
-      variant_object                    about() const;
-      optional<signed_block_with_info>    get_block( uint32_t num );
+      variant_object                   about() const;
+      optional<signed_block_with_info> get_block( uint32_t num );
+      optional<cheque_info_object>     get_cheque_by_code(const std::string& code) const;
+
       /** Returns the number of accounts registered on the blockchain
        * @returns the number of registered accounts
        */
-      uint64_t                          get_account_count()const;
+      uint64_t                          get_account_count() const;
       /** Lists all accounts controlled by this wallet.
        * This returns a list of the full account objects for all accounts whose private keys 
        * we possess.
@@ -395,6 +398,7 @@ class wallet_api
                                                                        , const vector<uint16_t>& operation_types = vector<uint16_t>()) const;
 
       vector<fund_deposit_object> get_account_deposits(const string& name_or_id, uint32_t start, uint32_t limit) const;
+      vector<market_address_object> get_market_addresses(const string& name_or_id, uint32_t start, uint32_t limit) const;
 
       vector<bucket_object>             get_market_history(string symbol, string symbol2, uint32_t bucket)const;
       vector<limit_order_object>        get_limit_orders(string a, string b, uint32_t limit)const;
@@ -472,6 +476,8 @@ class wallet_api
        * @returns the requested object
        */
       variant                           get_object(object_id_type id) const;
+      variant                           get_secure_object(object_id_type id) const;
+      optional<object_id_type>          get_last_object_id(object_id_type id) const;
       variant                           get_history_operation(object_id_type id) const;
       /**
        * Returns object ID of the last history operation processed by current wallet
@@ -1421,10 +1427,12 @@ class wallet_api
 
       signed_transaction generate_address(const string& account_id_or_name);
 
+      signed_transaction generate_market_address(const string& account_id_or_name, const std::string& notes);
+
       /** Returns account addresses
        *
-       * @param limit maximum entities
        * @param from from which address position start to count
+       * @param limit maximum entities
        *
        * @return limited addresses and count of all account addresses
        */
@@ -1449,8 +1457,8 @@ class wallet_api
        *
        * @return limited entities
        */
-      std::vector<receipt_object>
-      get_account_receipts(const string& name_or_id, unsigned from = 0, unsigned limit = 100);
+      std::vector<cheque_object>
+      get_account_cheques(const string& name_or_id, unsigned from = 0, unsigned limit = 100);
 
       /** Set your vote for the number of witnesses and committee_members in the system.
        *
@@ -1577,6 +1585,7 @@ class wallet_api
          , bool broadcast);
 
       signed_transaction set_market(const std::string& account, bool enabled);
+      account_object get_market_by_address(const std::string& addr) const;
 
       void dbg_make_uia(string creator, string symbol);
       void dbg_make_mia(string creator, string symbol);
@@ -1767,10 +1776,13 @@ FC_API( graphene::wallet::wallet_api,
         (get_account_operation_history2)
         (get_account_operation_history4)
         (get_account_deposits)
+        (get_market_addresses)
         (get_market_history)
         (get_global_properties)
         (get_dynamic_global_properties)
         (get_object)
+        (get_secure_object)
+        (get_last_object_id)
         (get_history_operation)
         (get_operation_id_after_transfer)
         (get_private_key)
@@ -1812,6 +1824,9 @@ FC_API( graphene::wallet::wallet_api,
         (generate_address)
         (get_account_addresses)
         (get_account_blind_transfers2)
-        (get_account_receipts)
+        (get_account_cheques)
         (set_market)
+        (get_market_by_address)
+        (generate_market_address)
+        (get_cheque_by_code)
       )

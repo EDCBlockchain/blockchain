@@ -99,8 +99,8 @@ namespace graphene { namespace chain {
       account_options options;
       extension<ext> extensions;
 
-      account_id_type fee_payer()const { return registrar; }
-      void            validate()const;
+      account_id_type fee_payer() const { return registrar; }
+      void            validate() const;
       share_type      calculate_fee(const fee_parameters_type& )const;
 
       void get_required_active_authorities( flat_set<account_id_type>& a )const
@@ -149,8 +149,8 @@ namespace graphene { namespace chain {
       extension<ext> extensions;
 
       account_id_type fee_payer()const { return account; }
-      void       validate()const;
-      share_type calculate_fee( const fee_parameters_type& k )const;
+      void       validate() const;
+      share_type calculate_fee(const fee_parameters_type& k)const;
 
       bool is_owner_update()const
       { return owner || extensions.value.owner_special_authority.valid(); }
@@ -168,9 +168,9 @@ namespace graphene { namespace chain {
          share_type fee = 0;
       };
       
-      account_id_type fee_payer()const { return to_account; }
-      void       validate()const {};
-      share_type calculate_fee( const fee_parameters_type& k )const { return 0; }
+      account_id_type fee_payer() const { return to_account; }
+      void       validate() const {};
+      share_type calculate_fee(const fee_parameters_type& k) const { return 0; }
 
       asset fee;
       account_id_type to_account;
@@ -183,9 +183,9 @@ namespace graphene { namespace chain {
          share_type fee = 0;
       };
 
-      account_id_type fee_payer()const { return ALPHA_ACCOUNT_ID; }
-      void       validate()const {};
-      share_type calculate_fee( const fee_parameters_type& k )const { return 0; }
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void       validate() const {};
+      share_type calculate_fee(const fee_parameters_type& k) const { return 0; }
 
       asset fee;
       account_id_type to_account;
@@ -234,8 +234,8 @@ namespace graphene { namespace chain {
       uint8_t new_listing = no_listing;
       extensions_type extensions;
 
-      account_id_type fee_payer()const { return authorizing_account; }
-      void validate()const { FC_ASSERT( fee.amount >= 0 ); FC_ASSERT(new_listing < 0x4); }
+      account_id_type fee_payer() const { return authorizing_account; }
+      void validate() const { FC_ASSERT( fee.amount >= 0 ); FC_ASSERT(new_listing < 0x4); }
    };
    
     struct account_restrict_operation: public base_operation
@@ -279,8 +279,8 @@ namespace graphene { namespace chain {
         uint8_t             action;
         extensions_type     extensions;
         
-        account_id_type fee_payer()const { return GRAPHENE_COMMITTEE_ACCOUNT; }
-        void validate()const { FC_ASSERT( target != GRAPHENE_COMMITTEE_ACCOUNT ); FC_ASSERT(action); FC_ASSERT(action == 0x1 || action == 0x2);}
+        account_id_type fee_payer() const { return GRAPHENE_COMMITTEE_ACCOUNT; }
+        void validate() const { FC_ASSERT( target != GRAPHENE_COMMITTEE_ACCOUNT ); FC_ASSERT(action); FC_ASSERT(action == 0x1 || action == 0x2);}
     };
 
     struct set_online_time_operation: public base_operation
@@ -291,8 +291,8 @@ namespace graphene { namespace chain {
         map<account_id_type, uint16_t>  online_info;
         extensions_type                 extensions;
 
-        account_id_type fee_payer( )const { return ALPHA_ACCOUNT_ID; }
-        void            validate( )const { };
+        account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+        void            validate() const { };
     };
 
     struct set_verification_is_required_operation: public base_operation
@@ -305,8 +305,8 @@ namespace graphene { namespace chain {
         bool               verification_is_required;
         extensions_type    extensions;
         
-        account_id_type fee_payer( )const { return ALPHA_ACCOUNT_ID; }
-        void            validate( )const { };
+        account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+        void            validate() const { };
     };
 
    /**
@@ -336,9 +336,9 @@ namespace graphene { namespace chain {
       bool              upgrade_to_lifetime_member = false;
       extensions_type   extensions;
 
-      account_id_type fee_payer()const { return account_to_upgrade; }
-      void       validate()const;
-      share_type calculate_fee( const fee_parameters_type& k )const;
+      account_id_type fee_payer() const { return account_to_upgrade; }
+      void            validate() const;
+      share_type      calculate_fee(const fee_parameters_type& k) const;
    };
 
    /**
@@ -363,8 +363,8 @@ namespace graphene { namespace chain {
       account_id_type new_owner;
       extensions_type extensions;
 
-      account_id_type fee_payer()const { return account_id; }
-      void        validate()const;
+      account_id_type fee_payer() const { return account_id; }
+      void            validate() const;
    };
 
    struct allow_create_addresses_operation: public base_operation
@@ -376,8 +376,8 @@ namespace graphene { namespace chain {
       bool            allow = true;
       extensions_type extensions;
 
-      account_id_type fee_payer( )const { return GRAPHENE_COMMITTEE_ACCOUNT; }
-      void            validate( )const { };
+      account_id_type fee_payer() const { return GRAPHENE_COMMITTEE_ACCOUNT; }
+      void            validate() const { };
    };
 
    struct set_burning_mode_operation: public base_operation
@@ -389,8 +389,8 @@ namespace graphene { namespace chain {
       bool            enabled = true;
       extensions_type extensions;
 
-      account_id_type fee_payer( )const { return ALPHA_ACCOUNT_ID; }
-      void            validate( )const { };
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
    };
 
    struct assets_update_fee_payer_operation: public base_operation
@@ -403,8 +403,8 @@ namespace graphene { namespace chain {
       asset_id_type               fee_payer_asset;
 
       extensions_type extensions;
-      account_id_type fee_payer( )const { return GRAPHENE_COMMITTEE_ACCOUNT; }
-      void            validate( )const { };
+      account_id_type fee_payer() const { return GRAPHENE_COMMITTEE_ACCOUNT; }
+      void            validate() const { };
    };
 
    struct asset_update_exchange_rate_operation: public base_operation
@@ -417,8 +417,22 @@ namespace graphene { namespace chain {
       price         core_exchange_rate;
 
       extensions_type extensions;
-      account_id_type fee_payer( )const { return GRAPHENE_COMMITTEE_ACCOUNT; }
-      void            validate( )const { };
+      account_id_type fee_payer() const { return GRAPHENE_COMMITTEE_ACCOUNT; }
+      void            validate() const { };
+   };
+
+   struct create_market_address_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset fee;
+
+      account_id_type market_account_id;
+      std::string     notes;
+
+      extensions_type extensions;
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const;
    };
 
 } } // graphene::chain
@@ -484,6 +498,9 @@ FC_REFLECT( graphene::chain::asset_update_exchange_rate_operation, (fee)(asset_t
 
 FC_REFLECT( graphene::chain::set_market_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::set_market_operation, (fee)(to_account)(enabled)(extensions) )
+
+FC_REFLECT( graphene::chain::create_market_address_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::chain::create_market_address_operation, (fee)(market_account_id)(notes) )
 
 
 

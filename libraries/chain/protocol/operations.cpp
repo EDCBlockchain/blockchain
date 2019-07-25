@@ -56,7 +56,6 @@ struct operation_get_required_auth
    flat_set<account_id_type>& owner;
    vector<authority>&         other;
 
-
    operation_get_required_auth( flat_set<account_id_type>& a,
      flat_set<account_id_type>& own,
      vector<authority>&  oth ):active(a),owner(own),other(oth){}

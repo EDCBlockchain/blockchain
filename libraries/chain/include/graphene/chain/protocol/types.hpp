@@ -158,7 +158,7 @@ namespace graphene { namespace chain {
       restricted_account_object_type,  // [idx: 16]
       market_address_object_type,
       fund_object_type,                // [idx: 18]
-      receipt_object_type,
+      cheque_object_type,
       OBJECT_TYPE_COUNT ///< Sentry value which contains the number of different object types
    };
 
@@ -180,7 +180,7 @@ namespace graphene { namespace chain {
    class restricted_account_object;
    class market_address_object;
    class fund_object;
-   class receipt_object;
+   class cheque_object;
 
    typedef object_id<protocol_ids, account_object_type,             account_object>             account_id_type;
    typedef object_id<protocol_ids, asset_object_type,               asset_object>               asset_id_type;
@@ -199,7 +199,7 @@ namespace graphene { namespace chain {
    typedef object_id<protocol_ids, restricted_account_object_type,  restricted_account_object>  banned_account_id_type;
    typedef object_id<protocol_ids, market_address_object_type,      market_address_object>      market_address_id_type;
    typedef object_id<protocol_ids, fund_object_type,                fund_object>                fund_id_type;
-   typedef object_id<protocol_ids, receipt_object_type,             receipt_object>             receipt_id_type;
+   typedef object_id<protocol_ids, cheque_object_type,              cheque_object>              cheque_id_type;
 
    /*********** implementation types ***********/
 
@@ -406,7 +406,7 @@ FC_REFLECT_ENUM( graphene::chain::object_type,
                  (restricted_account_object_type)
                  (fund_object_type)
                  (market_address_object_type)
-                 (receipt_object_type)
+                 (cheque_object_type)
                  (OBJECT_TYPE_COUNT)
                )
 FC_REFLECT_ENUM( graphene::chain::impl_object_type,
@@ -477,7 +477,7 @@ FC_REFLECT_TYPENAME( graphene::chain::fund_id_type )
 FC_REFLECT_TYPENAME( graphene::chain::fund_deposit_id_type )
 FC_REFLECT_TYPENAME( graphene::chain::fund_statistics_id_type )
 FC_REFLECT_TYPENAME( graphene::chain::fund_transaction_history_id_type )
-FC_REFLECT_TYPENAME( graphene::chain::receipt_id_type )
+FC_REFLECT_TYPENAME( graphene::chain::cheque_id_type )
 
 
 FC_REFLECT( graphene::chain::void_t, )

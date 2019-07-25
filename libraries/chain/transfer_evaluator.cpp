@@ -155,11 +155,13 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
 { try {
 
    const database& d = db();
+   const blind_transfer2_settings_object& fee_settings = d.get(blind_transfer2_settings_id_type(0));
 
    const account_object& from_account = op.from(d);
    to_account_ptr = &op.to(d);
 
    const asset_object& asset_type = op.amount.asset_id(d);
+   const asset_object& fee_type = fee_settings.blind_fee.asset_id(d);
 
    try {
 
@@ -200,18 +202,24 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
          );
       }
 
-      const blind_transfer2_settings_object& s = d.get(blind_transfer2_settings_id_type(0));
-      FC_ASSERT(op.amount.asset_id == s.blind_fee.asset_id, "assets are different('${a}','${b}')!", ("a",op.amount.asset_id)("b",s.blind_fee.asset_id));
+      //FC_ASSERT(op.amount.asset_id == s.blind_fee.asset_id, "assets are different('${a}','${b}')!", ("a",op.amount.asset_id)("b",s.blind_fee.asset_id));
 
-      bool insufficient_balance = (d.get_balance(from_account, asset_type).amount + s.blind_fee.amount) >= op.amount.amount;
+      bool insufficient_balance = d.get_balance(from_account, asset_type).amount >= op.amount.amount;
       FC_ASSERT(insufficient_balance,
                 "Insufficient Balance: ${balance}(fee: ${fee}), unable to make blind transfer '${total_transfer}' from account '${a}' to '${t}'",
                 ("a",from_account.name)("t",to_account_ptr->name)
                 ("total_transfer",d.to_pretty_string(op.amount))
-                ("balance",d.to_pretty_string(d.get_balance(from_account, asset_type)))
-                ("fee",d.to_pretty_string(s.blind_fee.amount)) );
+                ("balance",d.to_pretty_string(d.get_balance(from_account, asset_type))) );
+
+      bool insufficient_fee = d.get_balance(from_account, fee_type).amount >= fee_settings.blind_fee.amount;
+      FC_ASSERT(insufficient_fee,
+                "Insufficient fee: ${fee}, unable to make blind transfer '${total_transfer}' from account '${a}' to '${t}'",
+                ("a",from_account.name)("t",to_account_ptr->name)
+                ("total_transfer",d.to_pretty_string(op.amount))
+                ("fee",d.to_pretty_string(d.get_balance(from_account, fee_type))) );
 
       asset_dyn_data_ptr = &asset_type.dynamic_asset_data_id(d);
+      fee_dyn_data_ptr = &fee_type.dynamic_asset_data_id(d);
 
       // see also 'asset_reserve_operation'
       if (to_account_ptr->burning_mode_enabled)
@@ -228,15 +236,21 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
 void_result blind_transfer2_evaluator::do_apply( const blind_transfer2_operation& o )
 { try {
    database& d = db();
-   const blind_transfer2_settings_object& s = d.get(blind_transfer2_settings_id_type(0));
+   const blind_transfer2_settings_object& fee_settings = d.get(blind_transfer2_settings_id_type(0));
 
-   asset am = o.amount + s.blind_fee;
+   // amount
+   asset am = o.amount;
    d.adjust_balance(o.from, -am);
 
-   if (asset_dyn_data_ptr)
+   // fee
+   asset f_amount = fee_settings.blind_fee;
+   d.adjust_balance(o.from, -f_amount);
+
+   // burning of fee
+   if (fee_dyn_data_ptr)
    {
-      d.modify(*asset_dyn_data_ptr, [&]( asset_dynamic_data_object& data) {
-         data.current_supply -= s.blind_fee.amount;
+      d.modify(*fee_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
+         data.current_supply -= fee_settings.blind_fee.amount;
       });
    }
 
@@ -249,7 +263,7 @@ void_result blind_transfer2_evaluator::do_apply( const blind_transfer2_operation
       // burning
       else if (asset_dyn_data_ptr)
       {
-         d.modify(*asset_dyn_data_ptr, [&]( asset_dynamic_data_object& data) {
+         d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
             data.current_supply -= o.amount.amount;
          });
       }
@@ -262,7 +276,7 @@ void_result blind_transfer2_evaluator::do_apply( const blind_transfer2_operation
          obj.amount   = o.amount;
          obj.datetime = d.head_block_time();
          obj.memo     = o.memo;
-         obj.fee      = s.blind_fee;
+         obj.fee      = fee_settings.blind_fee;
       });
    }
 

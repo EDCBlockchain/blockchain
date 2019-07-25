@@ -58,7 +58,6 @@ BOOST_AUTO_TEST_CASE( ban_objects_test )
 
       BOOST_CHECK(itr == idx.end());
       BOOST_CHECK(!db.get_index_type<restricted_account_index>().indices().size());
-
    }
    catch (fc::exception& e)
    {
@@ -328,7 +327,80 @@ BOOST_AUTO_TEST_CASE(blind_transfer2_test)
       edump((e.to_detail_string()));
       throw;
    }
+}
 
+BOOST_AUTO_TEST_CASE(market_addresses_test)
+{
+   BOOST_TEST_MESSAGE( "=== blind_transfer2_test ===" );
+
+   try {
+
+      ACTOR(abcde1); // for needed IDs
+      ACTOR(alice);
+      ACTOR(bob);
+
+      create_edc(asset(100, CORE_ASSET), asset(2, EDC_ASSET));
+      create_test_asset();
+
+      issue_uia(alice_id, asset(10000, EDC_ASSET));
+
+      // we need to represent the account as market first
+      {
+         set_market_operation op;
+         op.to_account = bob_id;
+         op.enabled = true;
+         trx.operations.push_back(op);
+         trx.validate();
+         db.push_transaction(trx, ~0);
+         trx.clear();
+      }
+
+      BOOST_CHECK(bob_id(db).is_market);
+
+      // "notes" is too long
+      {
+         auto f = [&]()
+         {
+            create_market_address_operation op;
+            op.market_account_id = bob_id;
+            op.notes = "sdfsfwreewrsdfrewrwrwdfasfwersdfsfwreewrsdfrewrwrwdfasfwersdfsfwreewrsdfrewrwrwdfa";
+            trx.operations.push_back(op);
+            trx.validate();
+            db.push_transaction(trx, ~0);
+         };
+         BOOST_CHECK_THROW(f(), fc::assert_exception);
+         trx.clear();
+      }
+
+      {
+         trx.clear();
+         create_market_address_operation op;
+         op.market_account_id = bob_id;
+         op.notes = "sdfsfwreewrsdfrewrw";
+         trx.operations.push_back(op);
+         trx.validate();
+         db.push_transaction(trx, ~0);
+         trx.clear();
+      }
+
+      generate_block();
+
+      const auto& idx = db.get_index_type<market_address_index>().indices().get<by_id>();
+      BOOST_CHECK(idx.size() == 1);
+
+      const market_address_object& addr_obj = *idx.begin();
+      BOOST_CHECK(addr_obj.market_account_id == bob_id);
+
+      {
+         const auto& idx = db.get_index_type<market_address_index>().indices().get<by_address>().find(addr_obj.addr);
+         BOOST_CHECK(idx->market_account_id == bob_id);
+      }
+   }
+   catch (fc::exception& e)
+   {
+      edump((e.to_detail_string()));
+      throw;
+   }
 }
 
 BOOST_AUTO_TEST_SUITE_END()

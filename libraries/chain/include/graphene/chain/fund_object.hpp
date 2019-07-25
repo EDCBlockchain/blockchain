@@ -99,10 +99,7 @@ namespace graphene { namespace chain {
       fund_transaction_history_object,
       indexed_by<
          ordered_unique<tag<by_id>, member<object, object_id_type, &object::id>>,
-         ordered_non_unique<tag<by_time>,
-            composite_key<fund_transaction_history_object,
-            member<fund_transaction_history_object, fc::time_point_sec, &fund_transaction_history_object::block_time>>
-         >,
+         ordered_non_unique<tag<by_time>, member<fund_transaction_history_object, fc::time_point_sec, &fund_transaction_history_object::block_time>>,
          ordered_unique<tag<by_seq>,
             composite_key<fund_transaction_history_object,
                member<fund_transaction_history_object, fund_id_type, &fund_transaction_history_object::fund>,
