@@ -9,14 +9,8 @@
 
 namespace graphene { namespace chain {
 
-   void cheque_object::allocate_payees(uint32_t payees_count)
-   {
-      if (payees_count > 0)
-      {
-         for (uint32_t i = 0; i < payees_count; i++) {
-            payees.push_back({account_id_type(), fc::time_point_sec::min(), cheque_new});
-         }
-      }
+   void cheque_object::allocate_payees(uint32_t payees_count) {
+      payees.resize(payees_count);
    }
 
    void cheque_object::process_payee(account_id_type payee, database& db)
