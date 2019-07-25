@@ -27,13 +27,13 @@ namespace graphene { namespace chain {
       asset fee;
 
       std::string        code;
-      account_id_type    drawer;
+      account_id_type    account_id;
       asset              payee_amount; // amount per each user
       uint32_t           payee_count;
       fc::time_point_sec expiration_datetime;
 
       extensions_type extensions;
-      account_id_type fee_payer() const { return drawer; }
+      account_id_type fee_payer() const { return account_id; }
       void            validate() const;
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
@@ -46,11 +46,11 @@ namespace graphene { namespace chain {
       asset           fee;
 
       std::string     code;
-      account_id_type payee;
+      account_id_type account_id;
       asset           amount;
       extensions_type extensions;
 
-      account_id_type fee_payer() const { return payee; }
+      account_id_type fee_payer() const { return account_id; }
       void            validate() const;
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
@@ -62,8 +62,8 @@ namespace graphene { namespace chain {
 
       asset fee;
 
-      cheque_id_type  id;
-      account_id_type drawer;
+      cheque_id_type  check_id;
+      account_id_type account_id;
       asset           amount;
       extensions_type extensions;
 
@@ -77,15 +77,15 @@ namespace graphene { namespace chain {
 
 FC_REFLECT( graphene::chain::cheque_create_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::cheque_create_operation,
-            (fee)(code)(drawer)(payee_amount)(payee_count)(expiration_datetime)(extensions))
+            (fee)(code)(account_id)(payee_amount)(payee_count)(expiration_datetime)(extensions))
 
 FC_REFLECT( graphene::chain::cheque_use_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::cheque_use_operation,
-            (fee)(code)(payee)(amount)(extensions))
+            (fee)(code)(account_id)(amount)(extensions))
 
 FC_REFLECT( graphene::chain::cheque_reverse_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::cheque_reverse_operation,
-            (fee)(id)(drawer)(amount)(extensions))
+            (fee)(check_id)(account_id)(amount)(extensions))
 
 FC_REFLECT_ENUM( graphene::chain::cheque_status,
                  (cheque_new)

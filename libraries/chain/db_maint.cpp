@@ -1005,8 +1005,8 @@ void database::process_cheques()
            && ((dpo.next_maintenance_time - gpo.parameters.maintenance_interval) >= cheque_obj.get_expiration_datetime()) )
       {
          chain::cheque_reverse_operation op;
-         op.id = cheque_obj.get_id();
-         op.drawer = cheque_obj.drawer;
+         op.check_id = cheque_obj.get_id();
+         op.account_id = cheque_obj.drawer;
          op.amount = cheque_obj.get_remaining_amount();
 
          try

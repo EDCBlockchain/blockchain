@@ -15,7 +15,7 @@ namespace graphene { namespace chain {
 
       database& d = db();
 
-      FC_ASSERT(d.find_object(op.drawer), "Account ${a} doesn't exist", ("a", op.drawer));
+      FC_ASSERT(d.find_object(op.account_id), "Account ${a} doesn't exist", ("a", op.account_id));
       FC_ASSERT(d.find_object(op.payee_amount.asset_id), "Asset ${a} doesn't exist", ("a", op.payee_amount.asset_id));
 
       const auto& idx = d.get_index_type<cheque_index>().indices().get<by_code>();
@@ -26,7 +26,7 @@ namespace graphene { namespace chain {
                 , "Invalid 'expiration_datetime': ${a}. Head block time: ${b}"
                 , ("a", op.expiration_datetime)("b", d.head_block_time()));
 
-      const account_object& from_acc = op.drawer(d);
+      const account_object& from_acc = op.account_id(d);
       const asset_object& asset_obj  = op.payee_amount.asset_id(d);
 
       bool insufficient_balance = (d.get_balance(from_acc, asset_obj).amount >= op.payee_amount.amount * op.payee_count);
@@ -44,14 +44,14 @@ namespace graphene { namespace chain {
       database& d = db();
 
       asset asst(op.payee_amount.amount * op.payee_count, op.payee_amount.asset_id);
-      d.adjust_balance(op.drawer, -asst);
+      d.adjust_balance(op.account_id, -asst);
 
       auto next_cheque_id = d.get_index_type<cheque_index>().get_next_id();
 
       const cheque_object& new_cheque =
       d.create<cheque_object>([&](cheque_object& o)
       {
-         o.drawer  = op.drawer;
+         o.drawer  = op.account_id;
          o.asset_id = op.payee_amount.asset_id;
          o.datetime_creation   = d.head_block_time();
          o.datetime_expiration = op.expiration_datetime;
@@ -75,7 +75,7 @@ void_result cheque_use_evaluator::do_evaluate( const cheque_use_operation& op )
 
    database& d = db();
 
-   FC_ASSERT(d.find_object(op.payee), "Account ${a} doesn't exist", ("a", op.payee));
+   FC_ASSERT(d.find_object(op.account_id), "Account ${a} doesn't exist", ("a", op.account_id));
 
    const auto& idx = d.get_index_type<cheque_index>().indices().get<by_code>();
    auto itr = idx.find(op.code);
@@ -89,8 +89,8 @@ void_result cheque_use_evaluator::do_evaluate( const cheque_use_operation& op )
 
    for (const cheque_object::payee_item& item: cheque_obj_ptr->payees)
    {
-      FC_ASSERT((item.payee != op.payee)
-                , "Cheque code '${code}' has been already used for account '${account}'", ("rcode", op.code)("account", op.payee));
+      FC_ASSERT((item.payee != op.account_id)
+                , "Cheque code '${code}' has been already used for account '${account}'", ("rcode", op.code)("account", op.account_id));
    }
 
    return void_result();
@@ -107,7 +107,7 @@ object_id_type cheque_use_evaluator::do_apply( const cheque_use_operation& op )
    const cheque_object& cheque = *cheque_obj_ptr;
 
    d.modify(cheque, [&](chain::cheque_object& o) {
-      o.process_payee(op.payee, d);
+      o.process_payee(op.account_id, d);
    });
 
    return cheque.get_id();
@@ -121,8 +121,8 @@ void_result cheque_reverse_evaluator::do_evaluate( const cheque_reverse_operatio
 
    database& d = db();
    const auto& idx = d.get_index_type<cheque_index>().indices().get<by_id>();
-   auto itr = idx.find(op.id);
-   FC_ASSERT(itr != idx.end(), "Where is no cheque with ID '${id}'!", ("id", op.id));
+   auto itr = idx.find(op.check_id);
+   FC_ASSERT(itr != idx.end(), "Where is no cheque with ID '${id}'!", ("id", op.check_id));
 
    cheque_obj_ptr = &(*itr);
 
@@ -133,7 +133,7 @@ void_result cheque_reverse_evaluator::do_evaluate( const cheque_reverse_operatio
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
-object_id_type cheque_reverse_evaluator::do_apply( const cheque_reverse_operation& op )
+void_result cheque_reverse_evaluator::do_apply( const cheque_reverse_operation& op )
 { try {
 
    FC_ASSERT(cheque_obj_ptr);
@@ -167,7 +167,7 @@ object_id_type cheque_reverse_evaluator::do_apply( const cheque_reverse_operatio
       o.amount_remaining = 0;
    });
 
-   return cheque_obj_ptr->get_id();
+   return void_result();
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 

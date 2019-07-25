@@ -292,15 +292,15 @@ struct get_impacted_account_visitor
    }
 
    void operator()( const cheque_create_operation& op) {
-      _impacted_accounts.insert( op.drawer );
+      _impacted_accounts.insert( op.account_id );
    }
 
    void operator()( const cheque_use_operation& op) {
-      _impacted_accounts.insert( op.payee );
+      _impacted_accounts.insert( op.account_id );
    }
 
    void operator()( const cheque_reverse_operation& op) {
-      _impacted_accounts.insert( op.drawer );
+      _impacted_accounts.insert( op.account_id );
    }
 
    void operator()( const create_market_address_operation& op) { }

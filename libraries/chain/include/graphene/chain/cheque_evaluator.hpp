@@ -34,7 +34,7 @@ namespace graphene { namespace chain {
       typedef cheque_reverse_operation operation_type;
 
       void_result do_evaluate(const cheque_reverse_operation& op);
-      object_id_type do_apply(const cheque_reverse_operation& op);
+      void_result do_apply(const cheque_reverse_operation& op);
 
       const cheque_object* cheque_obj_ptr = nullptr;
    };

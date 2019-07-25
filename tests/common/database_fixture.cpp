@@ -1178,7 +1178,7 @@ uint32_t payees_count
       cco.fee = asset();
       cco.code = rcp_code;
       cco.expiration_datetime = expiration_datetime;
-      cco.drawer = owner;
+      cco.account_id = owner;
       cco.payee_amount = asset(amount_per_payee, EDC_ASSET);
       cco.payee_count = payees_count;
 
@@ -1201,7 +1201,7 @@ void database_fixture::use_cheque(
 
       ruo.fee = asset();
       ruo.code = rcp_code;
-      ruo.payee = to_account;
+      ruo.account_id = to_account;
       ruo.amount = asset(1000, EDC_ASSET);
 
       set_expiration(db, trx);
