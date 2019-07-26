@@ -121,8 +121,8 @@ void_result cheque_reverse_evaluator::do_evaluate( const cheque_reverse_operatio
 
    database& d = db();
    const auto& idx = d.get_index_type<cheque_index>().indices().get<by_id>();
-   auto itr = idx.find(op.check_id);
-   FC_ASSERT(itr != idx.end(), "Where is no cheque with ID '${id}'!", ("id", op.check_id));
+   auto itr = idx.find(op.cheque_id);
+   FC_ASSERT(itr != idx.end(), "Where is no cheque with ID '${id}'!", ("id", op.cheque_id));
 
    cheque_obj_ptr = &(*itr);
 
@@ -147,11 +147,13 @@ void_result cheque_reverse_evaluator::do_apply( const cheque_reverse_operation& 
 
    for (cheque_object::payee_item& item: payees)
    {
-      if (item.status != cheque_status::cheque_new) { continue; }
-
-      // set all payees to drawer id
-      item.payee = obj.drawer;
-      item.status = cheque_status::cheque_used;
+      if (item.status == cheque_status::cheque_new)
+      {
+         // set all payees to drawer id
+         item.payee = obj.drawer;
+         item.datetime_used = d.head_block_time();
+         item.status = cheque_status::cheque_used;
+      }
    }
 
    // return amount to the owner balance

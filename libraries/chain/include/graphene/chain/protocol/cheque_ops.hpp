@@ -62,7 +62,7 @@ namespace graphene { namespace chain {
 
       asset fee;
 
-      cheque_id_type  check_id;
+      cheque_id_type  cheque_id;
       account_id_type account_id;
       asset           amount;
       extensions_type extensions;
@@ -85,7 +85,7 @@ FC_REFLECT( graphene::chain::cheque_use_operation,
 
 FC_REFLECT( graphene::chain::cheque_reverse_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::cheque_reverse_operation,
-            (fee)(check_id)(account_id)(amount)(extensions))
+            (fee)(cheque_id)(account_id)(amount)(extensions))
 
 FC_REFLECT_ENUM( graphene::chain::cheque_status,
                  (cheque_new)

@@ -18,10 +18,12 @@ namespace graphene { namespace chain {
       // if cheque is already used then exit...
       if (status == cheque_status::cheque_used) { return; }
 
+      int used_count = 0;
+      bool check_used = false;
       for (uint32_t i = 0; i < payees.size(); i++)
       {
          // if have unused payee item
-         if (payees[i].status == cheque_status::cheque_new)
+         if (!check_used && (payees[i].status == cheque_status::cheque_new))
          {
             // adjust balance for payee user
             db.adjust_balance(payee, asset(amount_payee, asset_id));
@@ -32,15 +34,17 @@ namespace graphene { namespace chain {
             payees[i].datetime_used = db.head_block_time();
 
             amount_remaining -= amount_payee;
-
-            // if last item was used then cheque status is 'cheque_used'
-            if (i == (payees.size() - 1))
-            {
-               status = cheque_status::cheque_used;
-               datetime_used = db.head_block_time();
-            }
-            break;
+            check_used = true;
+            ++used_count;
          }
+         else if (payees[i].status == cheque_status::cheque_used) {
+            ++used_count;
+         }
+      }
+      if (used_count == (int)payees.size())
+      {
+         status = cheque_status::cheque_used;
+         datetime_used = db.head_block_time();
       }
    }
 

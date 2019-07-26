@@ -176,6 +176,12 @@ BOOST_AUTO_TEST_CASE(undo_expired_cheques_test)
       const cheque_object& cheque_bob = *cheque_iter;
       BOOST_CHECK_EQUAL(cheque_bob.status, cheque_undo);
 
+      for(auto payee: cheque_bob.payees)
+      {
+         if(payee.payee == dan_id)
+            BOOST_CHECK_EQUAL(payee.status, cheque_used);
+      }
+
    } FC_LOG_AND_RETHROW()
 
 }
