@@ -27,8 +27,6 @@
 
 namespace graphene { namespace chain {
 
-class chain_property_object;
-
 /**
  * Contains invariants which are set at genesis and never changed.
  */

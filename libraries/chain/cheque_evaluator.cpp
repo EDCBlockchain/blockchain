@@ -79,9 +79,13 @@ void_result cheque_use_evaluator::do_evaluate( const cheque_use_operation& op )
 
    const auto& idx = d.get_index_type<cheque_index>().indices().get<by_code>();
    auto itr = idx.find(op.code);
-   FC_ASSERT(itr != idx.end(), "Where is no cheque with code '${id}'!", ("id", op.code) );
+   FC_ASSERT(itr != idx.end(), "There is no cheque with code '${id}'!", ("id", op.code) );
 
    cheque_obj_ptr = &(*itr);
+
+   if (d.head_block_time() >= HARDFORK_626_TIME) {
+      FC_ASSERT(cheque_obj_ptr->datetime_expiration > d.head_block_time(), "Cheque is already expired");
+   }
 
    FC_ASSERT((cheque_obj_ptr->get_cheque_status() == cheque_status::cheque_new), "Cheque code '${code}' has been already used", ("rcode", op.code));
    FC_ASSERT((op.amount.amount == cheque_obj_ptr->amount_payee), "Cheque amount is invalid!");
@@ -122,7 +126,7 @@ void_result cheque_reverse_evaluator::do_evaluate( const cheque_reverse_operatio
    database& d = db();
    const auto& idx = d.get_index_type<cheque_index>().indices().get<by_id>();
    auto itr = idx.find(op.cheque_id);
-   FC_ASSERT(itr != idx.end(), "Where is no cheque with ID '${id}'!", ("id", op.cheque_id));
+   FC_ASSERT(itr != idx.end(), "There is no cheque with ID '${id}'!", ("id", op.cheque_id));
 
    cheque_obj_ptr = &(*itr);
 

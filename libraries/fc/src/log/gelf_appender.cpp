@@ -24,7 +24,7 @@ namespace fc
   {
   public:
     config                     cfg;
-    optional<ip::endpoint>     gelf_endpoint;
+    fc::optional<ip::endpoint>     gelf_endpoint;
     udp_socket                 gelf_socket;
 
     impl(const config& c) : 

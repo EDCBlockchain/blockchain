@@ -47,6 +47,17 @@ public:
    const account_object* acnt = nullptr;
 };
 
+class account_update_authorities_evaluator: public evaluator<account_update_authorities_evaluator>
+{
+public:
+   typedef account_update_authorities_operation operation_type;
+
+   void_result do_evaluate( const account_update_authorities_operation& o );
+   void_result do_apply( const account_update_authorities_operation& o );
+
+   const account_object* account_ptr = nullptr;
+};
+
 class add_address_evaluator: public evaluator<add_address_evaluator>
 {
 public:

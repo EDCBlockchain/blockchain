@@ -30,12 +30,12 @@
 
 namespace graphene { namespace app {
 
-void operation_get_impacted_accounts(
+void operation_get_impacted_items(
    const graphene::chain::operation& op
    , fc::flat_set<graphene::chain::account_id_type>& result_acc
    , fc::flat_set<chain::fund_id_type>& result_fund);
 
-void transaction_get_impacted_accounts(
+void transaction_get_impacted_items(
    const graphene::chain::transaction& tx
    , fc::flat_set<graphene::chain::account_id_type>& result_acc
    , fc::flat_set<chain::fund_id_type>& result_fund);

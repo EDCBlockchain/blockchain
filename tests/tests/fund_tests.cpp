@@ -423,8 +423,9 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
       // history
       BOOST_CHECK(fund.get_history_id()(db).items.size() == 1);
       BOOST_CHECK(fund.get_history_id()(db).items[0].create_datetime.sec_since_epoch() == db.head_block_time().sec_since_epoch());
-      BOOST_CHECK(fund.get_history_id()(db).items[0].daily_profit.value == 200);
+      BOOST_CHECK(fund.get_history_id()(db).items[0].daily_payments_total.value == 200);
       BOOST_CHECK(fund.get_history_id()(db).items[0].daily_payments_without_owner.value == 40);
+      BOOST_CHECK(fund.get_history_id()(db).items[0].daily_payments_owner.value == 160);
 
       // std::cout << "========= 1 alice's balance: " << get_balance(alice_id, EDC_ASSET) << std::endl;
       // std::cout << "========= 1 bob's balance: " << get_balance(bob_id, EDC_ASSET) << std::endl;
@@ -535,30 +536,51 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
       BOOST_CHECK(fund.get_balance() == 30000);
       BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 0);
 
-      // 'fund_set_fixed_percent_on_deposits_operation'
-      fund_set_fixed_percent_on_deposits_operation sf_op;
+      // 'fund_change_payment_scheme_operation'
+      fund_change_payment_scheme_operation sf_op;
       sf_op.id = fund.get_id();
-      sf_op.percent = 1000; // 1%
+      sf_op.payment_scheme = 1;
       set_expiration(db, trx);
       trx.operations.push_back(std::move(sf_op));
       PUSH_TX(db, trx, ~0);
       trx.clear();
 
-      BOOST_CHECK(fund.fixed_percent_on_deposits == 1000);
+      BOOST_CHECK(fund.payment_scheme == fund_payment_scheme::fixed);
 
       /**
        * at current moment:
        * alice==16825
        * bob==0
        */
+      // std::cout << "bob balance:" << get_balance(bob_id, EDC_ASSET) << std::endl;
+      // std::cout << "alice balance:" << get_balance(alice_id, EDC_ASSET) << std::endl;
+
+      // refill fund
+      {
+         fund_refill_operation fro;
+         fro.fee = asset();
+         fro.from_account = alice_id;
+         fro.id = fund.get_id();
+         fro.amount = 10000;
+
+         trx.clear();
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(fro));
+         PUSH_TX(db, trx, ~0);
+
+         BOOST_CHECK(fund.get_balance() == 40000);
+         BOOST_CHECK(fund.get_owner_balance() == 10000);
+      }
 
       h_time = db.head_block_time() + fc::days(1);
       while (db.head_block_time() < h_time) {
          generate_block();
       }
+      // std::cout << "bob balance:" << get_balance(bob_id, EDC_ASSET) << std::endl;
+      // std::cout << "alice balance:" << get_balance(alice_id, EDC_ASSET) << std::endl;
 
       BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 240);
-      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 16827);
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 6827);
 
    } FC_LOG_AND_RETHROW()
 }
@@ -579,7 +601,8 @@ BOOST_AUTO_TEST_CASE( fund_make_autorenewal_test )
 
       issue_uia(bob_id, asset(50000, EDC_ASSET));
 
-      generate_blocks(HARDFORK_624_TIME);
+      //generate_blocks(HARDFORK_624_TIME);
+      generate_blocks(HARDFORK_626_TIME);
 
       // payments to fund
       fund_options::fund_rate fr;

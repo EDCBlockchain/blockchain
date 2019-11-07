@@ -353,7 +353,7 @@ namespace graphene { namespace app {
                assert( aobj != nullptr );
                flat_set<account_id_type> impacted;
                flat_set<fund_id_type> impacted_fund_tmp;
-               transaction_get_impacted_accounts( aobj->proposed_transaction, impacted, impacted_fund_tmp);
+               transaction_get_impacted_items( aobj->proposed_transaction, impacted, impacted_fund_tmp);
                result.reserve( impacted.size() );
                for( auto& item : impacted ) result.emplace_back(item);
                break;
@@ -362,7 +362,7 @@ namespace graphene { namespace app {
                assert( aobj != nullptr );
                flat_set<account_id_type> impacted;
                flat_set<fund_id_type> impacted_fund_tmp;
-               operation_get_impacted_accounts( aobj->op, impacted, impacted_fund_tmp);
+               operation_get_impacted_items( aobj->op, impacted, impacted_fund_tmp);
                result.reserve( impacted.size() );
                for( auto& item : impacted ) result.emplace_back(item);
                break;
@@ -421,7 +421,7 @@ namespace graphene { namespace app {
                   assert( aobj != nullptr );
                   flat_set<account_id_type> impacted;
                   flat_set<fund_id_type> impacted_fund_tmp;
-                  transaction_get_impacted_accounts( aobj->trx, impacted, impacted_fund_tmp);
+                  transaction_get_impacted_items( aobj->trx, impacted, impacted_fund_tmp);
                   result.reserve( impacted.size() );
                   for( auto& item : impacted ) result.emplace_back(item);
                   break;
@@ -504,13 +504,18 @@ namespace graphene { namespace app {
        const auto& db = *_app.chain_database();       
        FC_ASSERT( limit <= 100 );
        vector<operation_history_object> result;
+
        const auto& stats = account(db).statistics(db);
        if (stats.most_recent_op == account_transaction_history_id_type()) { return result; }
+
+       if (!db.find(stats.most_recent_op)) {
+          return result;
+       }
        const account_transaction_history_object* node = &stats.most_recent_op(db);
+
        if (start == operation_history_id_type()) {
           start = node->operation_id;
        }
-
        while (node && (node->operation_id.instance.value > stop.instance.value) && (result.size() < limit) )
        {
           if (node->operation_id.instance.value <= start.instance.value)
@@ -549,6 +554,9 @@ namespace graphene { namespace app {
       vector<listtransactions_result> result;
       const auto& stats = account(db).statistics(db);
       if (stats.most_recent_op == account_transaction_history_id_type()) { return result; }
+      if (!db.find(stats.most_recent_op)) {
+         return result;
+      }
       const account_transaction_history_object* node = &stats.most_recent_op(db);
       const uint32_t current_block = db.head_block_num();
       while ((node != nullptr) && (result.size() < (uint32_t)count))
@@ -631,8 +639,12 @@ namespace graphene { namespace app {
       vector<operation_history_object> result;
       const auto& stats = account(db).statistics(db);
       if( stats.most_recent_op == account_transaction_history_id_type() ) { return result; }
+
+      if (!db.find(stats.most_recent_op)) {
+         return result;
+      }
       const account_transaction_history_object* node = &stats.most_recent_op(db);
-      
+
       while (node && result.size() < limit)
       {
         try
@@ -678,6 +690,10 @@ namespace graphene { namespace app {
       const auto& stats = account(db).statistics(db);
 
       if (stats.most_recent_op == account_transaction_history_id_type()) { return result; }
+
+      if (!db.find(stats.most_recent_op)) {
+         return result;
+      }
       const account_transaction_history_object* node = &stats.most_recent_op(db);
 
       if (start == operation_history_id_type()) {
@@ -732,6 +748,10 @@ namespace graphene { namespace app {
       const auto& stats = account(db).statistics(db);
 
       if (stats.most_recent_op == account_transaction_history_id_type()) { return result; }
+
+      if (!db.find(stats.most_recent_op)) {
+         return result;
+      }
       const account_transaction_history_object* node = &stats.most_recent_op(db);
 
       if (start == operation_history_id_type()) {
@@ -865,6 +885,10 @@ namespace graphene { namespace app {
       const auto& stats = fund_id(db).get_statistics_id()(db);
 
       if (stats.most_recent_op == fund_transaction_history_id_type()) { return result; }
+
+      if (!db.find(stats.most_recent_op)) {
+         return result;
+      }
       const fund_transaction_history_object* node = &stats.most_recent_op(db);
 
       if (start == operation_history_id_type()) {

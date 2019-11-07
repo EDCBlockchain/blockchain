@@ -97,12 +97,15 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
       optional<bonus_balances_object> get_bonus_balances ( string name_or_id ) const;
       optional<account_object> get_account_by_name( string name ) const;
       optional<account_object> get_account_by_name_or_id(const string& name_or_id) const;
+      optional<account_object> get_account_by_vote_id(const vote_id_type& v_id) const;
       Unit get_referrals( optional<account_object> account ) const;
       ref_info get_referrals_by_id( optional<account_object> account ) const;
       vector<SimpleUnit> get_accounts_info(vector<optional<account_object>> accounts);
       fc::variant_object get_user_count_by_ranks() const;
       int64_t get_user_count_with_balances(fc::time_point_sec start, fc::time_point_sec end) const;
-      vector<account_id_type> get_account_references( account_id_type account_id )const;
+      std::pair<uint32_t, std::vector<account_id_type>> get_users_with_asset(const asset_id_type& asst, uint32_t start, uint32_t limit) const;
+      vector<account_id_type> get_account_references(account_id_type account_id) const;
+      optional<restricted_account_object> get_restricted_account(account_id_type account_id) const;
       vector<optional<account_object>> lookup_account_names(const vector<string>& account_names)const;
       map<string,account_id_type> lookup_accounts(const string& lower_bound_name, uint32_t limit)const;
       uint64_t get_account_count()const;
@@ -157,6 +160,7 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
 
       // Votes
       vector<variant> lookup_vote_ids( const vector<vote_id_type>& votes )const;
+      vector<account_id_type> get_voting_accounts(const vote_id_type& vote) const;
 
       // Authority / validation
       std::string get_transaction_hex(const signed_transaction& trx)const;
@@ -285,12 +289,12 @@ fc::variants database_api_impl::get_objects(const vector<object_id_type>& ids) c
                   [this](object_id_type id) -> fc::variant
                   {
                      // exceptions
-                     if (id.type() == impl_blind_transfer2_object_type) return { };
-                     if (id.type() == cheque_object_type) return { };
+                     if ((id.space() == implementation_ids) && (id.type() == impl_blind_transfer2_object_type)) return { };
+                     if ((id.space() == protocol_ids) && (id.type() == cheque_object_type)) return { };
 
                      if (auto obj = _db.find_object(id))
                      {
-                        if (id.type() == operation_history_object_type)
+                        if ((id.space() == protocol_ids) && (id.type() == operation_history_object_type))
                         {
                            operation_history_object obj2 = _db.get<operation_history_object>(id);
 
@@ -305,7 +309,6 @@ fc::variants database_api_impl::get_objects(const vector<object_id_type>& ids) c
                            }
                            return obj2.to_variant();
                         }
-
                         return obj->to_variant();
                      }
                      return { };
@@ -880,8 +883,7 @@ optional<bonus_balances_object> database_api_impl::get_bonus_balances( string na
    return account_balances == index.end() ? optional<bonus_balances_object>() : *account_balances;
 }
 
-optional<account_object> database_api::get_account_by_name( string name )const
-{
+optional<account_object> database_api::get_account_by_name(string name) const {
    return my->get_account_by_name( name );
 }
 
@@ -891,6 +893,41 @@ optional<account_object> database_api_impl::get_account_by_name( string name )co
    auto itr = idx.find(name);
    if (itr != idx.end())
       return *itr;
+   return optional<account_object>();
+}
+
+optional<account_object> database_api::get_account_by_vote_id(const vote_id_type& v_id) const {
+   return my->get_account_by_vote_id(v_id);
+}
+
+optional<account_object> database_api_impl::get_account_by_vote_id(const vote_id_type& v_id) const
+{
+   // witnesses
+   if (v_id.type() == vote_id_type::vote_type::witness)
+   {
+      const auto& itr = _db.get_index_type<witness_index>().indices().get<by_vote_id>().find(v_id);
+      if (itr != _db.get_index_type<witness_index>().indices().get<by_vote_id>().end())
+      {
+         const witness_object& obj = *itr;
+         if (auto acc_itr = _db.find(obj.witness_account))
+         {
+            return *acc_itr;
+         }
+      }
+   }
+   // committee members
+   else if (v_id.type() == vote_id_type::vote_type::committee)
+   {
+      const auto& itr = _db.get_index_type<committee_member_index>().indices().get<by_vote_id>().find(v_id);
+      if (itr != _db.get_index_type<committee_member_index>().indices().get<by_vote_id>().end())
+      {
+         const committee_member_object& obj = *itr;
+         if (auto acc_itr = _db.find(obj.committee_member_account)) {
+            return *acc_itr;
+         }
+      }
+   }
+
    return optional<account_object>();
 }
 
@@ -938,8 +975,23 @@ vector<account_id_type> database_api_impl::get_account_references( account_id_ty
    return result;
 }
 
-vector<optional<account_object>> database_api::lookup_account_names(const vector<string>& account_names)const
+optional<restricted_account_object> database_api::get_restricted_account(account_id_type account_id) const {
+   return my->get_restricted_account(account_id);
+}
+
+optional<restricted_account_object> database_api_impl::get_restricted_account(account_id_type account_id) const
 {
+   optional<restricted_account_object> result;
+
+   auto itr = _db.get_index_type<restricted_account_index>().indices().get<by_acc_id>().find(account_id);
+   if (itr != _db.get_index_type<restricted_account_index>().indices().get<by_acc_id>().end()) {
+      result = *itr;
+   }
+
+   return result;
+}
+
+vector<optional<account_object>> database_api::lookup_account_names(const vector<string>& account_names) const {
    return my->lookup_account_names( account_names );
 }
 
@@ -1239,7 +1291,7 @@ fund_object database_api_impl::get_fund_by_owner(const std::string& account_name
       }
    }
 
-   FC_ASSERT( fund_ptr, "where is no fund with owner '${owner}'!", ("owner", account_name_or_id) );
+   FC_ASSERT( fund_ptr, "There is no fund with owner '${owner}'!", ("owner", account_name_or_id) );
 
    return *fund_ptr;
 }
@@ -1915,12 +1967,11 @@ map<string, committee_member_id_type> database_api_impl::lookup_committee_member
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-vector<variant> database_api::lookup_vote_ids( const vector<vote_id_type>& votes )const
-{
-   return my->lookup_vote_ids( votes );
+vector<variant> database_api::lookup_vote_ids(const vector<vote_id_type>& votes) const {
+   return my->lookup_vote_ids(votes);
 }
 
-vector<variant> database_api_impl::lookup_vote_ids( const vector<vote_id_type>& votes )const
+vector<variant> database_api_impl::lookup_vote_ids(const vector<vote_id_type>& votes) const
 {
    FC_ASSERT( votes.size() < 1000, "Only 1000 votes can be queried at a time" );
 
@@ -1975,6 +2026,33 @@ vector<variant> database_api_impl::lookup_vote_ids( const vector<vote_id_type>& 
             FC_CAPTURE_AND_THROW( fc::out_of_range_exception, (id) );
       }
    }
+   return result;
+}
+
+vector<account_id_type> database_api::get_voting_accounts(const vote_id_type& vote) const {
+   return my->get_voting_accounts(vote);
+}
+
+vector<account_id_type> database_api_impl::get_voting_accounts(const vote_id_type& vote) const
+{
+   vector<account_id_type> result;
+
+   const auto& idx = _db.get_index_type<account_index>().indices().get<by_id>();
+   auto itr = idx.begin();
+   while (itr != idx.end())
+   {
+      const account_object& acc = *itr;
+      for (const vote_id_type& item: acc.options.votes)
+      {
+         if (item == vote)
+         {
+            result.push_back(acc.get_id());
+            break;
+         }
+      }
+      ++itr;
+   }
+
    return result;
 }
 
@@ -2678,6 +2756,47 @@ int64_t database_api_impl::get_user_count_with_balances(fc::time_point_sec start
       }
    }
    return users_count;
+}
+
+std::pair<uint32_t, std::vector<account_id_type>>
+database_api::get_users_with_asset(const asset_id_type& asst, uint32_t start, uint32_t limit) const {
+   return my->get_users_with_asset(asst, start, limit);
+}
+
+std::pair<uint32_t, std::vector<account_id_type>>
+database_api_impl::get_users_with_asset(const asset_id_type& asst, uint32_t start, uint32_t limit) const
+{
+   FC_ASSERT(limit <= 100);
+
+   const vector<optional<asset_object>>& assets = get_assets({asst});
+   FC_ASSERT( ((assets.size() > 0) && assets[0].valid()), "There is no asset with ID ${id}", ("id", asst));
+
+   uint32_t last_item_num = 0;
+   vector<account_id_type> v_result;
+   v_result.reserve(limit);
+
+   const auto& idx = _db.get_index_type<account_balance_index>().indices().get<by_id>();
+   uint32_t i = 0;
+   auto itr = idx.begin();
+
+   while (itr != idx.end())
+   {
+      const account_balance_object& obj = *itr;
+
+      if ( (i >= start) && (v_result.size() < limit) && (obj.asset_type == asst) && (obj.balance > 0) ) {
+         v_result.emplace_back(obj.owner);
+      }
+      if (v_result.size() == limit)
+      {
+         last_item_num = i;
+         break;
+      }
+
+      ++i;
+      ++itr;
+   }
+
+   return {last_item_num, v_result};
 }
 
 } } // graphene::app

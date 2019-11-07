@@ -1,10 +1,12 @@
 # Defines Graphene library target.
 project( Graphene )
-cmake_minimum_required( VERSION 2.8.12 )
+cmake_minimum_required( VERSION 3.8 )
 
 set( BLOCKCHAIN_NAME "Graphene" )
 
-set( CMAKE_CXX_STANDARD 14 )
+set( CMAKE_CXX_STANDARD 17 )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall" )
+
 
 set( CLI_CLIENT_EXECUTABLE_NAME graphene_client )
 set( GUI_CLIENT_EXECUTABLE_NAME Graphene )

@@ -281,6 +281,13 @@ class database_api
       fc::variant_object get_user_count_by_ranks();
 
       int64_t get_user_count_with_balances(std::vector<fc::time_point_sec> dates = std::vector<fc::time_point_sec>());
+
+      /**
+       * @return number of the last element in query and user ids who have asset 'asst'
+       */
+      std::pair<uint32_t, std::vector<account_id_type>>
+      get_users_with_asset(const asset_id_type& asst, uint32_t start, uint32_t limit) const;
+
       /**
        * @brief Fetch all objects relevant to the specified accounts and subscribe to updates
        * @param callback Function to call with updates
@@ -298,10 +305,17 @@ class database_api
 
       optional<account_object> get_account_by_name( string name )const;
 
+      optional<account_object> get_account_by_vote_id(const vote_id_type& v_id) const;
+
       /**
        *  @return all accounts that referr to the key or account id in their owner or active authorities.
        */
-      vector<account_id_type> get_account_references( account_id_type account_id )const;
+      vector<account_id_type> get_account_references(account_id_type account_id) const;
+
+      /**
+       *  @return restricted account object if exists
+       */
+      optional<restricted_account_object> get_restricted_account(account_id_type account_id) const;
 
       /**
        * @brief Get a list of accounts by name
@@ -611,7 +625,12 @@ class database_api
        *  The results will be in the same order as the votes.  Null will be returned for
        *  any vote ids that are not found.
        */
-      vector<variant> lookup_vote_ids( const vector<vote_id_type>& votes )const;
+      vector<variant> lookup_vote_ids(const vector<vote_id_type>& votes) const;
+
+      /**
+       *  @brief Given a set of accounts, who voted with specified votes.
+       */
+      vector<account_id_type> get_voting_accounts(const vote_id_type& vote) const;
 
       ////////////////////////////
       // Authority / validation //
@@ -745,10 +764,13 @@ FC_API(graphene::app::database_api,
    (get_accounts_info)
    (get_user_count_by_ranks)
    (get_user_count_with_balances)
+   (get_users_with_asset)
    (get_full_accounts)
    (get_bonus_balances)
    (get_account_by_name)
+   (get_account_by_vote_id)
    (get_account_references)
+   (get_restricted_account)
    (lookup_account_names)
    (lookup_accounts)
    (get_account_count)
@@ -803,6 +825,7 @@ FC_API(graphene::app::database_api,
    (get_workers_by_account)
    // Votes
    (lookup_vote_ids)
+   (get_voting_accounts)
 
    // Authority / validation
    (get_transaction_hex)

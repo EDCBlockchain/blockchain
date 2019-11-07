@@ -121,8 +121,8 @@ namespace fc
 
   class variant;
 
-  void to_variant( const uint128& var,  variant& vo, uint32_t max_depth = 1 );
-  void from_variant( const variant& var,  uint128& vo, uint32_t max_depth = 1 );
+  void to_variant( const uint128& var,  fc::variant& vo, uint32_t max_depth = 1 );
+  void from_variant( const fc::variant& var,  uint128& vo, uint32_t max_depth = 1 );
 
   namespace raw
   {

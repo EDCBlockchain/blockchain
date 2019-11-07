@@ -101,7 +101,7 @@ void history_plugin_impl::update_histories(const signed_block& b)
 
       // get the set of accounts this operation applies to
       flat_set<account_id_type> impacted_acc;
-      flat_set<fund_id_type> impacted_funds_tmp;
+      flat_set<fund_id_type> impacted_funds;
 
       vector<authority> other;
       operation_get_required_authorities(op.op, impacted_acc, impacted_acc, other);
@@ -117,8 +117,11 @@ void history_plugin_impl::update_histories(const signed_block& b)
       if (op.op.which() == operation::tag<account_create_operation>::value) {
          impacted_acc.insert( oho.result.get<object_id_type>() );
       }
+      else if (op.op.which() == operation::tag<fund_create_operation>::value) {
+         impacted_funds.insert( oho.result.get<object_id_type>() );
+      }
       else {
-         graphene::app::operation_get_impacted_accounts(op.op, impacted_acc, impacted_funds_tmp);
+         graphene::app::operation_get_impacted_items(op.op, impacted_acc, impacted_funds);
       }
 
       for (auto& a: other)
@@ -129,7 +132,8 @@ void history_plugin_impl::update_histories(const signed_block& b)
       }
 
       // for each operation this account applies to that is in the config link it into the history
-      if (_tracked_accounts.size() == 0)
+      if ( (_tracked_accounts.size() == 0)
+           || ((_tracked_accounts.size() > 0) && (db.head_block_time() <= HARDFORK_617_TIME)) )
       {
          for (auto& account_id: impacted_acc)
          {
@@ -153,54 +157,122 @@ void history_plugin_impl::update_histories(const signed_block& b)
             });
          }
       }
+      // _tracked_accounts.size() > 0
       else
       {
+         bool acc_found = false;
          for (auto account_id: _tracked_accounts)
          {
             if (impacted_acc.find(account_id) != impacted_acc.end())
             {
+               acc_found = true;
+
                // add history
                const auto& stats_obj = account_id(db).statistics(db);
                const auto& ath = db.create<account_transaction_history_object>([&](account_transaction_history_object& obj)
+                  {
+                     obj.operation_id = oho.id;
+                     obj.account      = account_id;
+                     obj.sequence     = stats_obj.total_ops+1;
+                     obj.next         = stats_obj.most_recent_op;
+                     obj.block_time   = b.timestamp;
+                  });
+               db.modify( stats_obj, [&]( account_statistics_object& obj)
                {
-                  obj.operation_id = oho.id;
-                  obj.next         = stats_obj.most_recent_op;
-                  obj.block_time   = b.timestamp;
-               });
-               db.modify( stats_obj, [&]( account_statistics_object& obj){
                   obj.most_recent_op = ath.id;
+                  obj.total_ops = ath.sequence;
                });
+            }
+         }
+         if (!acc_found && (db.head_block_time() > HARDFORK_620_TIME))
+         {
+            // removing of unnecessary operation_history_object
+            db.remove(oho);
+         }
+
+         // now we can clear old unusable data
+         if ( (db.head_block_time() >= HARDFORK_617_TIME) && (db.head_block_time() <= HARDFORK_620_TIME) )
+         {
+            auto history_index = db.get_index_type<account_transaction_history_index>().indices().get<by_time>().lower_bound(db.head_block_time());
+            auto begin_iter = db.get_index_type<account_transaction_history_index>().indices().get<by_time>().begin();
+            while (begin_iter != history_index)
+            {
+               /**
+                * we cant' erase old operation_history_object if it
+                * belongs to our tracked_accounts
+                */
+               if (_tracked_accounts.find(begin_iter->account) == _tracked_accounts.end())
+               {
+                  bool can_erase_obj = true;
+                  auto idx = db.get_index_type<operation_history_index>().indices().get<by_id>().find(begin_iter->operation_id);
+                  if (idx != db.get_index_type<operation_history_index>().indices().get<by_id>().end())
+                  {
+                     const operation_history_object& obj = *idx;
+
+                     flat_set<account_id_type> impacted_acc_tmp;
+                     flat_set<fund_id_type> impacted_funds_tmp;
+
+                     vector<authority> other_tmp;
+                     operation_get_required_authorities(obj.op, impacted_acc_tmp, impacted_acc_tmp, other_tmp);
+
+                     if (obj.op.which() == operation::tag<account_create_operation>::value) {
+                        impacted_acc_tmp.insert(obj.result.get<object_id_type>());
+                     }
+                     else {
+                        graphene::app::operation_get_impacted_items(obj.op, impacted_acc_tmp, impacted_funds_tmp);
+                     }
+
+                     for (auto& a: other_tmp)
+                     {
+                        for (std::pair<account_id_type,weight_type>& item_pair: a.account_auths) {
+                           impacted_acc_tmp.insert(item_pair.first);
+                        }
+                     }
+
+                     for (const account_id_type& item_id: impacted_acc_tmp)
+                     {
+                        if (_tracked_accounts.find(item_id) != _tracked_accounts.end())
+                        {
+                           can_erase_obj = false;
+                           break;
+                        }
+                     }
+                  }
+                  else {
+                     can_erase_obj = false;
+                  }
+
+                  if (can_erase_obj) {
+                     db.remove(*idx);
+                  }
+                  db.remove(*begin_iter);
+               }
+               ++begin_iter;
             }
          }
       }
 
       /******** funds ********/
 
-      // get the set of funds this operation applies to
-      flat_set<account_id_type> impacted_acc_tmp;
-      flat_set<fund_id_type> impacted_funds;
-      app::operation_get_impacted_accounts(op.op, impacted_acc_tmp, impacted_funds);
-
-      if (op.op.which() == operation::tag<fund_create_operation>::value) {
-         impacted_funds.insert(oho.result.get<object_id_type>());
-      }
-
-      for (const fund_id_type& fund_id: impacted_funds)
+      if (_tracked_accounts.size() == 0)
       {
-         const auto& stats_obj = fund_id(db).statistics_id(db);
-         const auto& ath = db.create<fund_transaction_history_object>([&](fund_transaction_history_object& obj)
+         for (const fund_id_type& fund_id: impacted_funds)
          {
-            obj.operation_id = oho.id;
-            obj.fund         = fund_id;
-            obj.sequence     = stats_obj.total_ops+1;
-            obj.next         = stats_obj.most_recent_op;
-            obj.block_time   = b.timestamp;
-         });
-         db.modify(stats_obj, [&](fund_statistics_object& obj)
-         {
-            obj.most_recent_op = ath.id;
-            obj.total_ops = ath.sequence;
-         });
+            const auto& stats_obj = fund_id(db).statistics_id(db);
+            const auto& ath = db.create<fund_transaction_history_object>([&](fund_transaction_history_object& obj)
+             {
+                obj.operation_id = oho.id;
+                obj.fund         = fund_id;
+                obj.sequence     = stats_obj.total_ops+1;
+                obj.next         = stats_obj.most_recent_op;
+                obj.block_time   = b.timestamp;
+             });
+            db.modify(stats_obj, [&](fund_statistics_object& obj)
+            {
+               obj.most_recent_op = ath.id;
+               obj.total_ops = ath.sequence;
+            });
+         }
       }
    }
 }
@@ -233,7 +305,7 @@ void history_plugin::plugin_initialize(const boost::program_options::variables_m
    database().add_index<primary_index<account_transaction_history_index>>();
    database().add_index<primary_index<fund_transaction_history_index>>();
 
-   LOAD_VALUE_SET(options, "tracked-accounts", my->_tracked_accounts, graphene::chain::account_id_type);
+   LOAD_VALUE_SET(options, "track-account", my->_tracked_accounts, graphene::chain::account_id_type);
 }
 
 void history_plugin::plugin_startup() { }

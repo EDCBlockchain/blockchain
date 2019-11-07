@@ -233,7 +233,7 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
 
 }  FC_CAPTURE_AND_RETHROW( (op) ) }
 
-void_result blind_transfer2_evaluator::do_apply( const blind_transfer2_operation& o )
+asset blind_transfer2_evaluator::do_apply( const blind_transfer2_operation& o )
 { try {
    database& d = db();
    const blind_transfer2_settings_object& fee_settings = d.get(blind_transfer2_settings_id_type(0));
@@ -245,6 +245,9 @@ void_result blind_transfer2_evaluator::do_apply( const blind_transfer2_operation
    // fee
    asset f_amount = fee_settings.blind_fee;
    d.adjust_balance(o.from, -f_amount);
+
+   // blind fee
+   asset result = fee_settings.blind_fee;
 
    // burning of fee
    if (fee_dyn_data_ptr)
@@ -280,7 +283,7 @@ void_result blind_transfer2_evaluator::do_apply( const blind_transfer2_operation
       });
    }
 
-   return void_result();
+   return result;
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
 /////////////////////////////////////////////////////////////////////////////////////////////

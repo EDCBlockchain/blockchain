@@ -417,9 +417,9 @@ namespace detail {
          reset_websocket_tls_server();
       } FC_LOG_AND_RETHROW() }
 
-      optional< api_access_info > get_api_access_info(const string& username)const
+      fc::optional< api_access_info > get_api_access_info(const string& username)const
       {
-         optional< api_access_info > result;
+         fc::optional< api_access_info > result;
          auto it = _apiaccess.permission_map.find(username);
          if( it == _apiaccess.permission_map.end() )
          {
@@ -630,7 +630,7 @@ namespace detail {
        * fork as they are, and if not, what blocks they need to send us to get us on their
        * fork.
        *
-       * In the over-simplified case, this is a straighforward synopsis of our current 
+       * In the over-simplified case, this is a straightforward synopsis of our current
        * preferred blockchain; when we first connect up to a peer, this is what we will be sending.
        * It looks like this:
        *   If the blockchain is empty, it will return the empty list.
@@ -1372,7 +1372,7 @@ void application::set_block_production(bool producing_blocks)
    my->_is_block_producer = producing_blocks;
 }
 
-optional< api_access_info > application::get_api_access_info( const string& username )const
+fc::optional< api_access_info > application::get_api_access_info( const string& username )const
 {
    return my->get_api_access_info( username );
 }

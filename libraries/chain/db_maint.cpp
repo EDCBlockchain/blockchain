@@ -165,7 +165,7 @@ void database::update_active_witnesses()
    /// accounts that vote for 0 or 1 witness do not get to express an opinion on
    /// the number of witnesses to have (they abstain and are non-voting accounts)
 
-   share_type stake_tally = 0; 
+   share_type stake_tally = 0;
 
    size_t witness_count = 0;
    if (stake_target > 0)
@@ -177,7 +177,9 @@ void database::update_active_witnesses()
    }
 
    const chain_property_object& cpo = get_chain_properties();
-   auto wits = sort_votable_objects<witness_index>(std::max(witness_count*2+1, (size_t)cpo.immutable_parameters.min_witness_count));
+
+   witness_count = std::max( witness_count*2+1, (size_t)cpo.immutable_parameters.min_witness_count );
+   auto wits = sort_votable_objects<witness_index>( witness_count );
 
    const global_property_object& gpo = get_global_properties();
 
@@ -245,10 +247,10 @@ void database::update_active_witnesses()
 void database::update_active_committee_members()
 { try {
    assert( _committee_count_histogram_buffer.size() > 0 );
-   share_type stake_target = (_total_voting_stake-_witness_count_histogram_buffer[0]) / 2;
+   share_type stake_target = (_total_voting_stake-_committee_count_histogram_buffer[0]) / 2;
 
-   /// accounts that vote for 0 or 1 witness do not get to express an opinion on
-   /// the number of witnesses to have (they abstain and are non-voting accounts)
+   /// accounts that vote for 0 or 1 committee member do not get to express an opinion on
+   /// the number of committee members to have (they abstain and are non-voting accounts)
    uint64_t stake_tally = 0; // _committee_count_histogram_buffer[0];
    size_t committee_member_count = 0;
    if (stake_target > 0)
@@ -889,8 +891,10 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
              << ", head_block_time: " << std::string(head_block_time()) << "]"
              << std::endl;
 
-   if (head_block_time() > HARDFORK_622_TIME) {
+   if (head_block_time() > HARDFORK_622_TIME)
+   {
       process_funds();
+      process_cheques();
    }
    if (head_block_time() > HARDFORK_620_TIME) {
       issue_bonuses(); // for all assets except EDC
@@ -899,8 +903,6 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
    } else if (head_block_time() > HARDFORK_616_TIME) {
       issue_bonuses_old();
    }
-
-   process_cheques();
 
    clear_old_entities();
 }
@@ -926,7 +928,6 @@ void database::clear_old_entities()
       // issue_bonuses_old() depends on account_transaction_history_object
       if (head_block_time() > HARDFORK_617_TIME)
       {
-         // test:
          auto history_index = get_index_type<account_transaction_history_index>().indices().get<by_time>().lower_bound(tp);
          auto begin_iter = get_index_type<account_transaction_history_index>().indices().get<by_time>().begin();
          while (begin_iter != history_index) {
@@ -941,7 +942,7 @@ void database::clear_old_entities()
             remove(*begin_iter++);
          }
       }
-      // blind transfers objects
+      // blind transfer objects
       {
          auto history_index = get_index_type<blind_transfer2_index>().indices().get<by_datetime>().lower_bound(tp);
          auto begin_iter = get_index_type<blind_transfer2_index>().indices().get<by_datetime>().begin();
@@ -949,14 +950,14 @@ void database::clear_old_entities()
             remove(*begin_iter++);
          }
       }
-      // cheques objects
-      {
-         auto history_index = get_index_type<cheque_index>().indices().get<by_datetime_creation>().lower_bound(tp);
-         auto begin_iter = get_index_type<cheque_index>().indices().get<by_datetime_creation>().begin();
-         while (begin_iter != history_index) {
-            remove(*begin_iter++);
-         }
-      }
+      //  // cheques objects: can't remove items because checks have not expiration date
+      //  {
+      //     auto history_index = get_index_type<cheque_index>().indices().get<by_datetime_creation>().lower_bound(tp);
+      //     auto begin_iter = get_index_type<cheque_index>().indices().get<by_datetime_creation>().begin();
+      //     while (begin_iter != history_index) {
+      //        remove(*begin_iter++);
+      //     }
+      //  }
    }
 
    // cancel online_info for all users

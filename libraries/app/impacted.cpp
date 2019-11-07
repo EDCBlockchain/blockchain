@@ -31,12 +31,12 @@ using namespace fc;
 using namespace graphene::chain;
 
 // TODO:  Review all of these, especially no-ops
-struct get_impacted_account_visitor
+struct get_impacted_items_visitor
 {
    flat_set<account_id_type>& _impacted_accounts;
    flat_set<fund_id_type>& _impacted_funds;
 
-   get_impacted_account_visitor( flat_set<account_id_type>& impact_acc, flat_set<fund_id_type>& impact_fund ):
+   get_impacted_items_visitor( flat_set<account_id_type>& impact_acc, flat_set<fund_id_type>& impact_fund ):
     _impacted_accounts(impact_acc)
     , _impacted_funds(impact_fund) { }
    typedef void result_type;
@@ -73,13 +73,27 @@ struct get_impacted_account_visitor
       add_authority_accounts( _impacted_accounts, op.active );
    }
 
-   void operator()( const account_update_operation& op )
+   void operator()(const account_update_operation& op)
    {
-      _impacted_accounts.insert( op.account );
-      if( op.owner )
-         add_authority_accounts( _impacted_accounts, *(op.owner) );
-      if( op.active )
-         add_authority_accounts( _impacted_accounts, *(op.active) );
+      _impacted_accounts.insert(op.account);
+
+      if (op.owner) {
+         add_authority_accounts(_impacted_accounts, *(op.owner));
+      }
+      if (op.active) {
+         add_authority_accounts(_impacted_accounts, *(op.active));
+      }
+   }
+   void operator()(const account_update_authorities_operation& op)
+   {
+      _impacted_accounts.insert(op.account);
+
+      if (op.owner) {
+         add_authority_accounts(_impacted_accounts, *(op.owner));
+      }
+      if (op.active) {
+         add_authority_accounts(_impacted_accounts, *(op.active));
+      }
    }
 
    void operator()( const add_address_operation& op ) {}
@@ -154,7 +168,7 @@ struct get_impacted_account_visitor
    void operator()( const fund_remove_operation& op) {
       _impacted_accounts.insert(ALPHA_ACCOUNT_ID);
    }
-   void operator()( const fund_set_fixed_percent_on_deposits_operation& op)
+   void operator()( const fund_change_payment_scheme_operation& op)
    {
       _impacted_accounts.insert(ALPHA_ACCOUNT_ID);
       _impacted_funds.insert(op.id);
@@ -307,22 +321,22 @@ struct get_impacted_account_visitor
 
 };
 
-void operation_get_impacted_accounts(
+void operation_get_impacted_items(
    const operation& op
    , fc::flat_set<account_id_type>& result_acc
    , fc::flat_set<fund_id_type>& result_fund)
 {
-   get_impacted_account_visitor vtor(result_acc, result_fund);
+   get_impacted_items_visitor vtor(result_acc, result_fund);
    op.visit( vtor );
 }
 
-void transaction_get_impacted_accounts(
+void transaction_get_impacted_items(
    const transaction& tx
    , fc::flat_set<account_id_type>& result_acc
    , fc::flat_set<fund_id_type>& result_fund)
 {
    for (const auto& op : tx.operations) {
-      operation_get_impacted_accounts(op, result_acc, result_fund);
+      operation_get_impacted_items(op, result_acc, result_fund);
    }
 }
 

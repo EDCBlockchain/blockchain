@@ -2,7 +2,7 @@
 # Defines fc library target.
 
 PROJECT( fc )
-CMAKE_MINIMUM_REQUIRED( VERSION 2.8.12 )
+CMAKE_MINIMUM_REQUIRED( VERSION 3.8 )
 
 MESSAGE(STATUS "Configuring project fc located in: ${CMAKE_CURRENT_SOURCE_DIR}")
 SET( CMAKE_AUTOMOC OFF )
@@ -307,6 +307,9 @@ if(NOT MSVC)
 endif(NOT MSVC)
 if(WIN32)
   target_compile_definitions( fc PRIVATE _CRT_NONSTDC_NO_DEPRECATE )
+else(WIN32)
+    target_compile_definitions( fc PRIVATE HAVE_EDITLINE )
+    set( editline_libraries editline )
 endif(WIN32)
 # end editline stuff
 

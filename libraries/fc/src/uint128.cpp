@@ -356,11 +356,11 @@ namespace fc
       return _popcount_64( lo ) + _popcount_64( hi );
    }
 
-   void to_variant( const uint128& var,  variant& vo, uint32_t max_depth )
+   void to_variant( const uint128& var,  fc::variant& vo, uint32_t max_depth )
    {
       vo = std::string(var);
    }
-   void from_variant( const variant& var, uint128& vo, uint32_t max_depth )
+   void from_variant( const fc::variant& var, uint128& vo, uint32_t max_depth )
    {
       vo = uint128(var.as_string());
    }

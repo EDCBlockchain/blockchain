@@ -165,7 +165,7 @@ struct database_fixture {
    fc::ecc::private_key init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(string("null_key")) );
    public_key_type init_account_pub_key;
 
-   optional<fc::temp_directory> data_dir;
+   fc::optional<fc::temp_directory> data_dir;
    bool skip_key_index_test = false;
    uint32_t anon_acct_count;
 

@@ -210,21 +210,23 @@ namespace graphene { namespace chain {
 
    }; // fund_remove_operation
 
-   struct fund_set_fixed_percent_on_deposits_operation: public base_operation
+   struct fund_change_payment_scheme_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
 
       asset fee;
 
       fund_id_type id; // fund id
-      uint32_t percent = 0;
+
+      // see fund_object.hpp
+      uint8_t payment_scheme = 0;
 
       extensions_type extensions;
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_set_fixed_percent_on_deposits_operation
+   }; // fund_change_payment_scheme_operation
 
    struct enable_autorenewal_deposits_operation: public base_operation
    {
@@ -309,9 +311,9 @@ FC_REFLECT( graphene::chain::fund_remove_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::fund_remove_operation,
             (fee)(id)(extensions) )
 
-FC_REFLECT( graphene::chain::fund_set_fixed_percent_on_deposits_operation::fee_parameters_type, (fee) )
-FC_REFLECT( graphene::chain::fund_set_fixed_percent_on_deposits_operation,
-            (fee)(id)(percent)(extensions) )
+FC_REFLECT( graphene::chain::fund_change_payment_scheme_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::chain::fund_change_payment_scheme_operation,
+            (fee)(id)(payment_scheme)(extensions) )
 
 FC_REFLECT( graphene::chain::enable_autorenewal_deposits_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::enable_autorenewal_deposits_operation,

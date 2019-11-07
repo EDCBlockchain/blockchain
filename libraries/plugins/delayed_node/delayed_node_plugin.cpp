@@ -62,8 +62,17 @@ void delayed_node_plugin::plugin_set_program_options(bpo::options_description& c
 
 void delayed_node_plugin::connect()
 {
-   my->client_connection = std::make_shared<fc::rpc::websocket_api_connection>(*my->client.connect(my->remote_endpoint), GRAPHENE_NET_MAX_NESTED_OBJECTS);
-
+   try
+   {
+      my->client_connection = std::make_shared<fc::rpc::websocket_api_connection>(
+      *my->client.connect(my->remote_endpoint), GRAPHENE_NET_MAX_NESTED_OBJECTS);
+   }
+   catch( const fc::exception& e )
+   {
+      elog("Error during connection: ${e}", ("e", e.to_detail_string()));
+      connection_failed();
+      return;
+   }
    // // login api
    // auto login_api = my->client_connection->get_remote_api<graphene::app::login_api>(1);
    // FC_ASSERT(login_api->login("admin", "8GfMsn3baNWfvuZxEMQj"), "Failed to log in to API server");
@@ -77,6 +86,11 @@ void delayed_node_plugin::connect()
    my->client_connection_closed = my->client_connection->closed.connect([this] {
       connection_failed();
    });
+
+   my->database_api->set_block_applied_callback([this]( const fc::variant& block_id )
+   {
+      fc::from_variant( block_id, my->last_received_remote_head, GRAPHENE_MAX_NESTED_OBJECTS );
+   } );
 }
 
 void delayed_node_plugin::plugin_initialize(const boost::program_options::variables_map& options) {
@@ -147,10 +161,7 @@ void delayed_node_plugin::plugin_startup()
    try
    {
       connect();
-      my->database_api->set_block_applied_callback([this]( const fc::variant& block_id )
-      {
-         fc::from_variant( block_id, my->last_received_remote_head, GRAPHENE_MAX_NESTED_OBJECTS );
-      } );
+
       return;
    }
    catch (const fc::exception& e)

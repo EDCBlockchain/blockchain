@@ -24,7 +24,7 @@ double fund_object::get_rate_percent(const fund_options::fund_rate& fr_item, con
 }
 
 optional<fund_options::fund_rate>
-fund_object::get_max_fund_rate(const share_type& fund_balance) const
+fund_object::get_max_fund_rate(const share_type& amnt) const
 {
    optional<fund_options::fund_rate> result;
    if (fund_rates.size() == 0) return { result };
@@ -42,7 +42,7 @@ fund_object::get_max_fund_rate(const share_type& fund_balance) const
    int max_idx = -1;
    for (uint32_t i = 0; i < fund_rates.size(); ++i)
    {
-      if (fund_balance >= fund_rates[i].amount)
+      if (amnt >= fund_rates[i].amount)
       {
          if (max_idx == -1) {
             max_idx = i;
@@ -112,37 +112,46 @@ void fund_object::process(database& db) const
    auto range = db.get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(get_id());
    std::for_each(range.first, range.second, [&](const fund_deposit_object& dep)
    {
-      if (dep.enabled)
+      if (dep.enabled) // important condition for full-history nodes
       {
-         // payment to depositor
          const optional<fund_options::payment_rate>& p_rate = get_payment_rate(dep.period);
-         if (p_rate.valid())
+
+         bool is_valid = (db.head_block_time() >= HARDFORK_626_TIME) ? (dep.daily_payment.value > 0) : p_rate.valid();
+         if (is_valid)
          {
-            double percent_per_day = get_bonus_percent(dep.percent) / p_rate->period;
+            asset asst_quantity;
 
-            share_type quantity = std::roundl(percent_per_day * (long double)dep.amount.value);
-            if (quantity.value > 0)
+            if (db.head_block_time() >= HARDFORK_626_TIME) {
+               asst_quantity = db.check_supply_overflow(asst.amount(dep.daily_payment));
+            }
+            else
             {
-               const asset& asst_quantity = db.check_supply_overflow(asst.amount(quantity));
-               if (asst_quantity.amount.value > 0)
-               {
-                  chain::fund_payment_operation op;
-                  op.issuer = asst.issuer;
-                  op.fund_id = get_id();
-                  op.deposit_id = dep.get_id();
-                  op.asset_to_issue = asst_quantity;
-                  op.issue_to_account = dep.account_id;
-
-                  try
-                  {
-                     op.validate();
-                     db.apply_operation(eval, op);
-                  } catch (fc::assert_exception& e) { }
-
-                  daily_payments_without_owner += asst_quantity.amount;
+               double percent_per_day = get_bonus_percent(dep.percent) / p_rate->period;
+               share_type quantity = std::roundl(percent_per_day * (long double)dep.amount.value);
+               if (quantity.value > 0) {
+                  asst_quantity = db.check_supply_overflow(asst.amount(quantity));
                }
             }
+
+            if (asst_quantity.amount.value > 0)
+            {
+               chain::fund_payment_operation op;
+               op.issuer = asst.issuer;
+               op.fund_id = get_id();
+               op.deposit_id = dep.get_id();
+               op.asset_to_issue = asst_quantity;
+               op.issue_to_account = dep.account_id;
+
+               try
+               {
+                  op.validate();
+                  db.apply_operation(eval, op);
+               } catch (fc::assert_exception& e) { }
+
+               daily_payments_without_owner += asst_quantity.amount;
+            }
          }
+
 
          // return deposit amount to user and remove deposit if overdue
          if ((dpo.next_maintenance_time - gpo.parameters.maintenance_interval) >= dep.datetime_end)
@@ -168,7 +177,15 @@ void fund_object::process(database& db) const
                         if (p_rate.valid()) {
                            op.percent = p_rate->percent;
                         }
-                        op.datetime_end = dep.datetime_end + (86400 * dep.period);
+
+                        if (db.head_block_time() >= HARDFORK_626_TIME)
+                        {
+                           op.datetime_end = db.get_dynamic_global_properties().next_maintenance_time
+                                             - db.get_global_properties().parameters.maintenance_interval + (86400 * dep.period);
+                        }
+                        else {
+                           op.datetime_end = dep.datetime_end + (86400 * dep.period);
+                        }
 
                         try
                         {
@@ -219,34 +236,23 @@ void fund_object::process(database& db) const
                db.modify(dep, [&](chain::fund_deposit_object& f) {
                   f.enabled = false;
                });
+
+               // update stats
+               const auto& stats_obj = get_id()(db).statistics_id(db);
+               auto iter = stats_obj.users_deposits.find(dep.account_id);
+               if (iter != stats_obj.users_deposits.end())
+               {
+                  db.modify(stats_obj, [&](fund_statistics_object& obj) {
+                     obj.users_deposits[dep.account_id] -= dep.amount;
+                  });
+               }
             }
          }
       }
    });
 
-   // make payment to fund owner, variant 1
-   if (fixed_percent_on_deposits > 0)
-   {
-      share_type quantity = std::roundl(get_bonus_percent(fixed_percent_on_deposits) * (long double)daily_payments_without_owner.value);
-      const asset& asst_owner_quantity = db.check_supply_overflow(asst.amount(quantity));
-
-      if (asst_owner_quantity.amount.value > 0)
-      {
-         chain::fund_payment_operation op;
-         op.issuer = asst.issuer;
-         op.fund_id = get_id();
-         op.asset_to_issue = asst_owner_quantity;
-         op.issue_to_account = owner;
-
-         try
-         {
-            op.validate();
-            db.apply_operation(eval, op);
-         } catch (fc::assert_exception& e) { }
-      }
-   }
-   // make payment to fund owner, variant 2
-   else
+   // make payment to fund owner, case 1
+   if (payment_scheme == fund_payment_scheme::residual)
    {
       const optional<fund_options::fund_rate>& p_rate = get_max_fund_rate(old_balance);
       if (p_rate.valid())
@@ -254,7 +260,8 @@ void fund_object::process(database& db) const
          share_type fund_day_profit = std::roundl((long double)old_balance.value * get_rate_percent(*p_rate, db));
          if (fund_day_profit > 0)
          {
-            h_item.daily_profit = fund_day_profit;
+            h_item.daily_payments_total = fund_day_profit;
+            h_item.daily_payments_owner = fund_day_profit - daily_payments_without_owner;
             h_item.daily_payments_without_owner = daily_payments_without_owner;
 
             share_type owner_profit = fund_day_profit - daily_payments_without_owner;
@@ -279,6 +286,38 @@ void fund_object::process(database& db) const
                } catch (fc::assert_exception& e) { }
             }
          }
+      }
+   }
+   // case 2
+   else if (payment_scheme == fund_payment_scheme::fixed)
+   {
+      const optional<fund_options::fund_rate>& p_rate = get_max_fund_rate(owner_balance);
+      if (p_rate)
+      {
+         share_type quantity = std::roundl(get_bonus_percent(p_rate->day_percent) * (long double)daily_payments_without_owner.value);
+         const asset& asst_owner_quantity = db.check_supply_overflow(asst.amount(quantity));
+
+         if (asst_owner_quantity.amount.value > 0)
+         {
+            h_item.daily_payments_total = quantity + daily_payments_without_owner;
+            h_item.daily_payments_owner = quantity;
+            h_item.daily_payments_without_owner = daily_payments_without_owner;
+
+            chain::fund_payment_operation op;
+            op.issuer = asst.issuer;
+            op.fund_id = get_id();
+            op.asset_to_issue = asst_owner_quantity;
+            op.issue_to_account = owner;
+
+            try
+            {
+               op.validate();
+               db.apply_operation(eval, op);
+            } catch (fc::assert_exception& e) { }
+         }
+      }
+      else {
+         wlog("Not enough owner balance to make payment to owner. Owner: ${o}, balance: ${b}", ("o", owner)("b", owner_balance));
       }
    }
 

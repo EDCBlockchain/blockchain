@@ -407,14 +407,14 @@ void database::issue_referral()
    }
 }
 
-optional< vesting_balance_id_type > database::deposit_lazy_vesting(
-   const optional< vesting_balance_id_type >& ovbid,
+fc::optional< vesting_balance_id_type > database::deposit_lazy_vesting(
+   const fc::optional< vesting_balance_id_type >& ovbid,
    share_type amount, uint32_t req_vesting_seconds,
    account_id_type req_owner,
    bool require_vesting )
 {
    if( amount == 0 )
-      return optional< vesting_balance_id_type >();
+      return fc::optional< vesting_balance_id_type >();
 
    fc::time_point_sec now = head_block_time();
 
@@ -436,7 +436,7 @@ optional< vesting_balance_id_type > database::deposit_lazy_vesting(
          else
             _vbo.deposit_vested(now, amount);
       } );
-      return optional< vesting_balance_id_type >();
+      return fc::optional< vesting_balance_id_type >();
    }
 
    const vesting_balance_object& vbo = create< vesting_balance_object >( [&]( vesting_balance_object& _vbo )
@@ -474,7 +474,7 @@ void database::deposit_cashback(const account_object& acct, share_type amount, b
       return;
    }
 
-   optional< vesting_balance_id_type > new_vbid = deposit_lazy_vesting(
+   fc::optional< vesting_balance_id_type > new_vbid = deposit_lazy_vesting(
       acct.cashback_vb,
       amount,
       get_global_properties().parameters.cashback_vesting_period_seconds,
@@ -497,7 +497,7 @@ void database::deposit_witness_pay(const witness_object& wit, share_type amount)
    if( amount == 0 )
       return;
 
-   optional< vesting_balance_id_type > new_vbid = deposit_lazy_vesting(
+   fc::optional< vesting_balance_id_type > new_vbid = deposit_lazy_vesting(
       wit.pay_vb,
       amount,
       get_global_properties().parameters.witness_pay_vesting_seconds,

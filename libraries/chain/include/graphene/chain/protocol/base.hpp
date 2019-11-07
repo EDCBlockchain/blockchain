@@ -83,16 +83,23 @@ namespace graphene { namespace chain {
    struct void_result{};
 
    // contains information about fund's deposit apply procedure
-   class eval_fund_dep_apply_object
+   struct eval_fund_dep_apply_object
    {
-   public:
-
       object_id_type id;
       fc::time_point datetime_begin;
       fc::time_point datetime_end;
-      std::uint32_t  percent; // current deposit percent
+      std::uint32_t  percent = 0; // current deposit percent
 
    }; // eval_fund_dep_apply_object
+
+   struct eval_fund_dep_apply_object_fixed
+   {
+      object_id_type id;
+      fc::time_point datetime_begin;
+      fc::time_point datetime_end;
+      asset daily_payment;
+
+   }; // eval_fund_dep_apply_object_fixed
 
    struct market_address
    {
@@ -106,7 +113,8 @@ namespace graphene { namespace chain {
             object_id_type,
             asset,
             eval_fund_dep_apply_object,
-            market_address
+            market_address,
+            eval_fund_dep_apply_object_fixed
            > operation_result;
 
    struct base_operation
@@ -125,7 +133,7 @@ namespace graphene { namespace chain {
    };
 
    /**
-    *  For future expansion many structus include a single member of type
+    *  For future expansion many structures include a single member of type
     *  extensions_type that can be changed when updating a protocol.  You can
     *  always add new types to a static_variant without breaking backward
     *  compatibility.   
@@ -145,13 +153,19 @@ namespace graphene { namespace chain {
 
 } } // graphene::chain
 
+FC_REFLECT_TYPENAME( graphene::chain::operation_result )
+FC_REFLECT_TYPENAME( graphene::chain::future_extensions )
+
+FC_REFLECT( graphene::chain::void_result, )
 FC_REFLECT( graphene::chain::eval_fund_dep_apply_object,
             (id)
             (datetime_begin)
-            (datetime_end) );
-
-FC_REFLECT_TYPENAME( graphene::chain::operation_result )
-FC_REFLECT_TYPENAME( graphene::chain::future_extensions )
-FC_REFLECT( graphene::chain::void_result, )
-
+            (datetime_end)
+          )
+FC_REFLECT( graphene::chain::eval_fund_dep_apply_object_fixed,
+            (id)
+            (datetime_begin)
+            (datetime_end)
+            (daily_payment)
+          )
 FC_REFLECT( graphene::chain::market_address, (id)(addr) )

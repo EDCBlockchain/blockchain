@@ -136,6 +136,7 @@ void database::initialize_evaluators()
    _operation_evaluators.resize(255);
    register_evaluator<account_create_evaluator>();
    register_evaluator<account_update_evaluator>();
+   register_evaluator<account_update_authorities_evaluator>();
    register_evaluator<add_address_evaluator>();
    register_evaluator<account_upgrade_evaluator>();
    register_evaluator<account_whitelist_evaluator>();
@@ -199,7 +200,7 @@ void database::initialize_evaluators()
    register_evaluator<set_burning_mode_evaluator>();
    register_evaluator<assets_update_fee_payer_evaluator>();
    register_evaluator<asset_update_exchange_rate_evaluator>();
-   register_evaluator<fund_set_fixed_percent_on_deposits_evaluator>();
+   register_evaluator<fund_change_payment_scheme_evaluator>();
    register_evaluator<enable_autorenewal_deposits_evaluator>();
    register_evaluator<update_blind_transfer2_settings_evaluator>();
    register_evaluator<blind_transfer2_evaluator>();

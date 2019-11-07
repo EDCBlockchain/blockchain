@@ -60,7 +60,7 @@ block_id_type  database::get_block_id_for_num( uint32_t block_num )const
    return _block_id_to_block.fetch_block_id( block_num );
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
-optional<signed_block> database::fetch_block_by_id( const block_id_type& id )const
+fc::optional<signed_block> database::fetch_block_by_id( const block_id_type& id )const
 {
    auto b = _fork_db.fetch_block( id );
    if( !b )
@@ -138,6 +138,7 @@ bool database::_push_block(const signed_block& new_block)
       // verify that the block signer is in the current set of active witnesses.
 
       shared_ptr<fork_item> new_head = _fork_db.push_block(new_block);
+
       //If the head block from the longest chain does not build off of the current head, we need to switch forks.
       if( new_head->data.previous != head_block_id() )
       {

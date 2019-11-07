@@ -19,6 +19,8 @@ void_result fund_create_evaluator::do_evaluate( const fund_create_operation& op 
    FC_ASSERT(d.find_object(op.asset_id), "Asset ${a} doesn't exist", ("a", op.asset_id));
    FC_ASSERT(op.name.length() > 0, "Fund name is too short!");
 
+   check_fund_options(op.options, d);
+
    const auto& idx = d.get_index_type<fund_index>().indices().get<by_name>();
    auto itr = idx.find(op.name);
    FC_ASSERT(itr == idx.end(), "Fund with name '${a}' already exists!", ("a", op.name));
@@ -71,9 +73,11 @@ void_result fund_update_evaluator::do_evaluate( const fund_update_operation& op 
 
    database& d = db();
 
+   check_fund_options(op.options, d);
+
    const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
    auto itr = idx.find(op.id);
-   FC_ASSERT( itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id) );
+   FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.id) );
 
    fund_obj_ptr = &(*itr);
 
@@ -125,7 +129,7 @@ void_result fund_refill_evaluator::do_evaluate( const fund_refill_operation& op 
 
    const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
    auto itr = idx.find(op.id);
-   FC_ASSERT(itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id));
+   FC_ASSERT(itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.id));
 
    fund_obj_ptr = &(*itr);
 
@@ -136,7 +140,7 @@ void_result fund_refill_evaluator::do_evaluate( const fund_refill_operation& op 
               , "Only owner can refill its own fund. Account id: ${acc_id}, fund owner id: ${fund_owner_id}"
               , ("acc_id", from_acc.get_id())("fund_owner_id", fund_obj_ptr->owner) );
 
-   FC_ASSERT( itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id) );
+   FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.id) );
 
    bool insufficient_balance = (d.get_balance( from_acc, asset_obj ).amount >= op.amount);
    FC_ASSERT( insufficient_balance,
@@ -185,7 +189,7 @@ void_result fund_deposit_evaluator::do_evaluate( const fund_deposit_operation& o
 
    const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
    auto itr = idx.find(op.id);
-   FC_ASSERT(itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id));
+   FC_ASSERT(itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.id));
 
    fund_obj_ptr = &(*itr);
 
@@ -216,12 +220,13 @@ void_result fund_deposit_evaluator::do_evaluate( const fund_deposit_operation& o
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
-eval_fund_dep_apply_object fund_deposit_evaluator::do_apply( const fund_deposit_operation& op )
+operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation& op )
 { try {
 
    FC_ASSERT(fund_obj_ptr);
 
    eval_fund_dep_apply_object result;
+   eval_fund_dep_apply_object_fixed result_new;
 
    database& d = db();
    const chain::fund_object& fund = *fund_obj_ptr;
@@ -230,7 +235,7 @@ eval_fund_dep_apply_object fund_deposit_evaluator::do_apply( const fund_deposit_
    auto next_fund_deposit_id = d.get_index_type<fund_deposit_index>().get_next_id();
 
    const fund_deposit_object& new_fund_deposit =
-   d.create<fund_deposit_object>([&]( fund_deposit_object& o)
+   d.create<fund_deposit_object>([&](fund_deposit_object& o)
    {
       o.fund_id    = op.id;
       o.account_id = op.from_account;
@@ -250,33 +255,35 @@ eval_fund_dep_apply_object fund_deposit_evaluator::do_apply( const fund_deposit_
 
       o.datetime_end = o.prev_maintenance_time_on_creation + (86400 * op.period);
       o.period = op.period;
+      o.percent = p_rate->percent;
 
-      if (p_rate) {
-         o.percent = p_rate->percent;
+      if (d.head_block_time() >= HARDFORK_626_TIME)
+      {
+         double percent_per_day = fund.get_bonus_percent(o.percent) / o.period;
+         share_type daily_payment = std::roundl(percent_per_day * (long double)o.amount.value);
+         o.daily_payment = daily_payment;
+
+         result_new.datetime_begin = o.datetime_begin;
+         result_new.datetime_end   = o.datetime_end;
+         result_new.daily_payment  = asset(o.daily_payment, fund.get_asset_id());
       }
-
-      result.datetime_begin = o.datetime_begin;
-      result.datetime_end   = o.datetime_end;
-      result.percent        = o.percent;
+      else
+      {
+         result.datetime_begin = o.datetime_begin;
+         result.datetime_end   = o.datetime_end;
+         result.percent        = o.percent;
+      }
    });
 
    asset asst(op.amount, fund.get_asset_id());
 
    // fund statistics
    const auto& stats_obj = op.id(d).statistics_id(d);
-   auto iter = stats_obj.users_deposits.find(op.from_account);
-   if (iter != stats_obj.users_deposits.end())
-   {
-      d.modify(stats_obj, [&](fund_statistics_object& obj) {
-         obj.users_deposits[op.from_account] += op.amount;
-      });
-   }
-   else
-   {
-      d.modify(stats_obj, [&](fund_statistics_object& obj) {
-         obj.users_deposits[op.from_account] = op.amount;
-      });
-   }
+
+   d.modify(stats_obj, [&](fund_statistics_object& obj) {
+      obj.users_deposits[op.from_account] += op.amount;
+   });
+
    // fund: increasing deposit count
    d.modify(stats_obj, [&](fund_statistics_object& obj) {
       ++obj.deposit_count;
@@ -292,9 +299,16 @@ eval_fund_dep_apply_object fund_deposit_evaluator::do_apply( const fund_deposit_
 
    FC_ASSERT(new_fund_deposit.id == next_fund_deposit_id);
 
-   result.id = new_fund_deposit.id;
-
-   return result;
+   if (d.head_block_time() >= HARDFORK_626_TIME)
+   {
+      result_new.id = new_fund_deposit.id;
+      return result_new;
+   }
+   else
+   {
+      result.id = new_fund_deposit.id;
+      return result;
+   }
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
@@ -377,7 +391,7 @@ void_result fund_set_enable_evaluator::do_evaluate( const fund_set_enable_operat
 
    const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
    auto itr = idx.find(op.id);
-   FC_ASSERT(itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id));
+   FC_ASSERT(itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.id));
 
    fund_obj_ptr = &(*itr);
 
@@ -407,7 +421,7 @@ void_result fund_deposit_set_enable_evaluator::do_evaluate( const fund_deposit_s
 
    const auto& idx = d.get_index_type<fund_deposit_index>().indices().get<by_id>();
    auto itr = idx.find(op.id);
-   FC_ASSERT( itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id) );
+   FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.id) );
 
    fund_dep_obj_ptr = &(*itr);
 
@@ -437,7 +451,7 @@ void_result fund_remove_evaluator::do_evaluate( const fund_remove_operation& op 
 
    const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
    auto itr = idx.find(op.id);
-   FC_ASSERT( itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id) );
+   FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.id) );
 
    fund_obj_ptr = &(*itr);
 
@@ -481,22 +495,24 @@ void_result fund_remove_evaluator::do_apply( const fund_remove_operation& op )
 
 ////////////////////////////////////////////////////////////////
 
-void_result fund_set_fixed_percent_on_deposits_evaluator::do_evaluate( const fund_set_fixed_percent_on_deposits_operation& op )
+void_result fund_change_payment_scheme_evaluator::do_evaluate( const fund_change_payment_scheme_operation& op )
 { try {
 
    const database& d = db();
 
    const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
    auto itr = idx.find(op.id);
-   FC_ASSERT( itr != idx.end(), "Where is no fund with id '${id}'!", ("id", op.id) );
+   FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.id) );
 
    fund_obj_ptr = &(*itr);
+
+   FC_ASSERT( op.payment_scheme <= fund_payment_scheme::fixed );
 
    return void_result();
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
-void_result fund_set_fixed_percent_on_deposits_evaluator::do_apply( const fund_set_fixed_percent_on_deposits_operation& op )
+void_result fund_change_payment_scheme_evaluator::do_apply( const fund_change_payment_scheme_operation& op )
 { try {
 
    FC_ASSERT(fund_obj_ptr);
@@ -504,7 +520,7 @@ void_result fund_set_fixed_percent_on_deposits_evaluator::do_apply( const fund_s
    database& d = db();
 
    d.modify(*fund_obj_ptr, [&](chain::fund_object& o) {
-      o.fixed_percent_on_deposits = op.percent;
+      o.payment_scheme = static_cast<fund_payment_scheme>(op.payment_scheme);
    });
 
    return void_result();
@@ -520,7 +536,7 @@ void_result enable_autorenewal_deposits_evaluator::do_evaluate( const enable_aut
 
    const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
    auto itr = idx.find(op.account);
-   FC_ASSERT( itr != idx.end(), "Where is no account with id '${id}'!", ("id", op.account) );
+   FC_ASSERT( itr != idx.end(), "There is no account with id '${id}'!", ("id", op.account) );
 
    account_ptr = &(*itr);
 
@@ -565,10 +581,21 @@ void_result deposit_renewal_evaluator::do_apply( const deposit_renewal_operation
 
    if (fund_deposit_ptr)
    {
+      const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
+      auto itr = idx.find(fund_deposit_ptr->fund_id);
+      FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", fund_deposit_ptr->fund_id) );
+
       d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep)
       {
          dep.percent = o.percent;
          dep.datetime_end = o.datetime_end;
+
+         if (d.head_block_time() >= HARDFORK_626_TIME)
+         {
+            const fund_object* fund_obj_ptr = &(*itr);
+            double percent_per_day = fund_obj_ptr->get_bonus_percent(fund_deposit_ptr->percent) / fund_deposit_ptr->period;
+            dep.daily_payment = std::roundl(percent_per_day * (long double)fund_deposit_ptr->amount.value);
+         }
       });
    }
 

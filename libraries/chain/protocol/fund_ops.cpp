@@ -11,23 +11,6 @@ void fund_options::validate() const
 
    FC_ASSERT( fund_rates.size(), "fund.options.fund_rates can't be empty!" );
    FC_ASSERT( payment_rates.size(), "fund.options.payment_rates can't be empty!" );
-
-   // maximum payment to users (per day) must be less than minimum payment to fund
-   auto iter_payment_rate_max = std::max_element(payment_rates.begin(), payment_rates.end(), [](const payment_rate& item1, const payment_rate& item2) {
-      return (item1.percent < item2.percent);
-   });
-   auto iter_fund_rate_min = std::min_element(fund_rates.begin(), fund_rates.end(), [](const fund_rate& item1, const fund_rate& item2) {
-      return (item1.day_percent > item2.day_percent);
-   });
-   FC_ASSERT( ((iter_payment_rate_max != payment_rates.end())
-                && (iter_fund_rate_min != fund_rates.end())), "wrong 'options.fund_rates/options.payment_rates' parameters [0]!" );
-   bool percent_valid = (iter_payment_rate_max->percent / iter_payment_rate_max->period) <= iter_fund_rate_min->day_percent;
-   FC_ASSERT(percent_valid, "wrong 'options.fund_rates/options.payment_rates' parameters [1]!");
-
-   // minimum payment to fund must be greater or equal than reduction for whole period
-   bool rates_reduction_valid = (uint32_t)(rates_reduction_per_month / 30 * period) <= iter_fund_rate_min->day_percent;
-   FC_ASSERT(rates_reduction_valid, "invalid settings.rates_reduction_per_month (${a})!", ("a", rates_reduction_per_month));
-
    FC_ASSERT( min_deposit > 0, "fund.options.min_deposit must be greater than 0");
 
    std::for_each(payment_rates.begin(), payment_rates.end(), [](const fund_options::payment_rate& item) {

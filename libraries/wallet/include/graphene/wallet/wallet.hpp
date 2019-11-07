@@ -161,8 +161,10 @@ struct wallet_data
                      [](const account_object& ao) { return ao.id; });
       return ids;
    }
-   /// Add acct to @ref my_accounts, or update it if it is already in @ref my_account
-   /// @return true if the account was get_account_history_partly inserted; false if it was only updated
+   /* Add acct to @my_accounts, or update it if it is already in @ref my_account
+   * @param acct the account whose you want to update
+   @return true if the account was get_account_history_partly inserted; false if it was only updated
+    **/
    bool update_account(const account_object& acct)
    {
       auto& idx = my_accounts.get<by_id>();
@@ -282,8 +284,8 @@ class wallet_api
        * @returns compile time info and client and dependencies versions
        */
       variant_object                   about() const;
-      optional<signed_block_with_info> get_block( uint32_t num );
-      optional<cheque_info_object>     get_cheque_by_code(const std::string& code) const;
+      fc::optional<signed_block_with_info> get_block( uint32_t num );
+      fc::optional<cheque_info_object>     get_cheque_by_code(const std::string& code) const;
 
       /** Returns the number of accounts registered on the blockchain
        * @returns the number of registered accounts
@@ -355,7 +357,7 @@ class wallet_api
        */
       vector<fund_deposit_object>     get_fund_deposits(const std::string& fund_name_or_id, uint32_t start, uint32_t limit) const;
 
-      optional<bonus_balances_object> get_account_bonus_balances( string name_or_id ) const;
+      fc::optional<bonus_balances_object> get_account_bonus_balances( string name_or_id ) const;
 
       full_account                    get_full_account( string name_or_id ) const;
 
@@ -428,6 +430,7 @@ class wallet_api
        * @returns the public account data stored in the blockchain
        */
       account_object                    get_account(string account_name_or_id) const;
+      fc::optional<account_object>      get_account_by_vote_id(const vote_id_type& v_id) const;
       address                           get_address(int64_t block_num, int64_t transaction_num) const;
     
       Unit                              get_referrals(string account_name_or_id) const;
@@ -437,6 +440,10 @@ class wallet_api
       fc::variant_object        get_user_count_by_ranks() const;
 
       int64_t get_user_count_with_balances(std::vector<fc::time_point_sec> dates = std::vector<fc::time_point_sec>());
+
+      std::pair<uint32_t, std::vector<account_id_type>>
+      get_users_with_asset(const asset_id_type& asst, uint32_t start, uint32_t limit) const;
+
       /** Returns information about the given asset.
        * @param asset_name_or_id the symbol or id of the asset in question
        * @returns the information about the asset stored in the block chain
@@ -477,7 +484,7 @@ class wallet_api
        */
       variant                           get_object(object_id_type id) const;
       variant                           get_secure_object(object_id_type id) const;
-      optional<object_id_type>          get_last_object_id(object_id_type id) const;
+      fc::optional<object_id_type>      get_last_object_id(object_id_type id) const;
       variant                           get_history_operation(object_id_type id) const;
       /**
        * Returns object ID of the last history operation processed by current wallet
@@ -652,7 +659,7 @@ class wallet_api
        * be easy to write down (and, with effort, memorize).
        * @returns a suggested brain_key
        */
-      brain_key_info suggest_brain_key()const;
+      brain_key_info suggest_brain_key() const;
 
       /** Converts a signed_transaction in JSON form to its binary representation.
        *
@@ -769,7 +776,7 @@ class wallet_api
       /** Transfer an amount from one account to another.
        * @param from the name or id of the account sending the funds
        * @param to the name or id of the account receiving the funds
-       * @param amount the amount to send (in nominal units -- to send half of a BTS, specify 0.5)
+       * @param amount the amount to send (in nominal units -- to send half of a EDC, specify 0.5)
        * @param asset_symbol the symbol or id of the asset to send
        * @param memo a memo to attach to the transaction.  The memo will be encrypted in the 
        *             transaction and readable for the receiver.  There is no length limit
@@ -840,12 +847,13 @@ class wallet_api
        *  who sent it.
        *
        *  @param opt_from - if not empty and the sender is a unknown public key, then the unknown public key will be given the label opt_from
-       *  @param confirmation_receipt - a base58 encoded stealth confirmation 
+       *  @param confirmation_receipt - a base58 encoded stealth confirmation
+       *  @param opt_memo a memo to include in the transaction, readable by the recipient
        */
       blind_receipt receive_blind_transfer( string confirmation_receipt, string opt_from, string opt_memo );
 
       /**
-       *  Transfers a public balance from @from to one or more blinded balances using a
+       *  Transfers a public balance from from_account_id_or_name to one or more blinded balances using a
        *  stealth transfer.
        */
       blind_confirmation transfer_to_blind( string from_account_id_or_name, 
@@ -931,12 +939,12 @@ class wallet_api
        *
        * @param seller_account the account providing the asset being sold, and which will
        *                       receive the processed of the sale.
-       * @param base The name or id of the asset to sell.
-       * @param quote The name or id of the asset to recieve.
-       * @param rate The rate in base:quote at which you want to sell.
-       * @param amount The amount of base you want to sell.
+       * @param base the name or id of the asset to sell.
+       * @param quote the name or id of the asset to recieve.
+       * @param rate the rate in base:quote at which you want to sell.
+       * @param amount the amount of base you want to sell.
        * @param broadcast true to broadcast the transaction on the network.
-       * @returns The signed transaction selling the funds.                 
+       * @returns The signed transaction selling the funds.
        */
       signed_transaction sell( string seller_account,
                                string base,
@@ -958,7 +966,6 @@ class wallet_api
        * @param rate The rate in base:quote at which you want to buy.
        * @param amount the amount of base you want to buy.
        * @param broadcast true to broadcast the transaction on the network.
-       * @param The signed tt_ransaction selling the funds.
        */
       signed_transaction buy( string buyer_account,
                               string base,
@@ -1054,7 +1061,7 @@ class wallet_api
        * @returns the signed transaction updating the asset
        */
       signed_transaction update_asset(string symbol,
-                                      optional<string> new_issuer,
+                                      fc::optional<string> new_issuer,
                                       asset_options new_options,
                                       chain::asset_parameters new_params,
                                       bool broadcast = false);
@@ -1244,8 +1251,8 @@ class wallet_api
        *
        * @param lowerbound the name of the first witness to return.  If the named witness does not exist, 
        *                   the list will start at the witness that comes after \c lowerbound
-       * @param limit the maximum number of witnesss to return (max: 1000)
-       * @returns a list of witnesss mapping witness names to witness ids
+       * @param limit the maximum number of witnesses to return (max: 1000)
+       * @returns a list of witnesses mapping witness names to witness ids
        */
       map<string,witness_id_type>       list_witnesses(const string& lowerbound, uint32_t limit);
 
@@ -1270,6 +1277,23 @@ class wallet_api
        */
       witness_object get_witness(string owner_account);
 
+      /**
+       * Returns information about account's votes
+       * @param name_or_id the name or id of the witness account owner, or the id of the witness
+       */
+      flat_set<vote_id_type> get_account_votes(const std::string& name_or_id) const;
+
+      /**
+       * Returns restricted_account_object of account if exists
+       * @param name_or_id the name or id of the account that can contain restricted_account_object
+       */
+      fc::optional<restricted_account_object> get_restricted_account(const std::string& name_or_id) const;
+
+      /**
+       * Returns all accounts that have votes 'vote'
+       */
+      vector<account_id_type> get_voting_accounts(const vote_id_type& vote) const;
+
       /** Returns information about the given committee_member.
        * @param owner_account the name or id of the committee_member account owner, or the id of the committee_member
        * @returns the information about the committee_member stored in the block chain
@@ -1293,7 +1317,7 @@ class wallet_api
       /**
        * Update a witness object owned by the given account.
        *
-       * @param witness The name of the witness's owner account.  Also accepts the ID of the owner account or the ID of the witness.
+       * @param witness_name The name of the witness's owner account.  Also accepts the ID of the owner account or the ID of the witness.
        * @param url Same as for create_witness.  The empty string makes it remain the same.
        * @param block_signing_key The new block signing public key.  The empty string makes it remain the same.
        * @param broadcast true if you wish to broadcast the transaction.
@@ -1330,7 +1354,7 @@ class wallet_api
        * Update your votes for a worker
        *
        * @param account The account which will pay the fee and update votes.
-       * @param worker_vote_delta {"vote_for" : [...], "vote_against" : [...], "vote_abstain" : [...]}
+       * @param delta {"vote_for" : [...], "vote_against" : [...], "vote_abstain" : [...]}
        * @param broadcast true if you wish to broadcast the transaction.
        */
       signed_transaction update_worker_votes(
@@ -1422,7 +1446,7 @@ class wallet_api
        * @return the signed transaction changing your vote proxy settings
        */
       signed_transaction set_voting_proxy(string account_to_modify,
-                                          optional<string> voting_account,
+                                          fc::optional<string> voting_account,
                                           bool broadcast = false);
 
       signed_transaction generate_address(const string& account_id_or_name);
@@ -1431,6 +1455,7 @@ class wallet_api
 
       /** Returns account addresses
        *
+       * @param name_or_id the name or id of the account to which get an adresses
        * @param from from which address position start to count
        * @param limit maximum entities
        *
@@ -1440,6 +1465,7 @@ class wallet_api
       get_account_addresses(const string& name_or_id, unsigned from = 0, unsigned limit = 100);
 
       /** Returns blind transfers (custom variant)
+       *@param name_or_id the name or id of the account to which get the blinded transfers
        *
        * @param limit maximum entities
        * @param from from which transfer position start to count
@@ -1452,6 +1478,7 @@ class wallet_api
 
       /** Returns account receipts (custom variant)
        *
+       * @param name_or_id the name or id of the account to which get the cheques
        * @param limit maximum entities
        * @param from from which receipt position start to count
        *
@@ -1475,7 +1502,8 @@ class wallet_api
        * set, your preferences will be ignored.
        *
        * @param account_to_modify the name or id of the account to update
-       * @param number_of_committee_members the number 
+       * @param desired_number_of_witnesses the desired number of witnesses
+       * @param desired_number_of_committee_members the desired number of comittee members
        *
        * @param broadcast true if you wish to broadcast the transaction
        * @return the signed transaction changing your vote proxy settings
@@ -1570,6 +1598,16 @@ class wallet_api
                                                     fc::time_point_sec expiration_time, bool broadcast = true);
       signed_transaction propose_allow_create_addresses(const string& initiator, const string& target, bool allow,
                                                         fc::time_point_sec expiration_time, bool broadcast = true);
+
+      signed_transaction propose_update_account_authorities(
+         const string& initiator
+         , const string& target
+         , const public_key_type& owner_key
+         , const public_key_type& active_key
+         , const public_key_type& memo_key
+         , fc::time_point_sec expiration_time
+         , bool broadcast);
+
       signed_transaction propose_update_assets_fee_payer(
          const string& initiator
          , const fc::flat_set<std::string>& assets_to_update
@@ -1645,7 +1683,7 @@ FC_REFLECT( graphene::wallet::brain_key_info,
             (brain_priv_key)
             (wif_priv_key)
             (pub_key)
-          );
+          )
 
 FC_REFLECT( graphene::wallet::exported_account_keys, (account_name)(encrypted_private_keys)(public_keys) )
 
@@ -1742,10 +1780,14 @@ FC_API( graphene::wallet::wallet_api,
         (propose_account_referrals_permission)
         (propose_allow_create_asset)
         (propose_allow_create_addresses)
+        (propose_update_account_authorities)
         (propose_update_assets_fee_payer)
         (propose_update_asset_exchange_rate)
         (create_committee_member)
         (get_witness)
+        (get_account_votes)
+        (get_restricted_account)
+        (get_voting_accounts)
         (get_committee_member)
         (list_witnesses)
         (list_committee_members)
@@ -1761,12 +1803,14 @@ FC_API( graphene::wallet::wallet_api,
         
         (set_desired_witness_and_committee_member_count)
         (get_account)
+        (get_account_by_vote_id)
         (get_address)
         (get_referrals)
         (get_referrals_by_id)
         (get_accounts_info)
         (get_user_count_by_ranks)
         (get_user_count_with_balances)
+        (get_users_with_asset)
         (get_account_id)
         (get_block)
         (get_account_count)

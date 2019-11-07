@@ -123,7 +123,7 @@ namespace graphene { namespace chain {
             set_burning_mode_operation,
             assets_update_fee_payer_operation, // [idx: 67]
             asset_update_exchange_rate_operation,
-            fund_set_fixed_percent_on_deposits_operation,
+            fund_change_payment_scheme_operation,
             enable_autorenewal_deposits_operation,  // [idx: 70]
             update_blind_transfer2_settings_operation,
             blind_transfer2_operation,
@@ -132,7 +132,8 @@ namespace graphene { namespace chain {
             cheque_create_operation,
             cheque_use_operation, // [idx: 76]
             cheque_reverse_operation,
-            create_market_address_operation
+            create_market_address_operation,
+            account_update_authorities_operation // [idx: 79]
          > operation;
 
    /// @} // operations group

@@ -6,6 +6,38 @@
 
 namespace graphene { namespace chain {
 
+   inline void check_fund_options(const fund_options& opts, const database& db)
+   { try {
+      // maximum payment to users (per day) must be less than minimum payment to fund
+      auto iter_payment_rate_max = std::max_element(opts.payment_rates.begin(), opts.payment_rates.end(),
+         [](const fund_options::payment_rate& item1, const fund_options::payment_rate& item2) {
+            return (item1.percent < item2.percent);
+         });
+      auto iter_fund_rate_min = std::min_element(opts.fund_rates.begin(), opts.fund_rates.end(),
+         [&db](const fund_options::fund_rate& item1, const fund_options::fund_rate& item2)
+         {
+            if (db.head_block_time() >= HARDFORK_626_TIME) {
+               return (item1.day_percent < item2.day_percent);
+            }
+            return (item1.day_percent > item2.day_percent);
+         });
+      FC_ASSERT( ((iter_payment_rate_max != opts.payment_rates.end())
+                  && (iter_fund_rate_min != opts.fund_rates.end())), "wrong 'options.fund_rates/options.payment_rates' parameters [0]!" );
+      bool percent_valid = (iter_payment_rate_max->percent / iter_payment_rate_max->period) <= iter_fund_rate_min->day_percent;
+      FC_ASSERT(percent_valid, "wrong 'options.fund_rates/options.payment_rates' parameters [1]!");
+
+      // minimum payment to fund must be greater or equal than reduction for whole period
+      bool rates_reduction_valid = true;
+      if (db.head_block_time() >= HARDFORK_626_TIME) {
+         rates_reduction_valid = (uint32_t)(opts.rates_reduction_per_month * opts.period / 30) <= iter_fund_rate_min->day_percent;
+      }
+      else {
+         rates_reduction_valid = (uint32_t)(opts.rates_reduction_per_month / 30 * opts.period) <= iter_fund_rate_min->day_percent;
+      }
+      FC_ASSERT(rates_reduction_valid, "invalid settings.rates_reduction_per_month (${a})!", ("a", opts.rates_reduction_per_month));
+
+   } FC_CAPTURE_AND_RETHROW( (opts) ) }
+
    class fund_create_evaluator: public evaluator<fund_create_evaluator>
    {
    public:
@@ -52,7 +84,7 @@ namespace graphene { namespace chain {
       typedef fund_deposit_operation operation_type;
 
       void_result do_evaluate(const fund_deposit_operation& o);
-      eval_fund_dep_apply_object do_apply(const fund_deposit_operation& o);
+      operation_result do_apply(const fund_deposit_operation& o);
 
       optional<fund_options::payment_rate> p_rate;
       const fund_object* fund_obj_ptr = nullptr;
@@ -128,13 +160,13 @@ namespace graphene { namespace chain {
 
    /////////////////////////////////////////////////////
 
-   class fund_set_fixed_percent_on_deposits_evaluator: public evaluator<fund_set_fixed_percent_on_deposits_evaluator>
+   class fund_change_payment_scheme_evaluator: public evaluator<fund_change_payment_scheme_evaluator>
    {
    public:
-      typedef fund_set_fixed_percent_on_deposits_operation operation_type;
+      typedef fund_change_payment_scheme_operation operation_type;
 
-      void_result do_evaluate(const fund_set_fixed_percent_on_deposits_operation& o);
-      void_result do_apply(const fund_set_fixed_percent_on_deposits_operation& o);
+      void_result do_evaluate(const fund_change_payment_scheme_operation& o);
+      void_result do_apply(const fund_change_payment_scheme_operation& o);
 
       const fund_object* fund_obj_ptr = nullptr;
 

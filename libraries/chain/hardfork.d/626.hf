@@ -1,0 +1,4 @@
+// 14 november 2019
+#ifndef HARDFORK_626_TIME
+#define HARDFORK_626_TIME (fc::time_point_sec( 1573689600 ))
+#endif

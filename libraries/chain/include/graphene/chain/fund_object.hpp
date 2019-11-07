@@ -9,6 +9,12 @@
 
 namespace graphene { namespace chain {
 
+   enum fund_payment_scheme
+   {
+      residual,
+      fixed
+   };
+
    /**
     * @class fund_history_object
     * @ingroup object
@@ -28,8 +34,9 @@ namespace graphene { namespace chain {
       struct history_item
       {
          fc::time_point create_datetime;
-         share_type daily_profit;
          share_type daily_payments_without_owner;
+         share_type daily_payments_total;
+         share_type daily_payments_owner;
       };
 
       std::vector<history_item> items;
@@ -59,7 +66,7 @@ namespace graphene { namespace chain {
       fund_transaction_history_id_type most_recent_op;
       uint32_t total_ops = 0;
 
-      // second of pair: sum of all deposits of user
+      // second of pair: sum of all user's deposits
       flat_map<account_id_type, share_type> users_deposits;
 
       // count of all deposits
@@ -136,7 +143,7 @@ namespace graphene { namespace chain {
 
       fund_id_type       fund_id;        // fund to which the deposit belongs
       account_id_type    account_id;
-      share_type         amount = 0;
+      share_type         amount;
       bool               enabled = true;
       fc::time_point_sec datetime_begin; // datetime of creation
       fc::time_point_sec datetime_end;   // datetime of deposit's finishing
@@ -145,6 +152,7 @@ namespace graphene { namespace chain {
       // lifetime of user's deposit (for paying percents), in days
       uint32_t           period = 30;
       uint32_t           percent = 0;
+      share_type         daily_payment;
 
    }; // fund_deposit_object
 
@@ -188,6 +196,7 @@ namespace graphene { namespace chain {
       fund_id_type                  get_id() const { return id; }
       const std::string&            get_name() const { return name; }
       const share_type&             get_balance() const { return balance; }
+      const share_type&             get_owner_balance() const { return owner_balance; }
       const share_type&             get_min_deposit() const { return min_deposit; }
       const asset_id_type&          get_asset_id() const { return asset_id; }
       const account_id_type&        get_owner() const { return owner; }
@@ -201,7 +210,7 @@ namespace graphene { namespace chain {
       double get_rate_percent(const fund_options::fund_rate& f_item, const database& db) const;
 
       optional<fund_options::fund_rate>
-      get_max_fund_rate(const share_type& fund_balance) const;
+      get_max_fund_rate(const share_type& amnt) const;
 
       optional<fund_options::payment_rate>
       get_payment_rate(uint32_t period) const;
@@ -240,10 +249,8 @@ namespace graphene { namespace chain {
       // ID of history object
       fund_history_id_type history_id;
 
-      /**
-       * if value is bigger than 0 then owner take this percent from user deposits
-       * instead of 'fund_rate' rules */
-      uint32_t fixed_percent_on_deposits = 0;
+      // current payment scheme
+      fund_payment_scheme payment_scheme = fund_payment_scheme::residual;
 
       /**
        * @brief Payment percents to user according to its
@@ -281,15 +288,20 @@ namespace graphene { namespace chain {
 
 }}
 
+FC_REFLECT_ENUM( graphene::chain::fund_payment_scheme,
+                 (residual)(fixed))
+
 FC_REFLECT( graphene::chain::fund_history_object::history_item,
             (create_datetime)
-            (daily_profit)
-            (daily_payments_without_owner) );
+            (daily_payments_without_owner)
+            (daily_payments_total)
+            (daily_payments_owner)
+            (daily_payments_without_owner) )
 
 FC_REFLECT_DERIVED( graphene::chain::fund_history_object,
                     (graphene::chain::object),
                     (owner)
-                    (items) );
+                    (items) )
 
 FC_REFLECT_DERIVED( graphene::chain::fund_statistics_object,
                     (graphene::chain::object),
@@ -297,7 +309,7 @@ FC_REFLECT_DERIVED( graphene::chain::fund_statistics_object,
                     (most_recent_op)
                     (total_ops)
                     (users_deposits)
-                    (deposit_count) );
+                    (deposit_count) )
 
 FC_REFLECT_DERIVED( graphene::chain::fund_transaction_history_object,
                     (graphene::chain::object),
@@ -305,7 +317,7 @@ FC_REFLECT_DERIVED( graphene::chain::fund_transaction_history_object,
                     (operation_id)
                     (sequence)
                     (next)
-                    (block_time) );
+                    (block_time) )
 
 FC_REFLECT_DERIVED( graphene::chain::fund_deposit_object,
                     (graphene::db::object),
@@ -317,7 +329,7 @@ FC_REFLECT_DERIVED( graphene::chain::fund_deposit_object,
                     (datetime_end)
                     (prev_maintenance_time_on_creation)
                     (period)
-                    (percent) );
+                    (percent) )
 
 FC_REFLECT_DERIVED( graphene::chain::fund_object,
                     (graphene::db::object),
@@ -336,7 +348,7 @@ FC_REFLECT_DERIVED( graphene::chain::fund_object,
                     (min_deposit)
                     (statistics_id)
                     (history_id)
-                    (fixed_percent_on_deposits)
+                    (payment_scheme)
                     (payment_rates)
-                    (fund_rates) );
+                    (fund_rates) )
 

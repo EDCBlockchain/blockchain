@@ -56,7 +56,7 @@ namespace graphene { namespace chain {
       typedef blind_transfer2_operation operation_type;
 
       void_result do_evaluate( const blind_transfer2_operation& o );
-      void_result do_apply( const blind_transfer2_operation& o );
+      asset do_apply( const blind_transfer2_operation& o );
 
       const asset_dynamic_data_object* asset_dyn_data_ptr = nullptr;
       const asset_dynamic_data_object* fee_dyn_data_ptr = nullptr;

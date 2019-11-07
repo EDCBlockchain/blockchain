@@ -422,6 +422,75 @@ void_result account_update_evaluator::do_apply( const account_update_operation& 
 
 //////////////////////////////////////////////////////////////////////////////////////
 
+void_result account_update_authorities_evaluator::do_evaluate(const account_update_authorities_operation& o)
+{ try {
+   database& d = db();
+
+   set<account_id_type> accs;
+   set<public_key_type> keys;
+   if (o.owner)
+   {
+      auto va = (*o.owner).get_accounts();
+      auto vk = (*o.owner).get_keys();
+      accs.insert(va.begin(), va.end());
+      keys.insert(vk.begin(), vk.end());
+   }
+   if (o.active)
+   {
+      auto va = (*o.active).get_accounts();
+      auto vk = (*o.active).get_keys();
+      accs.insert(va.begin(), va.end());
+      keys.insert(vk.begin(), vk.end());
+   }
+
+   if (!db().referrer_mode_is_enabled()) {
+      check_accounts_usage(d, accs, keys);
+   }
+
+   try
+   {
+      if (o.owner) {
+         verify_authority_accounts(d, *o.owner);
+      }
+      if (o.active) {
+         verify_authority_accounts(d, *o.active);
+      }
+   }
+   GRAPHENE_RECODE_EXC(internal_verify_auth_max_auth_exceeded, account_update_max_auth_exceeded)
+   GRAPHENE_RECODE_EXC(internal_verify_auth_account_not_found, account_update_auth_account_not_found)
+
+   account_ptr = &o.account(d);
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (o) ) }
+
+void_result account_update_authorities_evaluator::do_apply(const account_update_authorities_operation& o)
+{ try {
+
+   database& d = db();
+
+   d.modify(*account_ptr, [&](account_object& a)
+   {
+      if (o.owner)
+      {
+         a.owner = *o.owner;
+         a.top_n_control_flags = 0;
+      }
+      if (o.active)
+      {
+         a.active = *o.active;
+         a.top_n_control_flags = 0;
+      }
+      if (o.memo_key) {
+         a.options.memo_key = *o.memo_key;
+      }
+   });
+
+   return void_result();
+} FC_CAPTURE_AND_RETHROW( (o) ) }
+
+//////////////////////////////////////////////////////////////////////////////////////
+
 void_result add_address_evaluator::do_evaluate(const add_address_operation& o) 
 {
    database& d = db();
@@ -439,11 +508,12 @@ void_result add_address_evaluator::do_evaluate(const add_address_operation& o)
 }
 
 void_result add_address_evaluator::do_apply(const add_address_operation& o)
-{
-   database& d = db();
+{ try {
 
    if (account_ptr)
    {
+      database& d = db();
+
       const address& addr = d.get_address();
 
       d.modify(*account_ptr, [&](account_object& obj)
@@ -454,7 +524,7 @@ void_result add_address_evaluator::do_apply(const add_address_operation& o)
    }
 
    return void_result();
-}
+} FC_CAPTURE_AND_RETHROW( (o) ) }
 
 //////////////////////////////////////////////////////////////////////////////////////
 

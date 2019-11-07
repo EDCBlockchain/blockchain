@@ -255,6 +255,26 @@ void account_update_operation::validate()const
       validate_special_authority( *extensions.value.active_special_authority );
 }
 
+void account_update_authorities_operation::validate() const
+{
+   FC_ASSERT( account != GRAPHENE_TEMP_ACCOUNT );
+   FC_ASSERT( account != account_id_type() );
+
+   FC_ASSERT( owner.valid() || active.valid() );
+
+   if (owner)
+   {
+      FC_ASSERT( owner->num_auths() != 0 );
+      FC_ASSERT( owner->address_auths.size() == 0 );
+      FC_ASSERT( !owner->is_impossible(), "cannot update an account with an imposible owner authority threshold" );
+   }
+   if (active)
+   {
+      FC_ASSERT( active->num_auths() != 0 );
+      FC_ASSERT( !active->is_impossible(), "cannot update an account with an imposible active authority threshold" );
+   }
+}
+
 share_type account_upgrade_operation::calculate_fee(const fee_parameters_type& k) const
 {
    if( upgrade_to_lifetime_member )

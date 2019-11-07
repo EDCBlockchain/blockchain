@@ -195,7 +195,7 @@ void database::debug_update( const fc::variant_object& update )
       it = _node_property_object.debug_updates.emplace( head_id, std::vector< fc::variant_object >() ).first;
    it->second.emplace_back( update );
 
-   optional<signed_block> head_block = fetch_block_by_id( head_id );
+   fc::optional<signed_block> head_block = fetch_block_by_id( head_id );
    FC_ASSERT( head_block.valid() );
 
    // What the last block does has been changed by adding to node_property_object, so we have to re-apply it

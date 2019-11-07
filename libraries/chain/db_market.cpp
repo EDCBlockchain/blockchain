@@ -342,7 +342,7 @@ bool database::fill_order( const call_order_object& order, const asset& pays, co
    FC_ASSERT( order.get_collateral().asset_id == pays.asset_id );
    FC_ASSERT( order.get_collateral() >= pays );
 
-   optional<asset> collateral_freed;
+   fc::optional<asset> collateral_freed;
    modify( order, [&]( call_order_object& o ){
             o.debt       -= receives.amount;
             o.collateral -= pays.amount;

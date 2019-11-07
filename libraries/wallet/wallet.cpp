@@ -99,6 +99,7 @@ public:
    std::string operator()(const asset& a);
    std::string operator()(const string& s);
    std::string operator()(const eval_fund_dep_apply_object& x) const;
+   std::string operator()(const eval_fund_dep_apply_object_fixed& x) const;
    std::string operator()(const market_address& x) const;
 };
 
@@ -128,12 +129,14 @@ public:
    std::string operator()(const transfer_to_blind_operation& op)const;
    std::string operator()(const account_create_operation& op)const;
    std::string operator()(const account_update_operation& op)const;
+   std::string operator()(const account_update_authorities_operation& op)const;
    std::string operator()(const asset_create_operation& op)const;
    std::string operator()(const blind_transfer2_operation& op)const;
+   std::string operator()(const fund_payment_operation& op)const;
 };
 
 template<class T>
-optional<T> maybe_id( const string& name_or_id )
+fc::optional<T> maybe_id( const string& name_or_id )
 {
    if( std::isdigit( name_or_id.front() ) )
    {
@@ -142,7 +145,7 @@ optional<T> maybe_id( const string& name_or_id )
       }
       catch (const fc::exception&) { }
    }
-   return optional<T>();
+   return fc::optional<T>();
 }
 
 string address_to_shorthash( const address& addr )
@@ -521,13 +524,14 @@ public:
       auto global_props = get_global_properties();
       auto dynamic_props = get_dynamic_global_properties();
       fc::mutable_variant_object result;
+      result["chain_id"] = chain_props.chain_id;
+      result["immutable_parameters"] = fc::variant(chain_props.immutable_parameters, 1);
       result["head_block_num"] = dynamic_props.head_block_number;
       result["head_block_id"] = fc::variant(dynamic_props.head_block_id, 1);
       result["head_block_age"] = fc::get_approximate_relative_time_string(dynamic_props.time,
                                                                           time_point_sec(time_point::now()),
                                                                           " old");
       result["next_maintenance_time"] = fc::get_approximate_relative_time_string(dynamic_props.next_maintenance_time);
-      result["chain_id"] = chain_props.chain_id;
       result["participation"] = (100*dynamic_props.recent_slots_filled.popcount()) / 128.0;
       result["active_witnesses"] = fc::variant(global_props.active_witnesses, GRAPHENE_MAX_NESTED_OBJECTS);
       result["active_committee_members"] = fc::variant(global_props.active_committee_members, GRAPHENE_MAX_NESTED_OBJECTS);
@@ -616,7 +620,7 @@ public:
       return get_account(account_name_or_id).get_id();
    }
 
-   optional<asset_object> find_asset(asset_id_type id) const
+   fc::optional<asset_object> find_asset(asset_id_type id) const
    {
       auto rec = _remote_db->get_assets({id}).front();
       if (rec) {
@@ -625,7 +629,7 @@ public:
       return rec;
    }
 
-   optional<asset_object> find_asset(string asset_symbol_or_id) const
+   fc::optional<asset_object> find_asset(string asset_symbol_or_id) const
    {
       FC_ASSERT( asset_symbol_or_id.size() > 0 );
 
@@ -641,7 +645,7 @@ public:
          if (rec)
          {
             if (rec->symbol != asset_symbol_or_id) {
-               return optional<asset_object>();
+               return fc::optional<asset_object>();
             }
             _asset_cache[rec->get_id()] = *rec;
          }
@@ -665,7 +669,7 @@ public:
    asset_id_type get_asset_id(string asset_symbol_or_id) const
    {
       FC_ASSERT( asset_symbol_or_id.size() > 0 );
-      vector<optional<asset_object>> opt_asset;
+      vector<fc::optional<asset_object>> opt_asset;
       if (std::isdigit( asset_symbol_or_id.front())) {
          return fc::variant(asset_symbol_or_id, 1).as<asset_id_type>( 1 );
       }
@@ -916,11 +920,11 @@ public:
             account_ids_to_send.push_back( old_accounts.back().id );
             ++it;
          }
-         std::vector< optional< account_object > > accounts = _remote_db->get_accounts(account_ids_to_send);
+         std::vector< fc::optional< account_object > > accounts = _remote_db->get_accounts(account_ids_to_send);
          // server response should be same length as request
          FC_ASSERT( accounts.size() == account_ids_to_send.size() );
          size_t i = 0;
-         for( const optional< account_object >& acct : accounts )
+         for( const fc::optional< account_object >& acct : accounts )
          {
             account_object& old_acct = old_accounts[i];
             if( !acct.valid() )
@@ -1330,12 +1334,12 @@ public:
    } FC_CAPTURE_AND_RETHROW( (issuer)(symbol)(precision)(common)(bitasset_opts)(broadcast) ) }
 
    signed_transaction update_asset(string symbol,
-                                    optional<string> new_issuer,
+                                    fc::optional<string> new_issuer,
                                     asset_options new_options,
                                     chain::asset_parameters new_params,
                                     bool broadcast /* = false */)
    { try {
-      optional<asset_object> asset_to_update = find_asset(symbol);
+         fc::optional<asset_object> asset_to_update = find_asset(symbol);
       if (!asset_to_update) {
          FC_THROW("No asset with that symbol exists!");
       }
@@ -1345,7 +1349,7 @@ public:
          FC_THROW("Current asset issuer can't update asset (restricted by committee)!");
       }
 
-      optional<account_id_type> new_issuer_account_id;
+      fc::optional<account_id_type> new_issuer_account_id;
       if (new_issuer)
       {
          account_object new_issuer_account = get_account(*new_issuer);
@@ -1371,7 +1375,7 @@ public:
                                       bitasset_options new_options,
                                       bool broadcast /* = false */)
    { try {
-      optional<asset_object> asset_to_update = find_asset(symbol);
+      fc::optional<asset_object> asset_to_update = find_asset(symbol);
       if (!asset_to_update)
         FC_THROW("No asset with that symbol exists!");
 
@@ -1392,7 +1396,7 @@ public:
                                                   flat_set<string> new_feed_producers,
                                                   bool broadcast /* = false */)
    { try {
-      optional<asset_object> asset_to_update = find_asset(symbol);
+      fc::optional<asset_object> asset_to_update = find_asset(symbol);
       if (!asset_to_update)
         FC_THROW("No asset with that symbol exists!");
 
@@ -1417,7 +1421,7 @@ public:
                                          price_feed feed,
                                          bool broadcast /* = false */)
    { try {
-      optional<asset_object> asset_to_update = find_asset(symbol);
+      fc::optional<asset_object> asset_to_update = find_asset(symbol);
       if (!asset_to_update)
         FC_THROW("No asset with that symbol exists!");
 
@@ -1440,7 +1444,7 @@ public:
                                           bool broadcast /* = false */)
    { try {
       account_object from_account = get_account(from);
-      optional<asset_object> asset_to_fund = find_asset(symbol);
+      fc::optional<asset_object> asset_to_fund = find_asset(symbol);
       if (!asset_to_fund)
         FC_THROW("No asset with that symbol exists!");
       asset_object core_asset = get_asset(asset_id_type());
@@ -1464,7 +1468,7 @@ public:
                                               bool broadcast /* = false */)
    { try {
       account_object from_account = get_account(from);
-      optional<asset_object> asset_to_fund = find_asset(symbol);
+      fc::optional<asset_object> asset_to_fund = find_asset(symbol);
       if (!asset_to_fund)
         FC_THROW("No asset with that symbol exists!");
       asset_object edc_asset = get_asset(EDC_ASSET_SYMBOL);
@@ -1487,7 +1491,7 @@ public:
                                     bool broadcast /* = false */)
    { try {
       account_object from_account = get_account(from);
-      optional<asset_object> asset_to_reserve = find_asset(symbol);
+      fc::optional<asset_object> asset_to_reserve = find_asset(symbol);
       if (!asset_to_reserve)
         FC_THROW("No asset with that symbol exists!");
 
@@ -1507,7 +1511,7 @@ public:
                                           price settle_price,
                                           bool broadcast /* = false */)
    { try {
-      optional<asset_object> asset_to_settle = find_asset(symbol);
+      fc::optional<asset_object> asset_to_settle = find_asset(symbol);
       if (!asset_to_settle)
         FC_THROW("No asset with that symbol exists!");
 
@@ -1529,7 +1533,7 @@ public:
                                    string symbol,
                                    bool broadcast /* = false */)
    { try {
-      optional<asset_object> asset_to_settle = find_asset(symbol);
+      fc::optional<asset_object> asset_to_settle = find_asset(symbol);
       if (!asset_to_settle)
         FC_THROW("No asset with that symbol exists!");
 
@@ -1653,6 +1657,36 @@ public:
       return sign_transaction(tx, broadcast);
    } FC_CAPTURE_AND_RETHROW( (initiator)(target)(allow)(expiration_time)(broadcast) ) }
 
+   signed_transaction propose_update_account_authorities(
+    const string& initiator
+    , const string& target
+    , const public_key_type& owner_key
+    , const public_key_type& active_key
+    , const public_key_type& memo_key
+    , fc::time_point_sec expiration_time
+    , bool broadcast)
+   { try {
+      account_update_authorities_operation op;
+      op.account = get_account_id(target);
+      op.owner = authority(1, owner_key, 1);
+      op.active = authority(1, active_key, 1);
+      op.memo_key = memo_key;
+
+      proposal_create_operation prop_op;
+
+      prop_op.expiration_time = expiration_time;
+      prop_op.review_period_seconds = _remote_db->get_global_properties().parameters.committee_proposal_review_period;
+      prop_op.fee_paying_account = get_account_id(initiator);
+      prop_op.proposed_ops.emplace_back( op );
+
+      signed_transaction tx;
+      tx.operations.push_back(prop_op);
+      set_operation_fees( tx, _remote_db->get_global_properties().parameters.current_fees);
+      tx.validate();
+
+      return sign_transaction(tx, broadcast);
+   } FC_CAPTURE_AND_RETHROW( (initiator)(target)(owner_key)(active_key)(memo_key)(expiration_time)(broadcast) ) }
+
    signed_transaction propose_update_assets_fee_payer(
     const string& initiator
     , const fc::flat_set<std::string>& assets_to_update
@@ -1745,12 +1779,28 @@ public:
    { try {
 
       fc::optional<account_id_type> market_account_id = _remote_db->get_market_reference(address(addr));
-      FC_ASSERT(market_account_id, "Where is no market associated with this address: ${a}", ("a", addr));
-      const vector<optional<account_object>>& v = _remote_db->get_accounts({*market_account_id});
+      FC_ASSERT(market_account_id, "There is no market associated with this address: ${a}", ("a", addr));
+      const vector<fc::optional<account_object>>& v = _remote_db->get_accounts({*market_account_id});
       FC_ASSERT(v.size() == 1);
       return *v[0];
 
    } FC_CAPTURE_AND_RETHROW( (addr) ) }
+
+   flat_set<vote_id_type> get_account_votes(const std::string& name_or_id) const
+   { try {
+
+     account_object acc = get_account( name_or_id );
+     return acc.options.votes;
+
+   } FC_CAPTURE_AND_RETHROW( (name_or_id) ) }
+
+   fc::optional<restricted_account_object> get_restricted_account(const std::string& name_or_id) const
+   {  try {
+
+      account_object acc = get_account( name_or_id );
+      return _remote_db->get_restricted_account(acc.get_id());
+
+   } FC_CAPTURE_AND_RETHROW( (name_or_id) ) }
 
    signed_transaction create_committee_member(string owner_account, string url, bool broadcast /* = false */)
    { try {
@@ -2137,7 +2187,7 @@ public:
    } FC_CAPTURE_AND_RETHROW( (voting_account)(witness)(approve)(broadcast) ) }
 
    signed_transaction set_voting_proxy(string account_to_modify,
-                                       optional<string> voting_account,
+                                       fc::optional<string> voting_account,
                                        bool broadcast /* = false */)
    { try {
       account_object account_object_to_modify = get_account(account_to_modify);
@@ -2177,7 +2227,7 @@ public:
       if (account_object_to_modify.options.num_witness == desired_number_of_witnesses &&
           account_object_to_modify.options.num_committee == desired_number_of_committee_members)
          FC_THROW("Account ${account} is already voting for ${witnesses} witnesses and ${committee_members} committee_members",
-                  ("account", account_to_modify)("witnesses", desired_number_of_witnesses)("committee_members",desired_number_of_witnesses));
+                  ("account", account_to_modify)("witnesses", desired_number_of_witnesses)("committee_members",desired_number_of_committee_members));
       account_object_to_modify.options.num_witness = desired_number_of_witnesses;
       account_object_to_modify.options.num_committee = desired_number_of_committee_members;
 
@@ -2215,7 +2265,7 @@ public:
 
       /// TODO: fetch the accounts specified via other_auths as well.
 
-      vector< optional<account_object> > approving_account_objects =
+      vector< fc::optional<account_object> > approving_account_objects =
             _remote_db->get_accounts( v_approving_account_ids );
 
       /// TODO: recursively check one layer deeper in the authority tree for keys
@@ -2224,7 +2274,7 @@ public:
 
       flat_map<account_id_type, account_object*> approving_account_lut;
       size_t i = 0;
-      for( optional<account_object>& approving_acct : approving_account_objects )
+      for( fc::optional<account_object>& approving_acct : approving_account_objects )
       {
          if( !approving_acct.valid() )
          {
@@ -2404,7 +2454,7 @@ public:
       FC_ASSERT(fee_asset_obj, "Could not find fee paying asset matching ${asset}", ("asset", asset_obj->params.fee_paying_asset));
 
       account_object to_account;
-      optional<address> to_address;
+      fc::optional<address> to_address;
       if (std::regex_match(to, graphene::chain::ADDRESS_REGEX))
       {
          to_address = address(to);
@@ -2421,7 +2471,7 @@ public:
          {
             fc::optional<account_id_type> market_account_id = _remote_db->get_market_reference(address(to));
             FC_ASSERT(market_account_id);
-            const vector<optional<account_object>>& v = _remote_db->get_accounts({*market_account_id});
+            const vector<fc::optional<account_object>>& v = _remote_db->get_accounts({*market_account_id});
             FC_ASSERT(v.size() == 1);
             FC_ASSERT(v[0]);
 
@@ -3117,9 +3167,9 @@ public:
    fc::api<database_api>   _remote_db;
    fc::api<network_broadcast_api> _remote_net_broadcast;
    fc::api<history_api>    _remote_hist;
-   optional<fc::api<secure_api>> _remote_secure;
-   optional<fc::api<network_node_api>> _remote_net_node;
-   optional<fc::api<graphene::debug_witness::debug_api>> _remote_debug;
+   fc::optional<fc::api<secure_api>> _remote_secure;
+   fc::optional<fc::api<network_node_api>> _remote_net_node;
+   fc::optional<fc::api<graphene::debug_witness::debug_api>> _remote_debug;
 
    // last transfer operation info
    struct last_transfer_info
@@ -3260,6 +3310,12 @@ std::string operation_printer::operator()(const account_update_operation& op) co
    return fee(op.fee);
 }
 
+std::string operation_printer::operator()(const account_update_authorities_operation& op) const
+{
+   out << "Update Account Authorities '" << wallet.get_account(op.account).name << "'";
+   return fee(op.fee);
+}
+
 std::string operation_printer::operator()(const asset_create_operation& op) const
 {
    out << "Create ";
@@ -3277,7 +3333,13 @@ std::string operation_printer::operator()(const blind_transfer2_operation& op) c
    return "";
 }
 
-//std::string operator()(const blind_transfer2_operation& op)const;
+std::string operation_printer::operator()(const fund_payment_operation& op) const
+{
+   out << "Fund payment, fund ID=" << fc::to_string(op.fund_id.space_id) << "." << fc::to_string(op.fund_id.type_id) << "." << op.fund_id.instance.value
+       << ", amount=" << wallet.get_asset(op.asset_to_issue.asset_id).amount_to_pretty_string(op.asset_to_issue);
+
+   return fee(op.fee);
+}
 
 std::string operation_result_printer::operator()(const void_result& x) const
 {
@@ -3303,9 +3365,20 @@ std::string operation_result_printer::operator()(const eval_fund_dep_apply_objec
 {
    std::ostringstream os;
    os << "{\"id\":\"" << std::string(obj.id) << "\""
-      << ",\"datetime_begin\":\"" << std::string(obj.datetime_begin) << "\","
-      << ",\"datetime_end\":\"" << std::string(obj.datetime_end) << "\","
+      << ",\"datetime_begin\":\"" << std::string(obj.datetime_begin) << "\""
+      << ",\"datetime_end\":\"" << std::string(obj.datetime_end) << "\""
       << ",\"percent\":\"" << std::to_string(obj.percent) << "\"}";
+
+   return os.str();
+}
+
+std::string operation_result_printer::operator()(const eval_fund_dep_apply_object_fixed& obj) const
+{
+   std::ostringstream os;
+   os << "{\"id\":\"" << std::string(obj.id) << "\""
+      << ",\"datetime_begin\":\"" << std::string(obj.datetime_begin) << "\""
+      << ",\"datetime_end\":\"" << std::string(obj.datetime_end) << "\""
+      << ",\"daily_payment\":\"" << _wallet.get_asset(obj.daily_payment.asset_id).amount_to_pretty_string(obj.daily_payment) << "\"}";
 
    return os.str();
 }
@@ -3336,11 +3409,11 @@ bool wallet_api::copy_wallet_file(string destination_filename) {
    return my->copy_wallet_file(destination_filename);
 }
 
-optional<signed_block_with_info> wallet_api::get_block(uint32_t num) {
+fc::optional<signed_block_with_info> wallet_api::get_block(uint32_t num) {
    return my->_remote_db->get_block(num);
 }
 
-optional<cheque_info_object> wallet_api::get_cheque_by_code(const std::string& code) const {
+fc::optional<cheque_info_object> wallet_api::get_cheque_by_code(const std::string& code) const {
    return my->_remote_db->get_cheque_by_code(code);
 }
 
@@ -3387,7 +3460,7 @@ vector<fund_deposit_object> wallet_api::get_fund_deposits(const std::string& fun
    return my->_remote_db->get_fund_deposits(fund_name_or_id, start, limit);
 }
 
-optional<bonus_balances_object> wallet_api::get_account_bonus_balances( string name_or_id )const
+fc::optional<bonus_balances_object> wallet_api::get_account_bonus_balances( string name_or_id )const
 {
    return my->_remote_db->get_bonus_balances( name_or_id );
 }
@@ -3535,7 +3608,7 @@ map<account_id_type, uint16_t> wallet_api::get_online_info() const {
    return my->_remote_db->get_online_info();
 }
 
-brain_key_info wallet_api::suggest_brain_key()const
+brain_key_info wallet_api::suggest_brain_key() const
 {
    brain_key_info result;
    // create a private key for secure entropy
@@ -3582,7 +3655,7 @@ variant wallet_api::get_secure_object( object_id_type id ) const
    return variant();
 }
 
-optional<object_id_type> wallet_api::get_last_object_id(object_id_type id) const {
+fc::optional<object_id_type> wallet_api::get_last_object_id(object_id_type id) const {
    return my->_remote_db->get_last_object_id(id);
 }
 
@@ -3658,6 +3731,10 @@ account_object wallet_api::get_account(string account_name_or_id) const
    return my->get_account(account_name_or_id);
 }
 
+fc::optional<account_object> wallet_api::get_account_by_vote_id(const vote_id_type& v_id) const {
+   return my->_remote_db->get_account_by_vote_id(v_id);
+}
+
 ref_info wallet_api::get_referrals_by_id(string account_name_or_id) const
 {
    return my->_remote_db->get_referrals_by_id(account_name_or_id);
@@ -3679,9 +3756,13 @@ fc::variant_object wallet_api::get_user_count_by_ranks() const
    return my->_remote_db->get_user_count_by_ranks();
 }
 
-int64_t wallet_api::get_user_count_with_balances(std::vector<fc::time_point_sec> dates)
-{
+int64_t wallet_api::get_user_count_with_balances(std::vector<fc::time_point_sec> dates) {
    return my->_remote_db->get_user_count_with_balances(dates);
+}
+
+std::pair<uint32_t, std::vector<account_id_type>>
+wallet_api::get_users_with_asset(const asset_id_type& asst, uint32_t start, uint32_t limit) const {
+   return my->_remote_db->get_users_with_asset(asst, start, limit);
 }
 
 asset_object wallet_api::get_asset(string asset_name_or_id) const
@@ -3928,7 +4009,7 @@ signed_transaction wallet_api::create_asset(string issuer,
 }
 
 signed_transaction wallet_api::update_asset(string symbol,
-                                            optional<string> new_issuer,
+                                            fc::optional<string> new_issuer,
                                             asset_options new_options,
                                             chain::asset_parameters new_params,
                                             bool broadcast /* = false */)
@@ -4026,6 +4107,21 @@ witness_object wallet_api::get_witness(string owner_account)
    return my->get_witness(owner_account);
 }
 
+flat_set<vote_id_type> wallet_api::get_account_votes(const std::string& name_or_id) const {
+   return my->get_account_votes(name_or_id);
+}
+
+fc::optional<restricted_account_object> wallet_api::get_restricted_account(const std::string& name_or_id) const {
+   return my->get_restricted_account(name_or_id);
+}
+
+vector<account_id_type> wallet_api::get_voting_accounts(const vote_id_type& vote) const
+{ try {
+
+   return my->_remote_db->get_voting_accounts(vote);
+
+} FC_CAPTURE_AND_RETHROW( (vote) ) }
+
 committee_member_object wallet_api::get_committee_member(string owner_account)
 {
    return my->get_committee_member(owner_account);
@@ -4100,7 +4196,7 @@ signed_transaction wallet_api::vote_for_witness(string voting_account,
 }
 
 signed_transaction wallet_api::set_voting_proxy(string account_to_modify,
-                                                optional<string> voting_account,
+                                                fc::optional<string> voting_account,
                                                 bool broadcast /* = false */)
 {
    return my->set_voting_proxy(account_to_modify, voting_account, broadcast);
@@ -4414,7 +4510,7 @@ vector< signed_transaction > wallet_api_impl::import_balance( string name_or_id,
       }
       else
       {
-         optional< private_key_type > key = wif_to_key( wif_key );
+         fc::optional< private_key_type > key = wif_to_key( wif_key );
          FC_ASSERT( key.valid(), "Invalid private key" );
          fc::ecc::public_key pk = key->get_public_key();
          addrs.push_back( pk );
@@ -4766,6 +4862,7 @@ blind_confirmation wallet_api::blind_transfer_help( string from_key_or_label,
    auto& to_asset_used_idx = my->_wallet.blind_receipts.get<by_to_asset_used>();
    auto start = to_asset_used_idx.lower_bound( std::make_tuple(from_key,amount.asset_id,false)  );
    auto end = to_asset_used_idx.lower_bound( std::make_tuple(from_key,amount.asset_id,true)  );
+
    while( start != end )
    {
       auto result = my->_remote_db->get_blinded_balances( {start->commitment() } );
@@ -4784,6 +4881,7 @@ blind_confirmation wallet_api::blind_transfer_help( string from_key_or_label,
       }
       ++start;
    }
+
    for( const auto& u : used )
    {
       auto itr = my->_wallet.blind_receipts.get<by_commitment>().find( u );
@@ -5116,6 +5214,17 @@ signed_transaction wallet_api::propose_allow_create_asset(const string& initiato
 signed_transaction wallet_api::propose_allow_create_addresses(const string& initiator, const string& target, bool allow,
                                                               fc::time_point_sec expiration_time, bool broadcast) {
    return my->propose_allow_create_addresses(initiator, target, allow, expiration_time, broadcast);
+}
+
+signed_transaction wallet_api::propose_update_account_authorities(
+   const string& initiator
+   , const string& target
+   , const public_key_type& owner_key
+   , const public_key_type& active_key
+   , const public_key_type& memo_key
+   , fc::time_point_sec expiration_time
+   , bool broadcast) {
+   return my->propose_update_account_authorities(initiator, target, owner_key, active_key, memo_key, expiration_time, broadcast);
 }
 
 signed_transaction wallet_api::propose_update_assets_fee_payer(

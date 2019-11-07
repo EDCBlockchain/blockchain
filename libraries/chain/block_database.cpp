@@ -145,7 +145,7 @@ block_id_type block_database::fetch_block_id( uint32_t block_num )const
    return e.block_id;
 }
 
-optional<signed_block> block_database::fetch_optional( const block_id_type& id )const
+fc::optional<signed_block> block_database::fetch_optional( const block_id_type& id )const
 {
    try
    {
@@ -158,7 +158,7 @@ optional<signed_block> block_database::fetch_optional( const block_id_type& id )
       _block_num_to_pos.seekg( index_pos );
       _block_num_to_pos.read( (char*)&e, sizeof(e) );
 
-      if( e.block_id != id ) return optional<signed_block>();
+      if( e.block_id != id ) return fc::optional<signed_block>();
 
       vector<char> data( e.block_size );
       _blocks.seekg( e.block_pos );
@@ -174,10 +174,10 @@ optional<signed_block> block_database::fetch_optional( const block_id_type& id )
    catch (const std::exception&)
    {
    }
-   return optional<signed_block>();
+   return fc::optional<signed_block>();
 }
 
-optional<signed_block> block_database::fetch_by_number( uint32_t block_num )const
+fc::optional<signed_block> block_database::fetch_by_number( uint32_t block_num )const
 {
    try
    {
@@ -203,10 +203,10 @@ optional<signed_block> block_database::fetch_by_number( uint32_t block_num )cons
    catch (const std::exception&)
    {
    }
-   return optional<signed_block>();
+   return fc::optional<signed_block>();
 }
 
-optional<signed_block> block_database::last()const
+fc::optional<signed_block> block_database::last()const
 {
    try
    {
@@ -214,7 +214,7 @@ optional<signed_block> block_database::last()const
       _block_num_to_pos.seekg( 0, _block_num_to_pos.end );
 
       if( (size_t)_block_num_to_pos.tellp() < sizeof(index_entry) )
-         return optional<signed_block>();
+         return fc::optional<signed_block>();
 
       _block_num_to_pos.seekg( -sizeof(index_entry), _block_num_to_pos.end );
       _block_num_to_pos.read( (char*)&e, sizeof(e) );
@@ -227,7 +227,7 @@ optional<signed_block> block_database::last()const
       }
 
       if( e.block_size == 0 )
-         return optional<signed_block>();
+         return fc::optional<signed_block>();
 
       vector<char> data( e.block_size );
       _blocks.seekg( e.block_pos );
@@ -241,10 +241,10 @@ optional<signed_block> block_database::last()const
    catch (const std::exception&)
    {
    }
-   return optional<signed_block>();
+   return fc::optional<signed_block>();
 }
 
-optional<block_id_type> block_database::last_id()const
+fc::optional<block_id_type> block_database::last_id()const
 {
    try
    {
@@ -252,7 +252,7 @@ optional<block_id_type> block_database::last_id()const
       _block_num_to_pos.seekg( 0, _block_num_to_pos.end );
 
       if( (size_t)_block_num_to_pos.tellp() < sizeof(index_entry) )
-         return optional<block_id_type>();
+         return fc::optional<block_id_type>();
 
       _block_num_to_pos.seekg( -sizeof(index_entry), _block_num_to_pos.end );
       _block_num_to_pos.read( (char*)&e, sizeof(e) );
@@ -265,7 +265,7 @@ optional<block_id_type> block_database::last_id()const
       }
 
       if( e.block_size == 0 )
-         return optional<block_id_type>();
+         return fc::optional<block_id_type>();
 
       return e.block_id;
    }
@@ -275,7 +275,7 @@ optional<block_id_type> block_database::last_id()const
    catch (const std::exception&)
    {
    }
-   return optional<block_id_type>();
+   return fc::optional<block_id_type>();
 }
 
 
