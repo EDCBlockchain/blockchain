@@ -31,8 +31,10 @@ namespace graphene { namespace chain {
 
       bool insufficient_balance = (d.get_balance(from_acc, asset_obj).amount >= op.payee_amount.amount * op.payee_count);
       FC_ASSERT(insufficient_balance,
-                "Insufficient balance: ${balance}, unable to create receipt",
-                ("balance", d.to_pretty_string(d.get_balance(from_acc, asset_obj))));
+                "Insufficient balance=${balance}, amount=${amount}, payee_count=${pc}. Unable to create receipt.",
+                ("balance", d.to_pretty_string(d.get_balance(from_acc, asset_obj)))
+                ("amount", d.to_pretty_string(op.payee_amount))
+                ("pc", op.payee_count) );
 
       return void_result();
 

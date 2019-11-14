@@ -329,7 +329,8 @@ FC_REFLECT_DERIVED( graphene::chain::fund_deposit_object,
                     (datetime_end)
                     (prev_maintenance_time_on_creation)
                     (period)
-                    (percent) )
+                    (percent)
+                    (daily_payment) )
 
 FC_REFLECT_DERIVED( graphene::chain::fund_object,
                     (graphene::db::object),

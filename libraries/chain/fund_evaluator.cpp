@@ -257,12 +257,12 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
       o.period = op.period;
       o.percent = p_rate->percent;
 
+      double percent_per_day = fund.get_bonus_percent(o.percent) / o.period;
+      share_type daily_payment = std::roundl(percent_per_day * (long double)o.amount.value);
+      o.daily_payment = daily_payment;
+
       if (d.head_block_time() >= HARDFORK_626_TIME)
       {
-         double percent_per_day = fund.get_bonus_percent(o.percent) / o.period;
-         share_type daily_payment = std::roundl(percent_per_day * (long double)o.amount.value);
-         o.daily_payment = daily_payment;
-
          result_new.datetime_begin = o.datetime_begin;
          result_new.datetime_end   = o.datetime_end;
          result_new.daily_payment  = asset(o.daily_payment, fund.get_asset_id());
@@ -462,32 +462,33 @@ void_result fund_remove_evaluator::do_evaluate( const fund_remove_operation& op 
 void_result fund_remove_evaluator::do_apply( const fund_remove_operation& op )
 { try {
 
-   FC_ASSERT(fund_obj_ptr);
-
-   database& d = db();
-
-   const chain::fund_object& fund = *fund_obj_ptr;
-
-   // remove fund statistics
-   const fund_statistics_object* fund_stat_ptr = d.find(fc::variant(fund.get_statistics_id(), 1).as<fund_statistics_id_type>(1));
-   if (fund_stat_ptr) {
-      d.remove(*fund_stat_ptr);
-   }
-
-   // remove history object
-   const fund_history_object* fund_hist_ptr = d.find(fc::variant(fund.get_history_id(), 1).as<fund_history_id_type>(1));
-   if (fund_hist_ptr) {
-      d.remove(*fund_hist_ptr);
-   }
-
-   // remove fund
-   d.remove(fund);
-
-   // remove fund deposits
-   auto range = db().get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(op.id);
-   std::for_each(range.first, range.second, [&](const fund_deposit_object& dep) {
-      d.remove(dep);
-   });
+     (void)op;
+//   FC_ASSERT(fund_obj_ptr);
+//
+//   database& d = db();
+//
+//   const chain::fund_object& fund = *fund_obj_ptr;
+//
+//   // remove fund statistics
+//   const fund_statistics_object* fund_stat_ptr = d.find(fc::variant(fund.get_statistics_id(), 1).as<fund_statistics_id_type>(1));
+//   if (fund_stat_ptr) {
+//      d.remove(*fund_stat_ptr);
+//   }
+//
+//   // remove history object
+//   const fund_history_object* fund_hist_ptr = d.find(fc::variant(fund.get_history_id(), 1).as<fund_history_id_type>(1));
+//   if (fund_hist_ptr) {
+//      d.remove(*fund_hist_ptr);
+//   }
+//
+//   // remove fund
+//   d.remove(fund);
+//
+//   // remove fund deposits
+//   auto range = db().get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(op.id);
+//   std::for_each(range.first, range.second, [&](const fund_deposit_object& dep) {
+//      d.remove(dep);
+//   });
 
    return void_result();
 
