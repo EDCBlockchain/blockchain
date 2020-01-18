@@ -67,7 +67,6 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
       optional<block_header> get_block_header(uint32_t block_num)const;
       optional<signed_block> get_block(uint32_t block_num);
       optional<signed_block> get_block_by_id(string block_num);
-      void clear_ops(std::vector<operation>& ops);
       processed_transaction get_transaction(uint32_t block_num, uint32_t trx_in_block);
       optional<signed_block> get_block_reserved(uint32_t block_num);
 
@@ -180,6 +179,10 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
 
       optional<cheque_info_object> get_cheque_by_code(const std::string& code) const;
 
+      void clear_ops(std::vector<operation>& ops) {
+         _db.clear_ops(ops);
+      }
+
    //private:
       template<typename T>
       void subscribe_to_item( const T& i )const
@@ -261,6 +264,7 @@ database_api_impl::~database_api_impl()
 // Objects                                                          //
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
+
 
 fc::variants database_api::get_objects(const vector<object_id_type>& ids) const {
    return my->get_objects( ids );
@@ -427,22 +431,6 @@ optional<signed_block> database_api::get_block(uint32_t block_num) const {
    return my->get_block( block_num );
 }
 
-void database_api_impl::clear_ops(std::vector<operation>& ops)
-{
-   for (operation& op: ops)
-   {
-      if (op.which() == operation::tag<blind_transfer2_operation>::value) {
-         op = blind_transfer2_operation();
-      }
-      else if (op.which() == operation::tag<cheque_create_operation>::value) {
-         op.get<cheque_create_operation>().code.clear();
-      }
-      else if (op.which() == operation::tag<cheque_use_operation>::value) {
-         op.get<cheque_use_operation>().code.clear();
-      }
-   }
-}
-
 optional<signed_block> database_api_impl::get_block(uint32_t block_num)
 {
    auto block = _db.fetch_block_by_number(block_num);
@@ -452,7 +440,7 @@ optional<signed_block> database_api_impl::get_block(uint32_t block_num)
 
    signed_block b = *block;
    for (processed_transaction& tr: b.transactions) {
-      clear_ops(tr.operations);
+      _db.clear_ops(tr.operations);
    }
    return b;
 }
@@ -483,7 +471,7 @@ optional<signed_block> database_api_impl::get_block_by_id(string block_id)
 
    signed_block b = *block;
    for (processed_transaction& tr: b.transactions) {
-      clear_ops(tr.operations);
+      _db.clear_ops(tr.operations);
    }
 
    return b;
@@ -513,7 +501,7 @@ processed_transaction database_api_impl::get_transaction(uint32_t block_num, uin
    FC_ASSERT( opt_block->transactions.size() > trx_num );
 
    processed_transaction& tr = opt_block->transactions[trx_num];
-   clear_ops(tr.operations);
+   _db.clear_ops(tr.operations);
 
    return tr;
 }
@@ -1328,7 +1316,7 @@ vector<fund_deposit_object> database_api_impl::get_fund_deposits(const std::stri
    vector<fund_deposit_object> result;
    result.reserve(limit);
 
-   const auto& range = _db.get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(fund_ptr->get_id());
+   const auto& range = _db.get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(fund_ptr->id);
    uint32_t i = 0;
    for (const fund_deposit_object& item: boost::make_iterator_range(range.first, range.second) | boost::adaptors::reversed)
    {
@@ -1386,10 +1374,10 @@ asset database_api_impl::get_fund_deposits_amount_by_account(fund_id_type fund_i
    const auto& stats_obj = fund_id(_db).statistics_id(_db);
    auto iter = stats_obj.users_deposits.find(account_id);
    if (iter != stats_obj.users_deposits.end()) {
-      return asset(iter->second, fund_ptr->get_asset_id());
+      return asset(iter->second, fund_ptr->asset_id);
    }
 
-   return asset(0, fund_ptr->get_asset_id());
+   return asset(0, fund_ptr->asset_id);
 }
 
 vector<fund_deposit_object> database_api::get_account_deposits(account_id_type account_id, uint32_t start, uint32_t limit) const {

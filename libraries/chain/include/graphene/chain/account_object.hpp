@@ -207,16 +207,6 @@ namespace graphene { namespace chain {
            accounts_online_id_type get_id() { return id; }
    };
 
-   class blind_transfer2_settings_object : public abstract_object<blind_transfer2_settings_object>
-   {
-   public:
-      static const uint8_t space_id = implementation_ids;
-      static const uint8_t type_id  = impl_blind_transfer2_settings_object_type;
-
-      asset blind_fee; // fee for blind transfers
-      blind_transfer2_settings_id_type get_id() { return id; }
-   };
-
    /**
     * @brief contains address generated for market exchange
     * @ingroup object
@@ -277,7 +267,9 @@ namespace graphene { namespace chain {
       /// The account's name. This name must be unique among all account names on the graph. May not be empty.
       string name;
 
+      address last_generated_address;
       fc::time_point_sec register_datetime;
+
       account_restrict_operation::account_action current_restriction =
          account_restrict_operation::account_action::restore;
 
@@ -289,8 +281,11 @@ namespace graphene { namespace chain {
       bool burning_mode_enabled = false;
       // fund deposits will be renewed automatically
       bool deposits_autorenewal_enabled = true;
-
-      address last_generated_address;
+      // deposits sum amount from all funds (only EDC)
+      share_type edc_in_deposits = 0;
+      bool edc_limit_daily_volume_enabled = true;
+      // counter of EDC-transfers
+      share_type edc_transfers_daily_amount_counter = 0;
 
       /**
        * The owner authority represents absolute control over the account. Usually the keys in this authority will
@@ -719,11 +714,6 @@ FC_REFLECT_DERIVED( graphene::chain::accounts_online_object,
                     (online_info)
                   );
 
-FC_REFLECT_DERIVED( graphene::chain::blind_transfer2_settings_object,
-                    (graphene::db::object),
-                    (blind_fee)
-                  );
-
 FC_REFLECT_DERIVED( graphene::chain::market_address_object,
                     (graphene::db::object),
                     (market_account_id)
@@ -745,7 +735,11 @@ FC_REFLECT_DERIVED( graphene::chain::account_object,
                     (register_datetime)(last_generated_address)
                     (current_restriction)(is_market)(verification_is_required)
                     (can_create_and_update_asset)(can_create_addresses)
-                    (burning_mode_enabled)(deposits_autorenewal_enabled)
+                    (burning_mode_enabled)
+                    (deposits_autorenewal_enabled)
+                    (edc_in_deposits)
+                    (edc_limit_daily_volume_enabled)
+                    (edc_transfers_daily_amount_counter)
                   );
 
 FC_REFLECT_DERIVED( graphene::chain::blind_transfer2_object,

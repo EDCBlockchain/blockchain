@@ -3,6 +3,7 @@
 #include "../common/test_utils.hpp"
 
 #include <graphene/chain/cheque_object.hpp>
+#include <graphene/chain/settings_object.hpp>
 
 using namespace graphene::chain;
 using namespace graphene::chain::test;
@@ -122,6 +123,7 @@ BOOST_AUTO_TEST_CASE(undo_expired_cheques_test)
 
       issue_uia(alice_id, asset(10000, EDC_ASSET));
       BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 10000);
+
       issue_uia(bob_id, asset(10000, EDC_ASSET));
       BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 10000);
 
@@ -144,7 +146,7 @@ BOOST_AUTO_TEST_CASE(undo_expired_cheques_test)
       while (db.head_block_time() < current_block_time + fc::days(1)) {
          generate_block();
       }
-      // balance must be the same, check expiration 3 days
+      // balance must be the same, check expiration is 2 days
       BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 9000);
       BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 5000);
 
@@ -154,18 +156,21 @@ BOOST_AUTO_TEST_CASE(undo_expired_cheques_test)
       // check bob balance after cheque usage
       BOOST_CHECK(get_balance(dan_id, EDC_ASSET) == 1000);
 
+      fc::time_point_sec h_time = HARDFORK_622_TIME;
+      generate_blocks(h_time);
+
       current_block_time = db.head_block_time();
-      while (db.head_block_time() < current_block_time + fc::days(3)) {
+      while (db.head_block_time() < current_block_time + fc::days(4)) {
          generate_block();
       }
 
-      // amounts must returned from cheques to owner
+      // amounts must return from cheques to owner
       BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 10000);
 
-      //for bob returned 4000 because 1000 was used by dan
+      // for bob returned 4000 because 1000 was used by dan
       BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 9000);
 
-      // cheques must be changed status to 'cheque_undo'
+      // cheques must change status to 'cheque_undo'
       auto cheque_iter = db.get_index_type<cheque_index>().indices().get<by_code>().find(alice_cheque_code);
       BOOST_CHECK(cheque_iter != db.get_index_type<cheque_index>().indices().get<by_code>().end());
       const cheque_object& cheque_alice = *cheque_iter;
@@ -186,5 +191,79 @@ BOOST_AUTO_TEST_CASE(undo_expired_cheques_test)
 
 }
 
+BOOST_AUTO_TEST_CASE(cheque_fee_test)
+{
+
+   try
+   {
+      BOOST_TEST_MESSAGE("=== cheque_fee_test ===");
+
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(bob)
+
+      // assign privileges for creating_asset_operation
+      SET_ACTOR_CAN_CREATE_ASSET(alice_id)
+
+      create_edc(10000000);
+
+      issue_uia(bob_id, asset(10000, EDC_ASSET));
+      const settings_object& settings = *db.find(settings_id_type(0));
+
+      db.set_history_size(1);
+
+      fc::time_point_sec h_time = HARDFORK_627_TIME;
+      generate_blocks(h_time);
+
+      fc::time_point_sec exp_date = db.head_block_time() + fc::days(5);
+      const std::string& bob_cheque_code = "bobcode111111111";
+      make_cheque(bob_cheque_code, exp_date, EDC_ASSET, 1000, 1, bob_id);
+
+      // std::cout << get_balance(bob_id, EDC_ASSET) << std::endl;
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 9000);
+
+      {
+         update_settings_operation op;
+         op.fee = asset();
+         op.transfer_fees = settings.transfer_fees;
+         op.blind_transfer_fees = settings.blind_transfer_fees;
+         op.blind_transfer_default_fee = settings.blind_transfer_default_fee;
+         op.edc_deposit_max_sum = settings.edc_deposit_max_sum;
+         op.edc_transfers_daily_limit = settings.edc_transfers_daily_limit;
+         op.extensions.value.cheque_fees = std::vector<settings_fee>{{EDC_ASSET, 1000}};
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      // exception: "Insufficient Balance: 9 EDC"
+      BOOST_REQUIRE_THROW(make_cheque("bobcode111111112", exp_date, EDC_ASSET, 9000, 1, bob_id), fc::assert_exception);
+      trx.clear();
+
+      make_cheque("bobcode111111112", exp_date, EDC_ASSET, 1000, 1, bob_id, asset(10, EDC_ASSET));
+
+      // fee: 10 (1% of 1000)
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 7990);
+
+      h_time = db.head_block_time() + fc::days(6);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      // cheque must be removed
+      {
+         const auto& idx = db.get_index_type<cheque_index>().indices().get<by_code>().find(bob_cheque_code);
+         BOOST_CHECK(idx == db.get_index_type<cheque_index>().indices().get<by_code>().end());
+         //std::cout << "!!!: " << std::boolalpha << (idx == db.get_index_type<cheque_index>().indices().get<by_code>().end()) << std::endl;
+      }
+
+   } FC_LOG_AND_RETHROW()
+}
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -88,6 +88,8 @@ namespace graphene { namespace app {
       public:
          history_api(application& app):_app(app){}
 
+         vector<operation_history_object> get_accounts_history(unsigned limit = 100) const;
+
          /**
           * @brief Get operations relevant to the specificed account
           * @param account The account whose history should be queried
@@ -388,6 +390,7 @@ FC_REFLECT( graphene::app::verify_range_proof_rewind_result,
 //FC_REFLECT_TYPENAME( fc::ecc::commitment_type );
 
 FC_API(graphene::app::history_api,
+       (get_accounts_history)
        (get_account_history)
        (listtransactions)
        (get_account_operation_history)

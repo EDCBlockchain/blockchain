@@ -66,7 +66,7 @@ namespace graphene { namespace chain {
       fund_transaction_history_id_type most_recent_op;
       uint32_t total_ops = 0;
 
-      // second of pair: sum of all user's deposits
+      // second of pair: sum of all user's deposits owned by this fund
       flat_map<account_id_type, share_type> users_deposits;
 
       // count of all deposits
@@ -143,7 +143,7 @@ namespace graphene { namespace chain {
 
       fund_id_type       fund_id;        // fund to which the deposit belongs
       account_id_type    account_id;
-      share_type         amount;
+      asset              amount;
       bool               enabled = true;
       fc::time_point_sec datetime_begin; // datetime of creation
       fc::time_point_sec datetime_end;   // datetime of deposit's finishing
@@ -153,6 +153,9 @@ namespace graphene { namespace chain {
       uint32_t           period = 30;
       uint32_t           percent = 0;
       share_type         daily_payment;
+      bool               manual_percent_enabled = false;
+      // for auto-disabling of payments for this deposit
+      bool               can_use_percent = true;
 
    }; // fund_deposit_object
 
@@ -193,18 +196,7 @@ namespace graphene { namespace chain {
       static const uint8_t space_id = protocol_ids;
       static const uint8_t type_id  = fund_object_type;
 
-      fund_id_type                  get_id() const { return id; }
-      const std::string&            get_name() const { return name; }
-      const share_type&             get_balance() const { return balance; }
-      const share_type&             get_owner_balance() const { return owner_balance; }
-      const share_type&             get_min_deposit() const { return min_deposit; }
-      const asset_id_type&          get_asset_id() const { return asset_id; }
-      const account_id_type&        get_owner() const { return owner; }
-      const fc::time_point_sec&     get_datetime_begin() const { return datetime_begin; }
-      const fc::time_point_sec&     get_datetime_end() const { return datetime_end; }
-      const fc::time_point_sec&     get_prev_maintenance_time_on_creation() const { return prev_maintenance_time_on_creation; }
-      const fund_statistics_id_type get_statistics_id() const { return statistics_id; }
-      const fund_history_id_type    get_history_id() const { return history_id; }
+      fund_id_type get_id() const { return id; }
 
       // percent according to appropriate 'fund_rate' item
       double get_rate_percent(const fund_options::fund_rate& f_item, const database& db) const;
@@ -214,8 +206,6 @@ namespace graphene { namespace chain {
 
       optional<fund_options::payment_rate>
       get_payment_rate(uint32_t period) const;
-
-      double get_bonus_percent(uint32_t percent) const;
 
       // make fund payments
       void process(database& db) const;
@@ -295,8 +285,7 @@ FC_REFLECT( graphene::chain::fund_history_object::history_item,
             (create_datetime)
             (daily_payments_without_owner)
             (daily_payments_total)
-            (daily_payments_owner)
-            (daily_payments_without_owner) )
+            (daily_payments_owner) )
 
 FC_REFLECT_DERIVED( graphene::chain::fund_history_object,
                     (graphene::chain::object),
@@ -330,7 +319,9 @@ FC_REFLECT_DERIVED( graphene::chain::fund_deposit_object,
                     (prev_maintenance_time_on_creation)
                     (period)
                     (percent)
-                    (daily_payment) )
+                    (daily_payment)
+                    (manual_percent_enabled)
+                    (can_use_percent) )
 
 FC_REFLECT_DERIVED( graphene::chain::fund_object,
                     (graphene::db::object),

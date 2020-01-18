@@ -322,6 +322,15 @@ namespace graphene { namespace chain {
          void issue_referral();
 
          asset check_supply_overflow(asset value);
+
+         share_type get_user_deposits_sum(account_id_type acc_id, asset_id_type asst);
+
+         double get_percent(uint32_t percent) const;
+
+         share_type get_deposit_daily_payment(uint32_t percent, uint32_t period, share_type amount) const;
+
+         void rebuild_user_edc_deposit_availability(account_id_type acc_id);
+
          /**
           * @brief Helper to make lazy deposit to CDD VBO.
           *
@@ -406,6 +415,25 @@ namespace graphene { namespace chain {
          asset calculate_market_fee(const asset_object& recv_asset, const asset& trade_amount);
          asset pay_market_fees( const asset_object& recv_asset, const asset& receives );
 
+         inline static void clear_op(operation& op)
+         {
+            if (op.which() == operation::tag<blind_transfer2_operation>::value) {
+               op = blind_transfer2_operation();
+            }
+            else if (op.which() == operation::tag<cheque_create_operation>::value) {
+               op.get<cheque_create_operation>().code.clear();
+            }
+            else if (op.which() == operation::tag<cheque_use_operation>::value) {
+               op.get<cheque_use_operation>().code.clear();
+            }
+         }
+
+         inline static void clear_ops(std::vector<operation>& ops)
+         {
+            for (operation& op: ops) {
+               clear_op(op);
+            }
+         }
 
          ///@}
          /**
@@ -487,6 +515,8 @@ namespace graphene { namespace chain {
          void update_active_witnesses();
          void update_active_committee_members();
          void update_worker_votes();
+
+         void process_accounts();
 
          // funds, commission charges
          void process_funds();

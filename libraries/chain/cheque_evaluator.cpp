@@ -5,8 +5,7 @@
 #include <graphene/chain/database.hpp>
 #include <graphene/chain/exceptions.hpp>
 #include <graphene/chain/hardfork.hpp>
-#include <graphene/chain/is_authorized_asset.hpp>
-#include <iostream>
+#include <graphene/chain/settings_object.hpp>
 
 namespace graphene { namespace chain {
 
@@ -17,6 +16,12 @@ namespace graphene { namespace chain {
 
       FC_ASSERT(d.find_object(op.account_id), "Account ${a} doesn't exist", ("a", op.account_id));
       FC_ASSERT(d.find_object(op.payee_amount.asset_id), "Asset ${a} doesn't exist", ("a", op.payee_amount.asset_id));
+
+      const account_object& from_account = op.account_id(d);
+      const asset_object& asset_type = op.payee_amount.asset_id(d);
+      asset_dyn_data_ptr = &asset_type.dynamic_asset_data_id(d);
+      const settings_object& settings = *d.find(settings_id_type(0));
+      cheque_amount = op.payee_amount.amount * op.payee_count;
 
       const auto& idx = d.get_index_type<cheque_index>().indices().get<by_code>();
       auto itr = idx.find(op.code);
@@ -29,12 +34,39 @@ namespace graphene { namespace chain {
       const account_object& from_acc = op.account_id(d);
       const asset_object& asset_obj  = op.payee_amount.asset_id(d);
 
-      bool insufficient_balance = (d.get_balance(from_acc, asset_obj).amount >= op.payee_amount.amount * op.payee_count);
-      FC_ASSERT(insufficient_balance,
-                "Insufficient balance=${balance}, amount=${amount}, payee_count=${pc}. Unable to create receipt.",
-                ("balance", d.to_pretty_string(d.get_balance(from_acc, asset_obj)))
-                ("amount", d.to_pretty_string(op.payee_amount))
-                ("pc", op.payee_count) );
+      int64_t fee_percent = 0;
+
+      if (d.head_block_time() > HARDFORK_627_TIME)
+      {
+         auto itr = std::find_if(settings.cheque_fees.begin(), settings.cheque_fees.end(), [&asset_type](const chain::settings_fee& f) {
+            return (f.asset_id == asset_type.get_id());
+         });
+         if (itr != settings.cheque_fees.end())
+         {
+            fee_percent = itr->percent;
+            custom_fee = std::round(cheque_amount.value * d.get_percent(fee_percent));
+
+            bool balance_is_valid = d.get_balance(from_account, asset_type).amount >= (cheque_amount + custom_fee);
+            FC_ASSERT(balance_is_valid,
+                      "Insufficient Balance: ${balance}, unable to build cheque with amount '${amount}'. Custom fee: ${fee}",
+                      ("balance", d.to_pretty_string(d.get_balance(from_account, asset_type)))
+                      ("amount", d.to_pretty_string(op.payee_amount))
+                      ("fee", d.to_pretty_string(asset(custom_fee, op.payee_amount.asset_id))));
+         }
+
+         if (custom_fee > 0) {
+            FC_ASSERT(op.fee.amount >= custom_fee, "Wrong fee amount (${fee}) sent.", ("fee", op.fee.amount));
+         }
+      }
+
+      if (fee_percent == 0)
+      {
+         bool insufficient_balance = (d.get_balance(from_acc, asset_obj).amount >= cheque_amount);
+         FC_ASSERT(insufficient_balance,
+                   "Insufficient balance=${balance}, amount=${amount}, payee_count=${pc}. Unable to create receipt.",
+                   ("balance", d.to_pretty_string(d.get_balance(from_acc, asset_obj)))("amount", d.to_pretty_string(
+                   op.payee_amount))("pc", op.payee_count));
+      }
 
       return void_result();
 
@@ -45,7 +77,7 @@ namespace graphene { namespace chain {
 
       database& d = db();
 
-      asset asst(op.payee_amount.amount * op.payee_count, op.payee_amount.asset_id);
+      asset asst(cheque_amount, op.payee_amount.asset_id);
       d.adjust_balance(op.account_id, -asst);
 
       auto next_cheque_id = d.get_index_type<cheque_index>().get_next_id();
@@ -89,7 +121,7 @@ void_result cheque_use_evaluator::do_evaluate( const cheque_use_operation& op )
       FC_ASSERT(cheque_obj_ptr->datetime_expiration > d.head_block_time(), "Cheque is already expired");
    }
 
-   FC_ASSERT((cheque_obj_ptr->get_cheque_status() == cheque_status::cheque_new), "Cheque code '${code}' has been already used", ("rcode", op.code));
+   FC_ASSERT((cheque_obj_ptr->status == cheque_status::cheque_new), "Cheque code '${code}' has been already used", ("rcode", op.code));
    FC_ASSERT((op.amount.amount == cheque_obj_ptr->amount_payee), "Cheque amount is invalid!");
    FC_ASSERT((op.amount.asset_id == cheque_obj_ptr->asset_id), "Cheque asset id is invalid!");
 
@@ -164,7 +196,7 @@ void_result cheque_reverse_evaluator::do_apply( const cheque_reverse_operation& 
 
    // return amount to the owner balance
    if (obj.amount_remaining > 0) {
-      d.adjust_balance(obj.get_drawer(), asset(obj.amount_remaining, obj.asset_id));
+      d.adjust_balance(obj.drawer, asset(obj.amount_remaining, obj.asset_id));
    }
 
    d.modify(obj, [&](chain::cheque_object& o)

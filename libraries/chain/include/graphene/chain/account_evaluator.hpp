@@ -201,6 +201,20 @@ public:
    market_address do_apply(const create_market_address_operation& op);
 
    fc::optional<address> addr;
+   const settings_object* settings_ptr = nullptr;
+   const asset_dynamic_data_object* asset_dyn_data_ptr = nullptr;
+};
+
+class account_limit_daily_volume_evaluator: public evaluator<account_limit_daily_volume_evaluator>
+{
+public:
+   typedef account_limit_daily_volume_operation operation_type;
+
+   void_result do_evaluate(const account_limit_daily_volume_operation& op);
+   void_result do_apply(const account_limit_daily_volume_operation& op);
+
+   const account_object* account_ptr = nullptr;
+
 };
 
 } } // graphene::chain

@@ -121,7 +121,7 @@ void history_plugin_impl::update_histories(const signed_block& b)
          impacted_funds.insert( oho.result.get<object_id_type>() );
       }
       else {
-         graphene::app::operation_get_impacted_items(op.op, impacted_acc, impacted_funds);
+         graphene::app::operation_get_impacted_items(op.op, impacted_acc, impacted_funds, &db);
       }
 
       for (auto& a: other)
@@ -219,7 +219,7 @@ void history_plugin_impl::update_histories(const signed_block& b)
                         impacted_acc_tmp.insert(obj.result.get<object_id_type>());
                      }
                      else {
-                        graphene::app::operation_get_impacted_items(obj.op, impacted_acc_tmp, impacted_funds_tmp);
+                        graphene::app::operation_get_impacted_items(obj.op, impacted_acc_tmp, impacted_funds_tmp, &db);
                      }
 
                      for (auto& a: other_tmp)

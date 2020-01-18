@@ -230,7 +230,7 @@ namespace graphene { namespace chain {
       impl_fund_statistics_object_type,         // [idx: 22]
       impl_fund_transaction_history_object_type,
       impl_fund_history_object_type,            // [idx: 24]
-      impl_blind_transfer2_settings_object_type,
+      impl_settings_object_type,
       impl_blind_transfer2_object_type          // [idx: 26]
    };
 
@@ -257,7 +257,7 @@ namespace graphene { namespace chain {
    class fund_statistics_object;
    class fund_transaction_history_object;
    class fund_history_object;
-   class blind_transfer2_settings_object;
+   class settings_object;
    class blind_transfer2_object;
 
    typedef object_id<implementation_ids, impl_global_property_object_type,         global_property_object>         global_property_id_type;
@@ -287,7 +287,7 @@ namespace graphene { namespace chain {
    typedef object_id<implementation_ids, impl_fund_statistics_object_type,          fund_statistics_object>             fund_statistics_id_type;
    typedef object_id<implementation_ids, impl_fund_transaction_history_object_type, fund_transaction_history_object>    fund_transaction_history_id_type;
    typedef object_id<implementation_ids, impl_fund_history_object_type,             fund_history_object>                fund_history_id_type;
-   typedef object_id<implementation_ids, impl_blind_transfer2_settings_object_type, blind_transfer2_settings_object>    blind_transfer2_settings_id_type;
+   typedef object_id<implementation_ids, impl_settings_object_type,                 settings_object>                    settings_id_type;
    typedef object_id<implementation_ids, impl_blind_transfer2_object_type,          blind_transfer2_object>             blind_transfer2_object_id_type;
 
    typedef fc::array<char, GRAPHENE_MAX_ASSET_SYMBOL_LENGTH> symbol_type;
@@ -435,7 +435,7 @@ FC_REFLECT_ENUM( graphene::chain::impl_object_type,
                  (impl_fund_statistics_object_type)
                  (impl_fund_transaction_history_object_type)
                  (impl_fund_history_object_type)
-                 (impl_blind_transfer2_settings_object_type)
+                 (impl_settings_object_type)
                  (impl_blind_transfer2_object_type)
                )
 

@@ -23,9 +23,6 @@ namespace graphene { namespace chain {
       static const uint8_t type_id  = cheque_object_type;
 
       cheque_id_type            get_id() const { return id; }
-      const fc::time_point_sec& get_expiration_datetime() const { return datetime_expiration; }
-      const account_id_type&    get_drawer() const { return drawer; }
-      const cheque_status&      get_cheque_status() const { return status; }
       void                      allocate_payees(uint32_t payees_count);
       void                      process_payee(account_id_type payee, database& db);
 

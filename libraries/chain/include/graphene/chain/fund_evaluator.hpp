@@ -88,6 +88,7 @@ namespace graphene { namespace chain {
 
       optional<fund_options::payment_rate> p_rate;
       const fund_object* fund_obj_ptr = nullptr;
+      const account_object* account_ptr = nullptr;
 
    };
 
@@ -101,6 +102,8 @@ namespace graphene { namespace chain {
       void_result do_evaluate(const fund_withdrawal_operation& o);
       void_result do_apply(const fund_withdrawal_operation& o);
 
+      const fund_object* fund_obj_ptr = nullptr;
+      const account_object* account_ptr = nullptr;
    };
 
    /////////////////////////////////////////////////////
@@ -196,6 +199,22 @@ namespace graphene { namespace chain {
       void_result do_evaluate( const deposit_renewal_operation& o );
       void_result do_apply( const deposit_renewal_operation& o );
 
+      const fund_deposit_object* fund_deposit_ptr = nullptr;
+
+   };
+
+   /////////////////////////////////////////////////////
+
+   class fund_deposit_update_evaluator: public evaluator<fund_deposit_update_evaluator>
+   {
+   public:
+      typedef fund_deposit_update_operation operation_type;
+
+      void_result do_evaluate( const fund_deposit_update_operation& o );
+      dep_update_info do_apply( const fund_deposit_update_operation& o );
+
+      const fund_object* fund_obj_ptr = nullptr;
+      optional<fund_options::payment_rate> p_rate;
       const fund_deposit_object* fund_deposit_ptr = nullptr;
 
    };

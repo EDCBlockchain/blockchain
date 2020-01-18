@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE( feed_limit_logic_test )
 {
    try {
 
-      BOOST_TEST_MESSAGE( "=== feed_limit_logic_tes ===" );
+      BOOST_TEST_MESSAGE( "=== feed_limit_logic_test ===" );
 
       asset usd(1000, asset_id_type(1));
       asset core(1000, CORE_ASSET);

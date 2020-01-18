@@ -42,7 +42,14 @@ namespace graphene { namespace chain {
     *  @return n/a
     */
 
-   typedef flat_set<static_variant<void_t, string>> transfer_extensions;
+   struct asset_info
+   {
+      asset asst;
+      std::string name;
+      uint64_t precision = 0;
+   };
+
+   typedef flat_set<static_variant<void_t, string, asset_info>> transfer_extensions;
 
    struct transfer_operation: public base_operation
    {
@@ -63,7 +70,7 @@ namespace graphene { namespace chain {
 
       /// User provided data encrypted to the memo key of the "to" account
       optional<memo_data> memo;
-      transfer_extensions   extensions;
+      transfer_extensions extensions;
 
       account_id_type fee_payer()const { return from; }
       void            validate()const;
@@ -86,7 +93,7 @@ namespace graphene { namespace chain {
       asset fee;
       asset blind_fee;
 
-      transfer_extensions extensions;
+      extensions_type extensions;
 
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
       void            validate() const { };
@@ -158,6 +165,7 @@ namespace graphene { namespace chain {
 
 }} // graphene::chain
 
+FC_REFLECT( graphene::chain::asset_info, (asst)(name)(precision) )
 FC_REFLECT_TYPENAME( graphene::chain::transfer_extensions )
 
 FC_REFLECT( graphene::chain::transfer_operation::fee_parameters_type, (fee)(price_per_kbyte) )

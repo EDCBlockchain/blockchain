@@ -456,6 +456,20 @@ namespace graphene { namespace chain {
       void            validate() const;
    };
 
+   struct account_limit_daily_volume_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset fee;
+
+      account_id_type account_id;
+      bool            enabled;
+
+      extensions_type extensions;
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+   };
+
 } } // graphene::chain
 
 FC_REFLECT(graphene::chain::account_options, (memo_key)(voting_account)(num_witness)(num_committee)(votes)(extensions))
@@ -526,7 +540,10 @@ FC_REFLECT( graphene::chain::set_market_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::set_market_operation, (fee)(to_account)(enabled)(extensions) )
 
 FC_REFLECT( graphene::chain::create_market_address_operation::fee_parameters_type, (fee) )
-FC_REFLECT( graphene::chain::create_market_address_operation, (fee)(market_account_id)(notes) )
+FC_REFLECT( graphene::chain::create_market_address_operation, (fee)(market_account_id)(notes)(extensions) )
+
+FC_REFLECT( graphene::chain::account_limit_daily_volume_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::chain::account_limit_daily_volume_operation, (fee)(account_id)(enabled)(extensions) )
 
 
 

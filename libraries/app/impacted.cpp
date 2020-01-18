@@ -24,6 +24,8 @@
 
 #include <graphene/chain/protocol/authority.hpp>
 #include <graphene/app/impacted.hpp>
+#include <graphene/chain/database.hpp>
+#include <graphene/chain/fund_object.hpp>
 
 namespace graphene { namespace app {
 
@@ -35,10 +37,12 @@ struct get_impacted_items_visitor
 {
    flat_set<account_id_type>& _impacted_accounts;
    flat_set<fund_id_type>& _impacted_funds;
+   graphene::chain::database* db_ptr = nullptr;
 
-   get_impacted_items_visitor( flat_set<account_id_type>& impact_acc, flat_set<fund_id_type>& impact_fund ):
+   get_impacted_items_visitor( flat_set<account_id_type>& impact_acc, flat_set<fund_id_type>& impact_fund, graphene::chain::database* db_ptr):
     _impacted_accounts(impact_acc)
-    , _impacted_funds(impact_fund) { }
+    , _impacted_funds(impact_fund)
+    , db_ptr(db_ptr) { }
    typedef void result_type;
 
    void operator()( const transfer_operation& op ) {
@@ -48,6 +52,7 @@ struct get_impacted_items_visitor
    void operator()( const blind_transfer2_operation& op ) {
       _impacted_accounts.insert(op.to);
    }
+   void operator()( const update_settings_operation& op ) { }
    void operator()( const deposit_renewal_operation& op ) {
       _impacted_accounts.insert( op.account_id );
    }
@@ -318,25 +323,43 @@ struct get_impacted_items_visitor
    }
 
    void operator()( const create_market_address_operation& op) { }
-
+   void operator()( const account_limit_daily_volume_operation& op) {
+      _impacted_accounts.insert( op.account_id );
+   }
+   void operator()( const fund_deposit_update_operation& op )
+   {
+      if (db_ptr)
+      {
+         auto dep_itr = db_ptr->find(op.deposit_id);
+         if (dep_itr)
+         {
+            auto fund_itr = db_ptr->find(dep_itr->fund_id);
+            if (fund_itr) {
+               _impacted_accounts.insert(fund_itr->owner);
+            }
+         }
+      }
+   }
 };
 
 void operation_get_impacted_items(
    const operation& op
    , fc::flat_set<account_id_type>& result_acc
-   , fc::flat_set<fund_id_type>& result_fund)
+   , fc::flat_set<fund_id_type>& result_fund
+   , graphene::chain::database* db_ptr)
 {
-   get_impacted_items_visitor vtor(result_acc, result_fund);
+   get_impacted_items_visitor vtor(result_acc, result_fund, db_ptr);
    op.visit( vtor );
 }
 
 void transaction_get_impacted_items(
    const transaction& tx
    , fc::flat_set<account_id_type>& result_acc
-   , fc::flat_set<fund_id_type>& result_fund)
+   , fc::flat_set<fund_id_type>& result_fund
+   , graphene::chain::database* db_ptr)
 {
    for (const auto& op : tx.operations) {
-      operation_get_impacted_items(op, result_acc, result_fund);
+      operation_get_impacted_items(op, result_acc, result_fund, db_ptr);
    }
 }
 

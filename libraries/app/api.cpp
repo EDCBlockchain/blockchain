@@ -449,7 +449,7 @@ namespace graphene { namespace app {
                  case impl_fund_statistics_object_type:
                  case impl_fund_transaction_history_object_type:
                  case impl_fund_history_object_type:
-                 case impl_blind_transfer2_settings_object_type:
+                 case impl_settings_object_type:
                  case impl_blind_transfer2_object_type:
                   break;
           }
@@ -493,6 +493,28 @@ namespace graphene { namespace app {
        else if (h_obj.op.which() == operation::tag<cheque_use_operation>::value) {
           h_obj.op.get<cheque_use_operation>().code.clear();
        }
+    }
+
+    vector<operation_history_object> history_api::get_accounts_history(unsigned limit) const
+    {
+       FC_ASSERT( _app.chain_database() );
+       const auto& db = *_app.chain_database();
+       FC_ASSERT( limit <= 100 );
+       vector<operation_history_object> result;
+
+       const auto& idx = db.get_index_type<operation_history_index>().indices().get<by_id>();
+       for (auto rit = idx.rbegin(); rit != idx.crend(); ++rit)
+       {
+          if (result.size() < limit)
+          {
+             operation_history_object obj = *rit;
+             db.clear_op(obj.op);
+             result.emplace_back(std::move(obj));
+          }
+          if (result.size() == limit) { break; }
+       }
+
+       return result;
     }
 
     vector<operation_history_object> history_api::get_account_history( account_id_type account,
@@ -882,7 +904,7 @@ namespace graphene { namespace app {
       const auto& db = *_app.chain_database();
       FC_ASSERT( limit <= 100 );
       vector<operation_history_object> result;
-      const auto& stats = fund_id(db).get_statistics_id()(db);
+      const auto& stats = fund_id(db).statistics_id(db);
 
       if (stats.most_recent_op == fund_transaction_history_id_type()) { return result; }
 
@@ -939,7 +961,7 @@ namespace graphene { namespace app {
       vector<fund_history_object::history_item> result;
       result.reserve(limit);
 
-      const auto& hist = fund_id(db).get_history_id()(db);
+      const auto& hist = fund_id(db).history_id(db);
 
       std::vector<fund_history_object::history_item>::const_reverse_iterator rit = hist.items.rbegin();
       for (size_t i = 0; rit != hist.items.crend(); ++rit, ++i)

@@ -39,7 +39,6 @@ namespace graphene { namespace chain {
    struct fund_create_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
-
       asset           fee;
 
       std::string     name;
@@ -264,6 +263,28 @@ namespace graphene { namespace chain {
       share_type      calculate_fee(const fee_parameters_type& k) const { return 0; };
    };
 
+   struct fund_deposit_update_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      struct ext {
+         optional<void_t> null_ext;
+      };
+
+      asset fee;
+
+      fund_deposit_id_type deposit_id;
+      uint32_t             percent;
+      bool                 reset = false;
+
+      extension<ext> extensions;
+
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+      share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
+
+   }; // fund_deposit_set_enable_operation
+
 } } // graphene::chain
 
 FC_REFLECT( graphene::chain::fund_options::payment_rate,
@@ -321,3 +342,8 @@ FC_REFLECT( graphene::chain::enable_autorenewal_deposits_operation,
 
 FC_REFLECT( graphene::chain::deposit_renewal_operation::fee_parameters_type, (fee)(price_per_kbyte) )
 FC_REFLECT( graphene::chain::deposit_renewal_operation, (fee)(account_id)(deposit_id)(percent)(datetime_end) )
+
+FC_REFLECT( graphene::chain::fund_deposit_update_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::chain::fund_deposit_update_operation::ext, (null_ext) )
+FC_REFLECT( graphene::chain::fund_deposit_update_operation, (fee)(deposit_id)(percent)(reset)(extensions) )
+

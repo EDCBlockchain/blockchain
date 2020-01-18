@@ -29,6 +29,7 @@
 #include <graphene/chain/protocol/asset_ops.hpp>
 #include <graphene/chain/protocol/fund_ops.hpp>
 #include <graphene/chain/protocol/cheque_ops.hpp>
+#include <graphene/chain/protocol/settings_ops.hpp>
 #include <graphene/chain/protocol/balance.hpp>
 #include <graphene/chain/protocol/custom.hpp>
 #include <graphene/chain/protocol/committee_member.hpp>
@@ -133,7 +134,10 @@ namespace graphene { namespace chain {
             cheque_use_operation, // [idx: 76]
             cheque_reverse_operation,
             create_market_address_operation,
-            account_update_authorities_operation // [idx: 79]
+            account_update_authorities_operation, // [idx: 79]
+            update_settings_operation,
+            account_limit_daily_volume_operation,
+            fund_deposit_update_operation         // [idx: 82]
          > operation;
 
    /// @} // operations group

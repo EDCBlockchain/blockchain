@@ -28,17 +28,23 @@
 #include <graphene/chain/protocol/transaction.hpp>
 #include <graphene/chain/protocol/types.hpp>
 
-namespace graphene { namespace app {
+namespace graphene {
+
+namespace chain { struct database; }
+
+namespace app {
 
 void operation_get_impacted_items(
    const graphene::chain::operation& op
    , fc::flat_set<graphene::chain::account_id_type>& result_acc
-   , fc::flat_set<chain::fund_id_type>& result_fund);
+   , fc::flat_set<chain::fund_id_type>& result_fund
+   , graphene::chain::database* db_ptr = nullptr);
 
 void transaction_get_impacted_items(
    const graphene::chain::transaction& tx
    , fc::flat_set<graphene::chain::account_id_type>& result_acc
-   , fc::flat_set<chain::fund_id_type>& result_fund);
+   , fc::flat_set<chain::fund_id_type>& result_fund
+   , graphene::chain::database* db_ptr = nullptr);
 
 //////////////////////////////////////////////////
 //

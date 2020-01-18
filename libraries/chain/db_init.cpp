@@ -48,6 +48,7 @@
 #include <graphene/chain/witness_schedule_object.hpp>
 #include <graphene/chain/worker_object.hpp>
 #include <graphene/chain/cheque_object.hpp>
+#include <graphene/chain/settings_object.hpp>
 
 #include <graphene/chain/account_evaluator.hpp>
 #include <graphene/chain/asset_evaluator.hpp>
@@ -65,6 +66,7 @@
 #include <graphene/chain/worker_evaluator.hpp>
 #include <graphene/chain/fund_evaluator.hpp>
 #include <graphene/chain/cheque_evaluator.hpp>
+#include <graphene/chain/settings_evaluator.hpp>
 
 #include <graphene/chain/protocol/fee_schedule.hpp>
 
@@ -210,6 +212,9 @@ void database::initialize_evaluators()
    register_evaluator<cheque_use_evaluator>();
    register_evaluator<cheque_reverse_evaluator>();
    register_evaluator<create_market_address_evaluator>();
+   register_evaluator<settings_evaluator>();
+   register_evaluator<account_limit_daily_volume_evaluator>();
+   register_evaluator<fund_deposit_update_evaluator>();
 }
 
 void database::initialize_indexes()
@@ -267,7 +272,7 @@ void database::initialize_indexes()
    add_index<primary_index<simple_index<accounts_online_object    >>>();
    add_index<primary_index<simple_index<fund_statistics_object    >>>();
    add_index<primary_index<simple_index<fund_history_object       >>>();
-   add_index<primary_index<simple_index<blind_transfer2_settings_object >>>();
+   add_index<primary_index<simple_index<settings_object           >>>();
 }
 
 void database::init_genesis(const genesis_state_type& genesis_state)
@@ -460,8 +465,8 @@ void database::init_genesis(const genesis_state_type& genesis_state)
        p.online_info = map<account_id_type, uint16_t>();
    });
 
-   // settings for 'custom' blind transfers
-   create<blind_transfer2_settings_object>([&](blind_transfer2_settings_object& obj) { });
+   // custom settings
+   create<settings_object>([&](settings_object& obj) { });
 
    FC_ASSERT( (genesis_state.immutable_parameters.min_witness_count & 1) == 1, "min_witness_count must be odd" );
    FC_ASSERT( (genesis_state.immutable_parameters.min_committee_member_count & 1) == 1, "min_committee_member_count must be odd" );

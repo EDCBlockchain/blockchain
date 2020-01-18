@@ -30,6 +30,7 @@
 #include <graphene/chain/database.hpp>
 #include <graphene/chain/exceptions.hpp>
 #include <graphene/chain/hardfork.hpp>
+#include <graphene/chain/settings_object.hpp>
 #include <graphene/chain/internal_exceptions.hpp>
 #include <graphene/chain/special_authority.hpp>
 #include <graphene/chain/special_authority_object.hpp>
@@ -903,11 +904,25 @@ void_result create_market_address_evaluator::do_evaluate(const create_market_add
 { try {
    database& d = db();
 
+   settings_ptr = &(const chain::settings_object&)(d.get(settings_id_type(0)));
+   FC_ASSERT(settings_ptr, "Settings not found!");
+
+   const asset_object& asset_type = EDC_ASSET(d);
+   asset_dyn_data_ptr = &asset_type.dynamic_asset_data_id(d);
+
    const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
    auto itr = idx.find(op.market_account_id);
 
    FC_ASSERT(itr != idx.end(), "Account with ID ${id} not exists!", ("a", op.market_account_id));
    FC_ASSERT(itr->is_market, "Account with ID ${id} is not a market!", ("a", op.market_account_id));
+
+   if (d.head_block_time() > HARDFORK_627_TIME)
+   {
+       FC_ASSERT(d.get_balance(op.market_account_id, EDC_ASSET).amount > settings_ptr->create_market_address_fee_edc
+                 , "Insufficient Balance: ${balance}, fee ${fee}"
+                 , ("balance", d.to_pretty_string(d.get_balance(op.market_account_id, EDC_ASSET).amount))
+                   ("fee", d.to_pretty_string(settings_ptr->create_market_address_fee_edc)));
+   }
 
    addr = d.get_address();
 
@@ -939,8 +954,53 @@ market_address create_market_address_evaluator::do_apply(const create_market_add
    result.id = next_id;
    result.addr = std::string(*addr);
 
+   // fee
+   if ((d.head_block_time() > HARDFORK_627_TIME) && (settings_ptr->create_market_address_fee_edc > 0))
+   {
+      d.adjust_balance(op.market_account_id, -asset(settings_ptr->create_market_address_fee_edc, EDC_ASSET));
+
+      // current supply
+      d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
+         data.current_supply -= settings_ptr->create_market_address_fee_edc;
+      });
+   }
+
    return result;
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
+
+//////////////////////////////////////////////////////////////////////////////////////
+
+void_result account_limit_daily_volume_evaluator::do_evaluate(const account_limit_daily_volume_operation& op)
+{ try {
+   database& d = db();
+
+   const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
+   auto itr = idx.find(op.account_id);
+
+   FC_ASSERT(itr != idx.end(), "Account with ID ${id} not exists!", ("a", op.account_id));
+
+   account_ptr = &(*itr);
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+void_result account_limit_daily_volume_evaluator::do_apply(const account_limit_daily_volume_operation& op)
+{ try {
+
+   database& d = db();
+
+   if (account_ptr)
+   {
+      d.modify<account_object>(*account_ptr, [&](account_object& acc) {
+         acc.edc_limit_daily_volume_enabled = op.enabled;
+      });
+   }
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
 
 } } // graphene::chain

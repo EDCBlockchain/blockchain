@@ -21,14 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#include <vector>
+#include <iostream>
+#include <iomanip>
+
 #include <boost/test/unit_test.hpp>
 #include <boost/program_options.hpp>
 
 #include <graphene/history/history_plugin.hpp>
 #include <graphene/market_history/market_history_plugin.hpp>
-
 #include <graphene/db/simple_index.hpp>
-
 #include <graphene/chain/account_object.hpp>
 #include <graphene/chain/asset_object.hpp>
 #include <graphene/chain/committee_member_object.hpp>
@@ -37,15 +39,11 @@
 #include <graphene/chain/vesting_balance_object.hpp>
 #include <graphene/chain/witness_object.hpp>
 #include <graphene/chain/fund_object.hpp>
-
+#include <graphene/chain/cheque_object.hpp>
 #include <graphene/utilities/tempdir.hpp>
 
 #include <fc/crypto/digest.hpp>
 #include <fc/smart_ref_impl.hpp>
-#include <vector>
-#include <iostream>
-#include <iomanip>
-#include <sstream>
 
 #include "database_fixture.hpp"
 
@@ -164,6 +162,7 @@ void database_fixture::verify_asset_supplies( const database& db )
    const auto& settle_index = db.get_index_type<force_settlement_index>().indices();
    const auto& bonus_balances_idx = db.get_index_type<bonus_balances_index>().indices().get<by_account>();
    const auto& fund_idx = db.get_index_type<fund_index>().indices().get<by_id>();
+   const auto& cheque_idx = db.get_index_type<cheque_index>().indices().get<by_id>();
    (void)bonus_balances_idx;
 
    map<asset_id_type,share_type> total_balances;
@@ -178,8 +177,16 @@ void database_fixture::verify_asset_supplies( const database& db )
    auto fund_itr = fund_idx.begin();
    while (fund_itr != fund_idx.end())
    {
-      total_balances[fund_itr->get_asset_id()] += fund_itr->get_balance();
+      total_balances[fund_itr->asset_id] += fund_itr->balance;
       ++fund_itr;
+   }
+
+   // all amounts in checks
+   auto cheque_itr = cheque_idx.begin();
+   while (cheque_itr != cheque_idx.end())
+   {
+      total_balances[cheque_itr->asset_id] += cheque_itr->amount_remaining;
+      ++cheque_itr;
    }
 
    for( const force_settlement_object& s : settle_index )
@@ -909,9 +916,9 @@ void database_fixture::fund_fee_pool( const account_object& from, const asset_ob
 void database_fixture::enable_fees()
 {
    db.modify(global_property_id_type()(db), [](global_property_object& gpo)
-   {
-      gpo.parameters.current_fees = fee_schedule::get_default();
-   });
+      {
+         gpo.parameters.current_fees = fee_schedule::get_default();
+      });
 }
 
 void database_fixture::upgrade_to_lifetime_member(account_id_type account)
@@ -1053,30 +1060,27 @@ void database_fixture::print_joint_market( const string& syma, const string& sym
   }
 }
 
-int64_t database_fixture::get_balance( account_id_type account, asset_id_type a )const
-{
+int64_t database_fixture::get_balance( account_id_type account, asset_id_type a ) const {
   return db.get_balance(account, a).amount.value;
 }
 
-int64_t database_fixture::get_balance_for_bonus( account_id_type account, asset_id_type a )const
-{
+int64_t database_fixture::get_balance_for_bonus( account_id_type account, asset_id_type a ) const {
   return db.get_balance_for_bonus(account, a).amount.value;
 }
 
-int64_t database_fixture::get_balance( const account_object& account, const asset_object& a )const
-{
+int64_t database_fixture::get_balance( const account_object& account, const asset_object& a ) const {
   return db.get_balance(account.get_id(), a.get_id()).amount.value;
 }
 
-vector< operation_history_object > database_fixture::get_operation_history( account_id_type account_id )const
+vector<operation_history_object> database_fixture::get_operation_history( account_id_type account_id ) const
 {
-   vector< operation_history_object > result;
+   vector<operation_history_object> result;
    const auto& stats = account_id(db).statistics(db);
-   if(stats.most_recent_op == account_transaction_history_id_type())
+   if (stats.most_recent_op == account_transaction_history_id_type())
       return result;
 
    const account_transaction_history_object* node = &stats.most_recent_op(db);
-   while( true )
+   while (true)
    {
       result.push_back( node->operation_id(db) );
       if(node->next == account_transaction_history_id_type())
@@ -1086,7 +1090,7 @@ vector< operation_history_object > database_fixture::get_operation_history( acco
    return result;
 }
 
-void database_fixture::create_edc(asset base, asset quote)
+void database_fixture::create_edc(share_type max_supply, asset base, asset quote)
 {
    try
    {
@@ -1095,7 +1099,7 @@ void database_fixture::create_edc(asset base, asset quote)
       creator.issuer = account_id_type(0);
       creator.fee = asset(0);
       creator.symbol = "EDC";
-      creator.common_options.max_supply = 10000000000;
+      creator.common_options.max_supply = max_supply;
       creator.precision = 3;
       creator.params.fee_paying_asset = EDC_ASSET;
       creator.common_options.market_fee_percent = GRAPHENE_MAX_MARKET_FEE_PERCENT / 100; /*1%*/
@@ -1164,22 +1168,23 @@ void database_fixture::make_fund(
 }
 
 void database_fixture::make_cheque(
-const string& rcp_code,
-fc::time_point_sec expiration_datetime
-,asset_id_type asset_id
-,share_type    amount_per_payee,
-uint32_t payees_count
-, account_id_type owner)
+   const string& rcp_code
+   , fc::time_point_sec expiration_datetime
+   , asset_id_type asset_id
+   , share_type amount_per_payee
+   , uint32_t payees_count
+   , account_id_type owner
+   , asset fee)
 {
    try
    {
       cheque_create_operation cco;
 
-      cco.fee = asset();
+      cco.fee = fee;
       cco.code = rcp_code;
       cco.expiration_datetime = expiration_datetime;
       cco.account_id = owner;
-      cco.payee_amount = asset(amount_per_payee, EDC_ASSET);
+      cco.payee_amount = asset(amount_per_payee, asset_id);
       cco.payee_count = payees_count;
 
       set_expiration(db, trx);
@@ -1187,13 +1192,13 @@ uint32_t payees_count
       trx.validate();
       db.push_transaction(trx, ~0);
       trx.clear();
-   }FC_CAPTURE_AND_RETHROW()
 
+   } FC_CAPTURE_AND_RETHROW()
 }
 
 void database_fixture::use_cheque(
-   const string& rcp_code,
-   account_id_type to_account)
+   const string& rcp_code
+   , account_id_type to_account)
 {
    try
    {
@@ -1209,6 +1214,7 @@ void database_fixture::use_cheque(
       trx.validate();
       db.push_transaction(trx, ~0);
       trx.clear();
+
    } FC_CAPTURE_AND_RETHROW()
 }
 namespace test {
@@ -1221,8 +1227,7 @@ void set_expiration( const database& db, transaction& tx )
    return;
 }
 
-bool _push_block( database& db, const signed_block& b, uint32_t skip_flags /* = 0 */ )
-{
+bool _push_block( database& db, const signed_block& b, uint32_t skip_flags /* = 0 */ ) {
    return db.push_block( b, skip_flags);
 }
 

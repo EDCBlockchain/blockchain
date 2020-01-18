@@ -541,8 +541,6 @@ class database_api
        */
       vector<market_trade> get_trade_history( const string& base, const string& quote, fc::time_point_sec start, fc::time_point_sec stop, unsigned limit = 100 )const;
 
-
-
       ///////////////
       // Witnesses //
       ///////////////

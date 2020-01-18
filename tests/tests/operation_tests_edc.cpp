@@ -6,6 +6,7 @@
 
 #include <graphene/chain/account_object.hpp>
 #include <graphene/chain/asset_object.hpp>
+#include <graphene/chain/settings_object.hpp>
 #include <graphene/chain/committee_member_object.hpp>
 #include <graphene/chain/proposal_object.hpp>
 
@@ -171,7 +172,7 @@ BOOST_AUTO_TEST_CASE(change_asset_fee_test)
       ACTOR(alice);
       ACTOR(bob);
 
-      create_edc(asset(100, CORE_ASSET), asset(2, EDC_ASSET));
+      create_edc(10000000000, asset(100, CORE_ASSET), asset(2, EDC_ASSET));
       create_test_asset();
 
       const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
@@ -279,15 +280,13 @@ BOOST_AUTO_TEST_CASE(blind_transfer2_test)
       ACTOR(alice);
       ACTOR(bob);
 
-      create_edc(asset(100, CORE_ASSET), asset(2, EDC_ASSET));
+      create_edc(10000000000, asset(100, CORE_ASSET), asset(2, EDC_ASSET));
       create_test_asset();
 
       const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
-      const blind_transfer2_settings_object& b_settings = db.get(blind_transfer2_settings_id_type(0));
+      const settings_object& b_settings = db.get(settings_id_type(0));
 
       issue_uia(alice_id, asset(10000, EDC_ASSET));
-
-      BOOST_CHECK(b_settings.blind_fee.amount == 0);
 
       // change settings of blind_transfer2
       update_blind_transfer2_settings_operation s_op;
@@ -299,7 +298,7 @@ BOOST_AUTO_TEST_CASE(blind_transfer2_test)
 
       generate_block();
 
-      BOOST_CHECK(b_settings.blind_fee.amount == 1);
+      BOOST_CHECK(b_settings.blind_transfer_default_fee.amount == 1);
 
       const asset_dynamic_data_object& asset_dyn_data = edc_asset.dynamic_asset_data_id(db);
       BOOST_CHECK(asset_dyn_data.current_supply.value == 10000);
@@ -339,7 +338,7 @@ BOOST_AUTO_TEST_CASE(market_addresses_test)
       ACTOR(alice);
       ACTOR(bob);
 
-      create_edc(asset(100, CORE_ASSET), asset(2, EDC_ASSET));
+      create_edc(10000000000, asset(100, CORE_ASSET), asset(2, EDC_ASSET));
       create_test_asset();
 
       issue_uia(alice_id, asset(10000, EDC_ASSET));
@@ -373,7 +372,6 @@ BOOST_AUTO_TEST_CASE(market_addresses_test)
       }
 
       {
-         trx.clear();
          create_market_address_operation op;
          op.market_account_id = bob_id;
          op.notes = "sdfsfwreewrsdfrewrw";
@@ -395,6 +393,43 @@ BOOST_AUTO_TEST_CASE(market_addresses_test)
          const auto& idx = db.get_index_type<market_address_index>().indices().get<by_address>().find(addr_obj.addr);
          BOOST_CHECK(idx->market_account_id == bob_id);
       }
+
+      fc::time_point_sec h_time = HARDFORK_627_TIME + fc::days(1);
+      generate_blocks(h_time);
+
+      //std::cout << get_balance(bob_id, EDC_ASSET) << std::endl;
+      //BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 20000);
+
+      // can't create, because of fee
+      {
+         create_market_address_operation op;
+         op.market_account_id = bob_id;
+         op.notes = "sdfsfwreewrsdfrewrw";
+         trx.operations.push_back(op);
+         trx.validate();
+         set_expiration(db, trx);
+         BOOST_CHECK_THROW(db.push_transaction(trx, ~0), fc::assert_exception);
+         trx.clear();
+      }
+
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 10000);
+
+      issue_uia(bob_id, asset(10000, EDC_ASSET));
+
+      generate_block();
+
+      {
+         create_market_address_operation op;
+         op.market_account_id = bob_id;
+         op.notes = "sdfsfwreewrsdfrewrw";
+         trx.operations.push_back(op);
+         trx.validate();
+         set_expiration(db, trx);
+         db.push_transaction(trx, ~0);
+         trx.clear();
+      }
+
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 9999);
    }
    catch (fc::exception& e)
    {

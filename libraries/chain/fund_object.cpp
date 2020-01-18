@@ -5,7 +5,7 @@
 #include <boost/range.hpp>
 
 #include <iostream>
-#include <iomanip>
+#include <graphene/chain/settings_object.hpp>
 
 namespace graphene { namespace chain {
 
@@ -14,7 +14,7 @@ double fund_object::get_rate_percent(const fund_options::fund_rate& fr_item, con
    int days_passed = (db.head_block_time().sec_since_epoch() - prev_maintenance_time_on_creation.sec_since_epoch()) / 86400;
 
    // the further away, the 'result' is lower
-   double result = get_bonus_percent(fr_item.day_percent) - (get_bonus_percent(rates_reduction_per_month) / (double)30 * (double)(days_passed - 1));
+   double result = db.get_percent(fr_item.day_percent) - (db.get_percent(rates_reduction_per_month) / (double)30 * (double)(days_passed - 1));
 
    if (result < 0) {
       result = 0;
@@ -78,14 +78,11 @@ fund_object::get_payment_rate(uint32_t period) const
    return result;
 }
 
-double fund_object::get_bonus_percent(uint32_t percent) const {
-   return percent / 100000.0;
-}
-
 void fund_object::process(database& db) const
 {
    const dynamic_global_property_object& dpo = db.get_dynamic_global_properties();
    const global_property_object& gpo = db.get_global_properties();
+   //const settings_object& settings = *db.find(settings_id_type(0));
 
    auto asset_itr = db.get_index_type<asset_index>().indices().get<by_id>().find(asset_id);
    assert(asset_itr != db.get_index_type<asset_index>().indices().get<by_id>().end());
@@ -109,14 +106,23 @@ void fund_object::process(database& db) const
    std::vector<object_id_type> deps_to_remove;
 
    // find own fund deposits
-   auto range = db.get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(get_id());
+   auto range = db.get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(id);
    std::for_each(range.first, range.second, [&](const fund_deposit_object& dep)
    {
-      if (dep.enabled) // important condition for full-history nodes
+      auto user_ptr = users_idx.find(dep.account_id);
+
+      if (dep.enabled && (user_ptr != users_idx.end())) // dep.enabled: important condition for full-history nodes
       {
+         const account_object& acc = *user_ptr;
          const optional<fund_options::payment_rate>& p_rate = get_payment_rate(dep.period);
 
          bool is_valid = (db.head_block_time() >= HARDFORK_626_TIME) ? (dep.daily_payment.value > 0) : p_rate.valid();
+
+         if ( (db.head_block_time() > HARDFORK_627_TIME)
+              && (asst.get_id() == EDC_ASSET)
+              && !dep.can_use_percent
+            ) { is_valid = false; }
+
          if (is_valid)
          {
             asset asst_quantity;
@@ -126,8 +132,7 @@ void fund_object::process(database& db) const
             }
             else
             {
-               double percent_per_day = get_bonus_percent(dep.percent) / p_rate->period;
-               share_type quantity = std::roundl(percent_per_day * (long double)dep.amount.value);
+               share_type quantity = db.get_deposit_daily_payment(dep.percent, p_rate->period, dep.amount.amount);
                if (quantity.value > 0) {
                   asst_quantity = db.check_supply_overflow(asst.amount(quantity));
                }
@@ -137,7 +142,7 @@ void fund_object::process(database& db) const
             {
                chain::fund_payment_operation op;
                op.issuer = asst.issuer;
-               op.fund_id = get_id();
+               op.fund_id = id;
                op.deposit_id = dep.get_id();
                op.asset_to_issue = asst_quantity;
                op.issue_to_account = dep.account_id;
@@ -152,7 +157,6 @@ void fund_object::process(database& db) const
             }
          }
 
-
          // return deposit amount to user and remove deposit if overdue
          if ((dpo.next_maintenance_time - gpo.parameters.maintenance_interval) >= dep.datetime_end)
          {
@@ -160,51 +164,47 @@ void fund_object::process(database& db) const
 
             if (db.head_block_time() >= HARDFORK_624_TIME)
             {
-               auto itr_user = users_idx.find(dep.account_id);
-               if (itr_user != users_idx.end())
+               if (acc.deposits_autorenewal_enabled)
                {
-                  const account_object& acc = *itr_user;
-                  if (acc.deposits_autorenewal_enabled)
+                  dep_was_overdue = false;
+
+                  if (db.head_block_time() > HARDFORK_625_TIME)
                   {
-                     dep_was_overdue = false;
-
-                     if (db.head_block_time() > HARDFORK_625_TIME)
-                     {
-                        chain::deposit_renewal_operation op;
-                        op.account_id = dep.account_id;
-                        op.deposit_id = dep.get_id();
-                        op.percent = dep.percent;
-                        if (p_rate.valid()) {
-                           op.percent = p_rate->percent;
-                        }
-
-                        if (db.head_block_time() >= HARDFORK_626_TIME)
-                        {
-                           op.datetime_end = db.get_dynamic_global_properties().next_maintenance_time
-                                             - db.get_global_properties().parameters.maintenance_interval + (86400 * dep.period);
-                        }
-                        else {
-                           op.datetime_end = dep.datetime_end + (86400 * dep.period);
-                        }
-
-                        try
-                        {
-                           op.validate();
-                           db.apply_operation(eval, op);
-                        } catch (fc::assert_exception& e) { }
+                     chain::deposit_renewal_operation op;
+                     op.account_id = dep.account_id;
+                     op.deposit_id = dep.get_id();
+                     op.percent = dep.percent;
+                     // fund may already have new percents, updating...
+                     if (p_rate.valid() && !dep.manual_percent_enabled) {
+                        op.percent = p_rate->percent;
                      }
-                     // last_budget_time - not stable
-                     else
+
+                     if (db.head_block_time() >= HARDFORK_626_TIME)
                      {
-                        db.modify(dep, [&](fund_deposit_object& dep)
-                        {
-                           if (p_rate.valid()) {
-                              dep.percent = p_rate->percent;
-                           }
-                           dep.datetime_end = db.get_dynamic_global_properties().last_budget_time + (86400 * dep.period);
-                        });
-                     };
+                        op.datetime_end = db.get_dynamic_global_properties().next_maintenance_time
+                                          - db.get_global_properties().parameters.maintenance_interval + (86400 * dep.period);
+                     }
+                     else {
+                        op.datetime_end = dep.datetime_end + (86400 * dep.period);
+                     }
+
+                     try
+                     {
+                        op.validate();
+                        db.apply_operation(eval, op);
+                     } catch (fc::assert_exception& e) { }
                   }
+                  // last_budget_time - not stable
+                  else
+                  {
+                     db.modify(dep, [&](fund_deposit_object& dep)
+                     {
+                        if (p_rate.valid()) {
+                           dep.percent = p_rate->percent;
+                        }
+                        dep.datetime_end = db.get_dynamic_global_properties().last_budget_time + (86400 * dep.period);
+                     });
+                  };
                }
             }
 
@@ -216,8 +216,8 @@ void fund_object::process(database& db) const
                // return deposit to user
                chain::fund_withdrawal_operation op;
                op.issuer = asst.issuer;
-               op.fund_id = get_id();
-               op.asset_to_issue = asst.amount(dep.amount);
+               op.fund_id = id;
+               op.asset_to_issue = asst.amount(dep.amount.amount);
                op.issue_to_account = dep.account_id;
                op.datetime         = db.head_block_time();
 
@@ -229,23 +229,13 @@ void fund_object::process(database& db) const
 
                // reduce fund balance
                db.modify(*this, [&](chain::fund_object& f) {
-                  f.balance -= dep.amount;
+                  f.balance -= dep.amount.amount;
                });
 
                // disable deposit
                db.modify(dep, [&](chain::fund_deposit_object& f) {
                   f.enabled = false;
                });
-
-               // update stats
-               const auto& stats_obj = get_id()(db).statistics_id(db);
-               auto iter = stats_obj.users_deposits.find(dep.account_id);
-               if (iter != stats_obj.users_deposits.end())
-               {
-                  db.modify(stats_obj, [&](fund_statistics_object& obj) {
-                     obj.users_deposits[dep.account_id] -= dep.amount;
-                  });
-               }
             }
          }
       }
@@ -275,7 +265,7 @@ void fund_object::process(database& db) const
             {
                chain::fund_payment_operation op;
                op.issuer = asst.issuer;
-               op.fund_id = get_id();
+               op.fund_id = id;
                op.asset_to_issue = asst_owner_quantity;
                op.issue_to_account = owner;
 
@@ -294,7 +284,7 @@ void fund_object::process(database& db) const
       const optional<fund_options::fund_rate>& p_rate = get_max_fund_rate(owner_balance);
       if (p_rate)
       {
-         share_type quantity = std::roundl(get_bonus_percent(p_rate->day_percent) * (long double)daily_payments_without_owner.value);
+         share_type quantity = std::roundl(db.get_percent(p_rate->day_percent) * (long double)daily_payments_without_owner.value);
          const asset& asst_owner_quantity = db.check_supply_overflow(asst.amount(quantity));
 
          if (asst_owner_quantity.amount.value > 0)
@@ -305,7 +295,7 @@ void fund_object::process(database& db) const
 
             chain::fund_payment_operation op;
             op.issuer = asst.issuer;
-            op.fund_id = get_id();
+            op.fund_id = id;
             op.asset_to_issue = asst_owner_quantity;
             op.issue_to_account = owner;
 
@@ -345,7 +335,8 @@ void fund_object::process(database& db) const
                it = o.items.erase(it);
             }
             else {
-               ++it;
+               break;
+               //++it;
             }
          }
       }
@@ -365,7 +356,7 @@ void fund_object::finish(database& db) const
       // return amount to owner
       chain::fund_withdrawal_operation op;
       op.issuer           = asst.issuer;
-      op.fund_id          = get_id();
+      op.fund_id          = id;
       op.asset_to_issue   = asst.amount(owner_deps);
       op.issue_to_account = owner;
       op.datetime         = db.head_block_time();

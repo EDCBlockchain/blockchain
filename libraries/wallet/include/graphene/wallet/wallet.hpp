@@ -286,6 +286,7 @@ class wallet_api
       variant_object                   about() const;
       fc::optional<signed_block_with_info> get_block( uint32_t num );
       fc::optional<cheque_info_object>     get_cheque_by_code(const std::string& code) const;
+      vector<fc::variant>                  get_required_fees(const vector<operation>& ops, asset_id_type id) const;
 
       /** Returns the number of accounts registered on the blockchain
        * @returns the number of registered accounts
@@ -360,6 +361,8 @@ class wallet_api
       fc::optional<bonus_balances_object> get_account_bonus_balances( string name_or_id ) const;
 
       full_account                    get_full_account( string name_or_id ) const;
+
+      vector<operation_history_object> get_accounts_history(int limit) const;
 
       /**
        * Returns the most recent operations on the named account.
@@ -486,10 +489,6 @@ class wallet_api
       variant                           get_secure_object(object_id_type id) const;
       fc::optional<object_id_type>      get_last_object_id(object_id_type id) const;
       variant                           get_history_operation(object_id_type id) const;
-      /**
-       * Returns object ID of the last history operation processed by current wallet
-       */
-      std::string                       get_operation_id_after_transfer() const;
 
       /** Returns the current wallet filename.  
        *
@@ -791,15 +790,10 @@ class wallet_api
                                   string asset_symbol,
                                   string memo,
                                   bool broadcast = false);
-      /**
-       *  This method works just like transfer, except it always broadcasts and
-       *  returns the operation ID along with the signed transaction.
-       */
-      std::pair<std::string, signed_transaction>
-      transfer2(string from, string to, string amount, string asset_symbol, string memo );
 
       signed_transaction set_online_time( map<account_id_type, uint16_t> online_info );
       signed_transaction set_verification_is_required( account_id_type target, bool verification_is_required );
+      signed_transaction set_account_limit_daily_volume(const std::string& name_or_id, bool enabled);
 
       /**
        *  This method is used to convert a JSON transaction to its transactin ID.
@@ -1758,9 +1752,9 @@ FC_API( graphene::wallet::wallet_api,
         (borrow_asset)
         (cancel_order)
         (transfer)
-        (transfer2)
         (set_online_time)
         (set_verification_is_required)
+        (set_account_limit_daily_volume)
         (get_transaction_id)
         (create_asset)
         (update_asset)
@@ -1814,6 +1808,7 @@ FC_API( graphene::wallet::wallet_api,
         (get_account_id)
         (get_block)
         (get_account_count)
+        (get_accounts_history)
         (get_account_history)
         (get_account_history_part)
         (get_account_operation_history)
@@ -1828,7 +1823,6 @@ FC_API( graphene::wallet::wallet_api,
         (get_secure_object)
         (get_last_object_id)
         (get_history_operation)
-        (get_operation_id_after_transfer)
         (get_private_key)
         (load_wallet_file)
         (normalize_brain_key)
@@ -1873,4 +1867,5 @@ FC_API( graphene::wallet::wallet_api,
         (get_market_by_address)
         (generate_market_address)
         (get_cheque_by_code)
+        (get_required_fees)
       )

@@ -72,6 +72,7 @@ add_library( graphene_chain
              committee_member_evaluator.cpp
              asset_evaluator.cpp
              fund_evaluator.cpp
+             settings_evaluator.cpp
              cheque_evaluator.cpp
              transfer_evaluator.cpp
              proposal_evaluator.cpp

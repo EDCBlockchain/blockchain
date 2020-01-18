@@ -294,7 +294,7 @@ struct database_fixture {
    int64_t get_balance( const account_object& account, const asset_object& a )const;
    vector< operation_history_object > get_operation_history( account_id_type account_id )const;
 
-   void create_edc(asset base = asset(2, CORE_ASSET), asset quote = asset(1, EDC_ASSET));
+   void create_edc(share_type max_supply = 10000000000, asset base = asset(2, CORE_ASSET), asset quote = asset(1, EDC_ASSET));
    void create_test_asset();
 
    /** FUNDS **/
@@ -305,12 +305,13 @@ struct database_fixture {
     , account_id_type owner = ALPHA_ACCOUNT_ID);
 
    void make_cheque(
-   const string& rcp_code,
-   fc::time_point_sec expiration_datetime
-   ,asset_id_type asset_id
-   ,share_type    amount_per_payee,
-   uint32_t payees_count
-   , account_id_type owner);
+      const string& rcp_code
+      , fc::time_point_sec expiration_datetime
+      , asset_id_type asset_id
+      , share_type amount_per_payee
+      , uint32_t payees_count
+      , account_id_type owner
+      , asset fee = asset());
 
    void use_cheque(
    const string& rcp_code,

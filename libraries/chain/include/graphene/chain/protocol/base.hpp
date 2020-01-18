@@ -108,13 +108,20 @@ namespace graphene { namespace chain {
 
    }; // market_address
 
+   struct dep_update_info
+   {
+      uint32_t percent = 0;
+      asset daily_payment;
+   };
+
    typedef fc::static_variant<
             void_result,
             object_id_type,
             asset,
             eval_fund_dep_apply_object,
             market_address,
-            eval_fund_dep_apply_object_fixed
+            eval_fund_dep_apply_object_fixed,
+            dep_update_info
            > operation_result;
 
    struct base_operation
@@ -169,3 +176,4 @@ FC_REFLECT( graphene::chain::eval_fund_dep_apply_object_fixed,
             (daily_payment)
           )
 FC_REFLECT( graphene::chain::market_address, (id)(addr) )
+FC_REFLECT( graphene::chain::dep_update_info, (percent)(daily_payment) )

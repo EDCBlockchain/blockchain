@@ -32,7 +32,6 @@
 #include <graphene/chain/account_object.hpp>
 #include <graphene/chain/fba_object.hpp>
 #include <graphene/chain/committee_member_object.hpp>
-#include <graphene/chain/market_evaluator.hpp>
 #include <graphene/chain/protocol/fee_schedule.hpp>
 
 #include <fc/uint128.hpp>
@@ -53,7 +52,7 @@ database& generic_evaluator::db()const { return trx_state->db(); }
             const transfer_operation& tr_op = op.get<transfer_operation>();
 
             asset_id_type should_pay_in = tr_op.amount.asset_id(d).params.fee_paying_asset;
-            FC_ASSERT( tr_op.fee.asset_id == should_pay_in, "You should pay fee in ${a}", ("a", should_pay_in(d).symbol) );
+            FC_ASSERT( tr_op.fee.asset_id == should_pay_in, "You should pay fee in ${a}. Payed in ${b}", ("a", should_pay_in(d).symbol)("b", tr_op.fee.asset_id) );
          }
       }
       auto result = evaluate( op );
@@ -158,7 +157,7 @@ database& generic_evaluator::db()const { return trx_state->db(); }
      return db().current_fee_schedule().calculate_fee(op).amount;
    }
    void generic_evaluator::db_adjust_balance(const account_id_type& fee_payer, asset fee_amount) {
-     db().adjust_balance(fee_payer, fee_amount);
+      db().adjust_balance(fee_payer, fee_amount);
    }
 
 } }

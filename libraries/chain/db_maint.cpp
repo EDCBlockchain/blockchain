@@ -891,11 +891,16 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
              << ", head_block_time: " << std::string(head_block_time()) << "]"
              << std::endl;
 
+   if (head_block_time() > HARDFORK_627_TIME) {
+      process_accounts();
+   }
+
    if (head_block_time() > HARDFORK_622_TIME)
    {
       process_funds();
       process_cheques();
    }
+
    if (head_block_time() > HARDFORK_620_TIME) {
       issue_bonuses(); // for all assets except EDC
    } else if (head_block_time() > HARDFORK_617_TIME) {
@@ -950,14 +955,6 @@ void database::clear_old_entities()
             remove(*begin_iter++);
          }
       }
-      //  // cheques objects: can't remove items because checks have not expiration date
-      //  {
-      //     auto history_index = get_index_type<cheque_index>().indices().get<by_datetime_creation>().lower_bound(tp);
-      //     auto begin_iter = get_index_type<cheque_index>().indices().get<by_datetime_creation>().begin();
-      //     while (begin_iter != history_index) {
-      //        remove(*begin_iter++);
-      //     }
-      //  }
    }
 
    // cancel online_info for all users
@@ -966,6 +963,20 @@ void database::clear_old_entities()
       modify(get(accounts_online_id_type()), [&](accounts_online_object& o) {
          o.online_info = map<account_id_type, uint16_t>();
       });
+   }
+}
+
+void database::process_accounts()
+{
+   const auto& idx = get_index_type<account_index>().indices().get<by_id>();
+   for (const account_object& acc_obj: idx)
+   {
+      if (acc_obj.edc_transfers_daily_amount_counter > 0)
+      {
+         modify(acc_obj, [&](account_object& obj) {
+            obj.edc_transfers_daily_amount_counter = 0;
+         });
+      }
    }
 }
 
@@ -978,7 +989,7 @@ void database::process_funds()
    for (const fund_object& fund_obj: idx_funds)
    {
       // fund is overdue
-      if ( !fund_obj.enabled || (fund_obj.get_datetime_end() < head_block_time()) ) { continue; }
+      if ( !fund_obj.enabled || (fund_obj.datetime_end < head_block_time()) ) { continue; }
 
       fund_obj.process(*this);
 
@@ -996,6 +1007,8 @@ void database::process_cheques()
    const auto& idx_cheques = get_index_type<cheque_index>().indices().get<by_id>();
    transaction_evaluation_state eval(this);
 
+   std::vector<object_id_type> to_remove;
+
    // we need to remove expired cheques and return amounts to the owners balances
    for (const cheque_object& cheque_obj: idx_cheques)
    {
@@ -1003,7 +1016,7 @@ void database::process_cheques()
        * change cheque status from 'cheque_status::new' to 'cheque_status::cheque_undo'
        * and return amount to the maker if overdue */
       if ( (cheque_obj.status == cheque_status::cheque_new)
-           && ((dpo.next_maintenance_time - gpo.parameters.maintenance_interval) >= cheque_obj.get_expiration_datetime()) )
+           && ((dpo.next_maintenance_time - gpo.parameters.maintenance_interval) >= cheque_obj.datetime_expiration) )
       {
          chain::cheque_reverse_operation op;
          op.cheque_id  = cheque_obj.get_id();
@@ -1015,6 +1028,22 @@ void database::process_cheques()
             op.validate();
             apply_operation(eval, op);
          } catch (fc::assert_exception& e) {  }
+      }
+
+      if (get_history_size() > 0)
+      {
+         const time_point& tp = head_block_time() - fc::days(get_history_size());
+         if ((cheque_obj.status != cheque_status::cheque_new) && (cheque_obj.datetime_expiration < tp)) {
+            to_remove.push_back(cheque_obj.get_id());
+         }
+      }
+   }
+
+   // remove canceled cheques
+   if (to_remove.size() > 0)
+   {
+      for (const object_id_type& obj_id: to_remove) {
+         remove(get_object(obj_id));
       }
    }
 }

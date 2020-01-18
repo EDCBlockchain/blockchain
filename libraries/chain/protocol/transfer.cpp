@@ -29,8 +29,11 @@ namespace graphene { namespace chain {
 share_type transfer_operation::calculate_fee( const fee_parameters_type& schedule )const
 {
    share_type core_fee_required = schedule.fee;
+
+   // memo
    if( memo )
       core_fee_required += calculate_data_fee( fc::raw::pack_size(memo), schedule.price_per_kbyte );
+
    return core_fee_required;
 }
 

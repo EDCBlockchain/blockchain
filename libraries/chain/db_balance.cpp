@@ -25,10 +25,15 @@
 #include <graphene/chain/database.hpp>
 
 #include <graphene/chain/account_object.hpp>
+#include <graphene/chain/fund_object.hpp>
 #include <graphene/chain/asset_object.hpp>
 #include <graphene/chain/vesting_balance_object.hpp>
 #include <graphene/chain/witness_object.hpp>
+#include <graphene/chain/settings_object.hpp>
+
 #include <iostream>
+#include <boost/range/adaptor/reversed.hpp>
+
 namespace graphene { namespace chain {
 
 asset database::get_balance(account_id_type owner, asset_id_type asset_id) const
@@ -343,6 +348,66 @@ asset database::check_supply_overflow( asset value )
         return asset( a.options.max_supply - asset_dyn_data->current_supply, value.asset_id );
     }
     return value;
+}
+
+share_type database::get_user_deposits_sum(account_id_type acc_id, asset_id_type asset_id)
+{
+   share_type amount = 0;
+
+   const auto& idx_funds = get_index_type<fund_index>().indices().get<by_id>();
+   for (const fund_object& fund_obj: idx_funds)
+   {
+      if (fund_obj.asset_id == asset_id)
+      {
+         const auto& stats_obj = fund_obj.get_id()(*this).statistics_id(*this);
+         auto iter = stats_obj.users_deposits.find(acc_id);
+         if (iter != stats_obj.users_deposits.end()) {
+            amount += iter->second;
+         }
+      }
+   }
+
+   return amount;
+}
+
+double database::get_percent(uint32_t percent) const {
+   return percent / 100000.0;
+}
+
+share_type database::get_deposit_daily_payment(uint32_t percent, uint32_t period, share_type amount) const
+{
+   double percent_per_day = get_percent(percent) / period;
+   return (share_type)std::roundl(percent_per_day * (long double)amount.value);
+}
+
+void database::rebuild_user_edc_deposit_availability(account_id_type acc_id)
+{
+   const settings_object& settings = *find(settings_id_type(0));
+
+   const auto& accounts_by_id = get_index_type<account_index>().indices().get<by_id>();
+   auto itr = accounts_by_id.find(acc_id);
+   if (itr == accounts_by_id.end()) { return; }
+   const account_object& acc = *itr;
+
+   if (acc.edc_in_deposits > settings.edc_deposit_max_sum)
+   {
+      const auto& range = get_index_type<fund_deposit_index>().indices().get<by_account_id>().equal_range(acc_id);
+      share_type amount_count;
+
+      // sorting should be in order of addition ...
+      for (const fund_deposit_object& item: boost::make_iterator_range(range.first, range.second))
+      {
+         if (!item.enabled) { continue; }
+         if (item.amount.asset_id != EDC_ASSET) { continue; }
+
+         amount_count += item.amount.amount;
+         bool can_use_percent = (amount_count < settings.edc_deposit_max_sum) ? true : false;
+
+         modify(item, [&](fund_deposit_object& obj) {
+            obj.can_use_percent = can_use_percent;
+         });
+      }
+   }
 }
 
 void database::issue_referral()
