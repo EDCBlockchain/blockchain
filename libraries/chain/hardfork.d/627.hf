@@ -1,4 +1,4 @@
-// 23-jan-2020
+// 23-jan-2020 10:00:00 (UTC)
 #ifndef HARDFORK_627_TIME
-#define HARDFORK_627_TIME (fc::time_point_sec(1579737600))
+#define HARDFORK_627_TIME (fc::time_point_sec(1579773600))
 #endif
