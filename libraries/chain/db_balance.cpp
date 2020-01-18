@@ -398,6 +398,7 @@ void database::rebuild_user_edc_deposit_availability(account_id_type acc_id)
       for (const fund_deposit_object& item: boost::make_iterator_range(range.first, range.second))
       {
          if (!item.enabled) { continue; }
+         if (item.manual_percent_enabled) { continue; }
          if (item.amount.asset_id != EDC_ASSET) { continue; }
 
          amount_count += item.amount.amount;
