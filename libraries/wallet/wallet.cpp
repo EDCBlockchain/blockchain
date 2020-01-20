@@ -2449,11 +2449,12 @@ public:
          }
       }
 
+      tx.operations.push_back(xfer_op);
+
       if (!custom_fee_enabled) {
          set_operation_fees( tx, _remote_db->get_global_properties().parameters.current_fees, fee_asset_obj->options.core_exchange_rate );
       }
 
-      tx.operations.push_back(xfer_op);
       tx.validate();
 
       return sign_transaction(tx, broadcast);
