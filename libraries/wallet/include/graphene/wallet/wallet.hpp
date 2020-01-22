@@ -490,7 +490,8 @@ class wallet_api
       fc::optional<object_id_type>      get_last_object_id(object_id_type id) const;
       variant                           get_history_operation(object_id_type id) const;
 
-      /** Returns the current wallet filename.  
+      /**
+       * Returns the current wallet filename.
        *
        * This is the filename that will be used when automatically saving the wallet.
        *
@@ -791,8 +792,15 @@ class wallet_api
                                   string memo,
                                   bool broadcast = false);
 
-      signed_transaction set_online_time( map<account_id_type, uint16_t> online_info );
-      signed_transaction set_verification_is_required( account_id_type target, bool verification_is_required );
+      /**
+       *  This method works just like transfer, except it always broadcasts and
+       *  returns the transaction ID (hash) along with the signed transaction.
+       */
+      std::pair<transaction_id_type, std::string>
+      transfer2(string from, string to, string amount, string asset_symbol, string memo);
+
+      signed_transaction set_online_time( map<account_id_type, uint16_t> online_info);
+      signed_transaction set_verification_is_required( account_id_type target, bool verification_is_required);
       signed_transaction set_account_limit_daily_volume(const std::string& name_or_id, bool enabled);
 
       /**
@@ -1752,6 +1760,7 @@ FC_API( graphene::wallet::wallet_api,
         (borrow_asset)
         (cancel_order)
         (transfer)
+        (transfer2)
         (set_online_time)
         (set_verification_is_required)
         (set_account_limit_daily_volume)

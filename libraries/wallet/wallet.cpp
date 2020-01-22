@@ -751,6 +751,80 @@ public:
       return res;
    }
 
+   string get_operation_id_after_transfer()
+   {
+      std::string result;
+
+      if (_last_wallet_transfer.is_empty()) { return result; }
+
+      chain::account_id_type account_id = get_account(_last_wallet_transfer._from).get_id();
+      fc::optional<asset_object> asset_obj = get_asset(_last_wallet_transfer._asset_symbol);
+      bool memo_exists = true;
+
+      std::ostringstream os;
+      if (_last_wallet_transfer._memo.length() > 0) {
+         os << "Transfer (.+?) " << asset_obj->symbol << " from (.+?) to (.+?) \\-\\- Memo: (.+?)  .+";
+      }
+      else
+      {
+         memo_exists = false;
+         os << "Transfer (.+?) " << asset_obj->symbol << " from (.+?) to (.+?)  .+";
+      }
+      std::regex pieces_regex(os.str());
+
+      int i = 30;
+      while (i > 0)
+      {
+         std::this_thread::sleep_for(std::chrono::seconds(1));
+
+         vector<operation_history_object> current = _remote_hist->get_account_history(account_id,
+                                                                                      operation_history_id_type(), 5,
+                                                                                      operation_history_id_type());
+
+         for (operation_history_object& obj: current)
+         {
+            std::stringstream ss;
+            const std::string& memo = obj.op.visit(detail::operation_printer(ss, *this, obj.result));
+            //obj.op.visit(detail::operation_printer(ss, *this, obj.result));
+
+            std::smatch pieces_match;
+            const std::string& source = ss.str();
+            // std::cout << source << std::endl;
+
+            if (std::regex_match(source, pieces_match, pieces_regex))
+            {
+               size_t p_size = memo_exists ? 5: 4;
+
+               if (pieces_match.size() == p_size)
+               {
+                  const std::string& amount = std::string(pieces_match[1]);
+                  const std::string& from = std::string(pieces_match[2]);
+                  const std::string& to = std::string(pieces_match[3]);
+                  const std::string& memo = (memo_exists) ? std::string(pieces_match[4]): "";
+
+                  if ((asset_obj->amount_from_string(amount) ==
+                       asset_obj->amount_from_string(_last_wallet_transfer._amount)) &&
+                      (from == _last_wallet_transfer._from) && (to == _last_wallet_transfer._to) &&
+                      (memo == _last_wallet_transfer._memo))
+                  {
+                     result = std::string(obj.id);
+                     break;
+                  }
+               }
+            }
+         }
+
+         if (!result.empty())
+         {
+            _last_wallet_transfer.reset();
+            break;
+         }
+         --i;
+      }
+
+      return result;
+   }
+
    string get_wallet_filename() const {
       return _wallet_filename;
    }
@@ -2445,6 +2519,7 @@ public:
          {
             custom_fee_enabled = true;
             share_type amount = std::round(xfer_op.amount.amount.value * (itr->percent / 100000.0));
+            amount = (amount == 0) ? 1 : amount;
             xfer_op.fee = asset(amount, xfer_op.amount.asset_id);
          }
       }
@@ -2456,6 +2531,8 @@ public:
       }
 
       tx.validate();
+
+      _last_wallet_transfer.set(asset_symbol, from, to, amount, memo);
 
       return sign_transaction(tx, broadcast);
    } FC_CAPTURE_AND_RETHROW( (from)(to)(amount)(asset_symbol)(memo)(broadcast) ) }
@@ -3134,6 +3211,40 @@ public:
    fc::optional<fc::api<secure_api>> _remote_secure;
    fc::optional<fc::api<network_node_api>> _remote_net_node;
    fc::optional<fc::api<graphene::debug_witness::debug_api>> _remote_debug;
+
+   // last transfer operation info
+   struct last_transfer_info
+   {
+      void set(const std::string& asset_symbol, const std::string& from
+               , const std::string& to, const std::string& amount, const std::string& memo)
+      {
+         _asset_symbol = asset_symbol;
+         _from   = from;
+         _to     = to;
+         _amount = amount;
+         _memo   = memo;
+      }
+
+      void reset()
+      {
+         _asset_symbol.clear();
+         _from.clear();
+         _to.clear();
+         _amount.clear();
+         _memo.clear();
+      }
+
+      bool is_empty() {
+         return (_asset_symbol.empty() && _from.empty() && _to.empty() && _amount.empty() && _memo.empty());
+      }
+
+      std::string _asset_symbol;
+      std::string _from;
+      std::string _to;
+      std::string _amount;
+      std::string _memo;
+
+   } _last_wallet_transfer;
 
    flat_map<string, operation> _prototype_ops;
 
@@ -3928,6 +4039,16 @@ signed_transaction wallet_api::issue_asset(string to_account, string amount, str
 signed_transaction wallet_api::transfer(string from, string to, string amount,
                                         string asset_symbol, string memo, bool broadcast /* = false */) {
    return my->transfer(from, to, amount, asset_symbol, memo, broadcast);
+}
+
+std::pair<transaction_id_type, std::string>
+wallet_api::transfer2(string from, string to, string amount, string asset_symbol, string memo )
+{
+   auto trx = transfer( from, to, amount, asset_symbol, memo, true );
+
+   const std::string& op_id = my->get_operation_id_after_transfer();
+
+   return std::make_pair(trx.id(), op_id);
 }
 
 signed_transaction wallet_api::set_online_time( map<account_id_type, uint16_t> online_info ) {
