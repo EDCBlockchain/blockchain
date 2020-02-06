@@ -955,6 +955,14 @@ void database::clear_old_entities()
             remove(*begin_iter++);
          }
       }
+      // deposit objects
+      {
+         auto history_index = get_index_type<fund_deposit_index>().indices().get<by_datetime_end>().lower_bound(tp);
+         auto begin_iter = get_index_type<fund_deposit_index>().indices().get<by_datetime_end>().begin();
+         while (begin_iter != history_index) {
+            remove(*begin_iter++);
+         }
+      }
    }
 
    // cancel online_info for all users
@@ -1007,7 +1015,7 @@ void database::process_cheques()
    const auto& idx_cheques = get_index_type<cheque_index>().indices().get<by_id>();
    transaction_evaluation_state eval(this);
 
-   std::vector<object_id_type> to_remove;
+   std::vector<cheque_id_type> to_remove;
 
    // we need to remove expired cheques and return amounts to the owners balances
    for (const cheque_object& cheque_obj: idx_cheques)
@@ -1042,8 +1050,12 @@ void database::process_cheques()
    // remove canceled cheques
    if (to_remove.size() > 0)
    {
-      for (const object_id_type& obj_id: to_remove) {
-         remove(get_object(obj_id));
+      for (const cheque_id_type& obj_id: to_remove)
+      {
+         auto itr = get_index_type<cheque_index>().indices().get<by_id>().find(obj_id);
+         if (itr != get_index_type<cheque_index>().indices().get<by_id>().end()) {
+            remove(*itr);
+         }
       }
    }
 }

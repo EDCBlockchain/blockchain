@@ -24,6 +24,7 @@
 
 #include <graphene/app/database_api.hpp>
 #include <graphene/chain/get_config.hpp>
+#include <graphene/chain/settings_object.hpp>
 
 #include <fc/bloom_filter.hpp>
 #include <fc/smart_ref_impl.hpp>
@@ -166,6 +167,8 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
       set<public_key_type> get_required_signatures( const signed_transaction& trx, const flat_set<public_key_type>& available_keys )const;
       set<public_key_type> get_potential_signatures( const signed_transaction& trx )const;
       set<address> get_potential_address_signatures( const signed_transaction& trx )const;
+      fee_schedule get_current_fee_schedule() const;
+
       bool verify_authority( const signed_transaction& trx )const;
       bool verify_account_authority( const string& name_or_id, const flat_set<public_key_type>& signers )const;
       processed_transaction validate_transaction( const signed_transaction& trx )const;
@@ -179,11 +182,15 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
 
       optional<cheque_info_object> get_cheque_by_code(const std::string& code) const;
 
+      transfer_fee_info get_required_transfer_fee(const asset& amount) const;
+      transfer_fee_info get_required_blind_transfer_fee(const asset& amount) const;
+      transfer_fee_info get_required_cheque_fee(const asset& amount, uint32_t count) const;
+
       void clear_ops(std::vector<operation>& ops) {
          _db.clear_ops(ops);
       }
 
-   //private:
+      //private:
       template<typename T>
       void subscribe_to_item( const T& i )const
       {
@@ -457,6 +464,124 @@ optional<signed_block> database_api_impl::get_block_reserved(uint32_t block_num)
    block->update();
 
    return *block;
+}
+
+transfer_fee_info database_api::get_required_transfer_fee(const asset& amount) const {
+   return my->get_required_transfer_fee(amount);
+}
+
+transfer_fee_info database_api_impl::get_required_transfer_fee(const asset& amount) const
+{
+   transfer_fee_info result;
+   const settings_object& settings = _db.get(settings_id_type(0));
+   vector<optional<asset_object>> assets = get_assets({amount.asset_id});
+   if (assets.size() != 1) { return result; }
+   const asset_object& asset_type = *assets[0];
+   assets = get_assets({asset_type.params.fee_paying_asset});
+   if (assets.size() != 1) { return result; }
+   const asset_object& fee_asset_type = *assets[0];
+
+   result.name = fee_asset_type.symbol;
+   result.precision = fee_asset_type.precision;
+
+   // custom fee
+   optional<chain::settings_fee> fee;
+   if (_db.head_block_time() > HARDFORK_628_TIME) {
+      fee = _db.get_custom_fee(settings.transfer_fees, fee_asset_type.get_id());
+   }
+   else
+   {
+      result.name = asset_type.symbol;
+      result.precision = asset_type.precision;
+      fee = _db.get_custom_fee(settings.transfer_fees, asset_type.get_id());
+   }
+
+   if (fee) {
+      result.amount = asset(std::round(amount.amount.value * _db.get_percent(fee->percent)), fee->asset_id);
+   }
+
+   // inner fee
+   if (result.amount.amount == 0)
+   {
+      const vector<fc::variant>& v = get_required_fees({transfer_operation()}, fee_asset_type.get_id());
+      if (v.size() > 0)
+      {
+         const fc::variant& item = v[0];
+         const asset& asst = item.as<asset>(1);
+
+         vector<optional<asset_object>> assets = get_assets({asst.asset_id});
+         if (assets.size() == 1)
+         {
+            const asset_object& asset_type = *assets[0];
+            result.name = asset_type.symbol;
+            result.precision = asset_type.precision;
+            result.amount = asst;
+         }
+      }
+   }
+
+   return result;
+}
+
+transfer_fee_info database_api::get_required_blind_transfer_fee(const asset& amount) const {
+   return my->get_required_blind_transfer_fee(amount);
+}
+
+transfer_fee_info database_api_impl::get_required_blind_transfer_fee(const asset& amount) const
+{
+   transfer_fee_info result;
+   const settings_object& settings = _db.get(settings_id_type(0));
+   vector<optional<asset_object>> assets = get_assets({amount.asset_id});
+   if (assets.size() != 1) { return result; }
+   const asset_object& asset_type = *assets[0];
+   assets = get_assets({settings.blind_transfer_default_fee.asset_id});
+   if (assets.size() != 1) { return result; }
+   const asset_object& default_fee_asset_type = *assets[0];
+
+   // default fee
+   result.name = default_fee_asset_type.symbol;
+   result.precision = default_fee_asset_type.precision;
+   result.amount = settings.blind_transfer_default_fee;
+
+   // fee
+   optional<chain::settings_fee> fee = _db.get_custom_fee(settings.blind_transfer_fees, asset_type.get_id());
+   if (fee)
+   {
+      result.name = asset_type.symbol;
+      result.precision = asset_type.precision;
+      result.amount = asset(std::round(amount.amount.value * _db.get_percent(fee->percent)), asset_type.get_id());
+   }
+
+   return result;
+}
+
+transfer_fee_info database_api::get_required_cheque_fee(const asset& amount, uint32_t count) const {
+   return my->get_required_cheque_fee(amount, count);
+}
+
+transfer_fee_info database_api_impl::get_required_cheque_fee(const asset& amount, uint32_t count) const
+{
+   transfer_fee_info result;
+   const settings_object& settings = _db.get(settings_id_type(0));
+   vector<optional<asset_object>> assets = get_assets({amount.asset_id});
+   if (assets.size() != 1) { return result; }
+   const asset_object& asset_type = *assets[0];
+   share_type cheque_amount = amount.amount * count;
+
+   result.name = asset_type.symbol;
+   result.precision = asset_type.precision;
+   result.amount = asset(0, asset_type.get_id());
+
+   // fee
+   optional<chain::settings_fee> fee = _db.get_custom_fee(settings.cheque_fees, asset_type.get_id());
+   if (fee)
+   {
+      result.name = asset_type.symbol;
+      result.precision = asset_type.precision;
+      result.amount = asset(std::round(cheque_amount.value * _db.get_percent(fee->percent)), asset_type.get_id());
+   }
+
+   return result;
 }
 
 optional<signed_block> database_api::get_block_by_id(string block_id) const {
@@ -2077,13 +2202,15 @@ set<public_key_type> database_api_impl::get_required_signatures( const signed_tr
    return result;
 }
 
-set<public_key_type> database_api::get_potential_signatures( const signed_transaction& trx )const
-{
+set<public_key_type> database_api::get_potential_signatures( const signed_transaction& trx ) const {
    return my->get_potential_signatures( trx );
 }
-set<address> database_api::get_potential_address_signatures( const signed_transaction& trx )const
-{
+set<address> database_api::get_potential_address_signatures( const signed_transaction& trx ) const {
    return my->get_potential_address_signatures( trx );
+}
+
+fee_schedule database_api::get_current_fee_schedule() const {
+   return my->get_current_fee_schedule();
 }
 
 set<public_key_type> database_api_impl::get_potential_signatures( const signed_transaction& trx )const
@@ -2141,6 +2268,10 @@ set<address> database_api_impl::get_potential_address_signatures( const signed_t
       _db.get_global_properties().parameters.max_authority_depth
    );
    return result;
+}
+
+fee_schedule database_api_impl::get_current_fee_schedule() const {
+   return _db.current_fee_schedule();
 }
 
 bool database_api::verify_authority( const signed_transaction& trx )const

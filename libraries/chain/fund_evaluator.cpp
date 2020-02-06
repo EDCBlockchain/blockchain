@@ -190,8 +190,8 @@ void_result fund_deposit_evaluator::do_evaluate( const fund_deposit_operation& o
 
    {
       const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
-      auto itr = idx.find(op.id);
-      FC_ASSERT(itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.id));
+      auto itr = idx.find(op.fund_id);
+      FC_ASSERT(itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.fund_id));
 
       fund_obj_ptr = &(*itr);
    }
@@ -199,7 +199,7 @@ void_result fund_deposit_evaluator::do_evaluate( const fund_deposit_operation& o
    {
       const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
       auto itr = idx.find(op.from_account);
-      FC_ASSERT(itr != idx.end(), "There is no account with id '${id}'!", ("id", op.id));
+      FC_ASSERT(itr != idx.end(), "There is no account with id '${id}'!", ("id", op.fund_id));
       account_ptr = &(*itr);
    }
 
@@ -255,7 +255,7 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
    const fund_deposit_object& new_fund_deposit =
    d.create<fund_deposit_object>([&](fund_deposit_object& o)
    {
-      o.fund_id    = op.id;
+      o.fund_id    = op.fund_id;
       o.account_id = op.from_account;
       o.amount     = asset(op.amount, fund.asset_id);
       o.datetime_begin = d.head_block_time();
@@ -292,11 +292,13 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
 
    asset asst(op.amount, fund.asset_id);
 
-   // fund statistics
-   const auto& stats_obj = op.id(d).statistics_id(d);
+   // ========= statistics
 
-   d.modify(stats_obj, [&](fund_statistics_object& obj) {
+   d.modify(fund.statistics_id(d), [&](fund_statistics_object& obj)
+   {
       obj.users_deposits[op.from_account] += op.amount;
+      // fund: increasing deposit count
+      ++obj.deposit_count;
    });
    if (fund.asset_id == EDC_ASSET)
    {
@@ -305,10 +307,7 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
       });
    }
 
-   // fund: increasing deposit count
-   d.modify(stats_obj, [&](fund_statistics_object& obj) {
-      ++obj.deposit_count;
-   });
+   // ====================
 
    // user
    d.adjust_balance( op.from_account, -asst );
@@ -482,8 +481,8 @@ void_result fund_deposit_set_enable_evaluator::do_evaluate( const fund_deposit_s
    const database& d = db();
 
    const auto& idx = d.get_index_type<fund_deposit_index>().indices().get<by_id>();
-   auto itr = idx.find(op.id);
-   FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.id) );
+   auto itr = idx.find(op.deposit_id);
+   FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.deposit_id) );
 
    fund_dep_obj_ptr = &(*itr);
 
@@ -598,8 +597,8 @@ void_result enable_autorenewal_deposits_evaluator::do_evaluate( const enable_aut
    const database& d = db();
 
    const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
-   auto itr = idx.find(op.account);
-   FC_ASSERT( itr != idx.end(), "There is no account with id '${id}'!", ("id", op.account) );
+   auto itr = idx.find(op.account_id);
+   FC_ASSERT( itr != idx.end(), "There is no account with id '${id}'!", ("id", op.account_id) );
 
    account_ptr = &(*itr);
 
@@ -638,9 +637,11 @@ void_result deposit_renewal_evaluator::do_evaluate( const deposit_renewal_operat
 
 }  FC_CAPTURE_AND_RETHROW( (op) ) }
 
-void_result deposit_renewal_evaluator::do_apply( const deposit_renewal_operation& o )
+operation_result deposit_renewal_evaluator::do_apply( const deposit_renewal_operation& o )
 { try {
    database& d = db();
+
+   asset result;
 
    if (fund_deposit_ptr)
    {
@@ -649,8 +650,10 @@ void_result deposit_renewal_evaluator::do_apply( const deposit_renewal_operation
          dep.percent = o.percent;
          dep.datetime_end = o.datetime_end;
 
-         if (d.head_block_time() > HARDFORK_627_TIME) {
+         if (d.head_block_time() > HARDFORK_627_TIME)
+         {
             dep.daily_payment = d.get_deposit_daily_payment(dep.percent, fund_deposit_ptr->period, fund_deposit_ptr->amount.amount);
+            result = asset(dep.daily_payment, dep.amount.asset_id);
          }
          else if (d.head_block_time() >= HARDFORK_626_TIME) {
             dep.daily_payment = d.get_deposit_daily_payment(fund_deposit_ptr->percent, fund_deposit_ptr->period, fund_deposit_ptr->amount.amount);
@@ -660,6 +663,10 @@ void_result deposit_renewal_evaluator::do_apply( const deposit_renewal_operation
       if ( (d.head_block_time() > HARDFORK_627_TIME) && (fund_deposit_ptr->amount.asset_id == EDC_ASSET) ) {
          d.rebuild_user_edc_deposit_availability(o.account_id);
       }
+   }
+
+   if (d.head_block_time() > HARDFORK_628_TIME) {
+      return result;
    }
 
    return void_result();
@@ -673,19 +680,42 @@ void_result fund_deposit_update_evaluator::do_evaluate( const fund_deposit_updat
 
    const database& d = db();
 
-   auto itr = d.find(op.deposit_id);
-   FC_ASSERT(itr, "deposit '${dep}' not found!", ("dep", op.deposit_id));
+   {
+      auto itr = d.find(op.deposit_id);
+      FC_ASSERT(itr, "deposit '${dep}' not found!", ("dep", op.deposit_id));
+      fund_deposit_ptr = &(*itr);
+   }
 
-   fund_deposit_ptr = &(*itr);
-
-   if (op.reset)
    {
       const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
       auto itr = idx.find(fund_deposit_ptr->fund_id);
-      FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.deposit_id) );
-
+      FC_ASSERT(itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.deposit_id));
       fund_obj_ptr = &(*itr);
+   }
 
+   if (op.extensions.value.account_id)
+   {
+      auto itr = d.find(*op.extensions.value.account_id);
+      FC_ASSERT(itr, "account '${a}' not found!", ("a", op.extensions.value.account_id));
+      FC_ASSERT(fund_deposit_ptr->account_id != *op.extensions.value.account_id
+                , "accounts must be different! Old account ID '${a}', new account ID '${b}'"
+                , ("a", fund_deposit_ptr->account_id)("b", op.extensions.value.account_id));
+   }
+
+   if (op.extensions.value.datetime_end)
+   {
+      FC_ASSERT(*op.extensions.value.datetime_end > (d.head_block_time() + fc::seconds(60)),
+                "'datetime_end' must be greater than 'd.head_block_time() + 1 min'. Datetime_end ${a}. Head_block_time ${b}",
+                ("a", op.extensions.value.datetime_end)
+                ("b", d.head_block_time()) );
+
+      // lifetime of deposit must be less than fund's
+      bool check_period = fund_obj_ptr->datetime_end >= *op.extensions.value.datetime_end;
+      FC_ASSERT( check_period, "Wrong 'datetime_end' of deposit (${a})!", ("a", *op.extensions.value.datetime_end) );
+   }
+
+   if (op.reset)
+   {
       p_rate = fund_obj_ptr->get_payment_rate(fund_deposit_ptr->period);
       FC_ASSERT(p_rate, "Wrong period (${period}) for 'fund_deposit_create'", ("period", fund_deposit_ptr->period));
    }
@@ -697,24 +727,68 @@ void_result fund_deposit_update_evaluator::do_evaluate( const fund_deposit_updat
 dep_update_info fund_deposit_update_evaluator::do_apply( const fund_deposit_update_operation& o )
 { try {
    database& d = db();
+   const fund_object& fund = *fund_obj_ptr;
+   const fund_deposit_object& fund_deposit = *fund_deposit_ptr;
 
-   if (o.reset)
+   // change deposit owner
+   if (o.extensions.value.account_id)
    {
-      d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep)
+      account_id_type old_account_id = fund_deposit.account_id;
+      account_id_type new_account_id = *o.extensions.value.account_id;
+
+      d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep) {
+         dep.account_id = new_account_id;
+      });
+
+      // ========= statistics
+
+      d.modify(fund.statistics_id(d), [&](fund_statistics_object& obj)
       {
-         dep.percent = p_rate->percent;
-         dep.manual_percent_enabled = false;
-         dep.daily_payment = d.get_deposit_daily_payment(dep.percent, dep.period, dep.amount.amount);
+         obj.users_deposits[old_account_id] -= fund_deposit.amount.amount;
+         obj.users_deposits[new_account_id] += fund_deposit.amount.amount;
+      });
+      if (fund.asset_id == EDC_ASSET)
+      {
+         d.modify(old_account_id(d), [&](account_object& obj) {
+            obj.edc_in_deposits = d.get_user_deposits_sum(old_account_id, EDC_ASSET);
+         });
+         d.modify(new_account_id(d), [&](account_object& obj) {
+            obj.edc_in_deposits = d.get_user_deposits_sum(new_account_id, EDC_ASSET);
+         });
+      }
+   }
+
+   // change 'datetime_end' of deposit
+   if (o.extensions.value.datetime_end)
+   {
+      d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep) {
+         dep.datetime_end = *o.extensions.value.datetime_end;
       });
    }
-   else
+
+   // main flags
+   if (!o.extensions.value.apply_extension_flags_only)
    {
-      d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep)
+      // fund percent
+      if (o.reset)
       {
-         dep.percent = o.percent;
-         dep.manual_percent_enabled = true;
-         dep.daily_payment = d.get_deposit_daily_payment(dep.percent, dep.period, dep.amount.amount);
-      });
+         d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep)
+         {
+            dep.percent = p_rate->percent;
+            dep.manual_percent_enabled = false;
+            dep.daily_payment = d.get_deposit_daily_payment(dep.percent, dep.period, dep.amount.amount);
+         });
+      }
+      // manual percent
+      else
+      {
+         d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep)
+         {
+            dep.percent = o.percent;
+            dep.manual_percent_enabled = true;
+            dep.daily_payment = d.get_deposit_daily_payment(dep.percent, dep.period, dep.amount.amount);
+         });
+      }
    }
 
    dep_update_info result;
@@ -724,5 +798,78 @@ dep_update_info fund_deposit_update_evaluator::do_apply( const fund_deposit_upda
    return result;
 
 } FC_CAPTURE_AND_RETHROW( (o) ) }
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+
+void_result fund_deposit_reduce_evaluator::do_evaluate( const fund_deposit_reduce_operation& op )
+{ try {
+
+   const database& d = db();
+
+   {
+      auto itr = d.find(op.deposit_id);
+      FC_ASSERT(itr, "deposit '${dep}' not found!", ("dep", op.deposit_id));
+      fund_deposit_ptr = &(*itr);
+
+      FC_ASSERT(op.amount > 0, "op.amount must be greater than 0!");
+      FC_ASSERT(fund_deposit_ptr->enabled, "deposit must be enabled!");
+      FC_ASSERT(fund_deposit_ptr->amount.amount >= op.amount,
+                "deposit amount must be greater than op.amount. Deposit amount '${a}'. op.amount '${b}'",
+                ("a", fund_deposit_ptr->amount.amount)
+                ("b", op.amount));
+   }
+
+   const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
+   auto itr = idx.find(fund_deposit_ptr->fund_id);
+   FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.deposit_id) );
+   fund_obj_ptr = &(*itr);
+
+   asset_dyn_data_ptr = &fund_deposit_ptr->amount.asset_id(d).dynamic_asset_data_id(d);
+
+   return void_result();
+
+}  FC_CAPTURE_AND_RETHROW( (op) ) }
+
+asset fund_deposit_reduce_evaluator::do_apply( const fund_deposit_reduce_operation& o )
+{ try {
+
+   asset result;
+
+   database& d = db();
+   const fund_object& fund = *fund_obj_ptr;
+   const fund_deposit_object& fund_deposit = *fund_deposit_ptr;
+
+   // deposit
+   d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep)
+   {
+      dep.amount.amount -= o.amount;
+      dep.daily_payment = d.get_deposit_daily_payment(dep.percent, dep.period, dep.amount.amount);
+      result = dep.amount;
+   });
+   // fund balance
+   d.modify(fund, [&](fund_object& obj) {
+      obj.balance -= o.amount;
+   });
+   // current supply of the fund's asset
+   d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
+      data.current_supply -= o.amount;
+   });
+
+   // ========= statistics
+
+   d.modify(fund.statistics_id(d), [&](fund_statistics_object& obj) {
+      obj.users_deposits[fund_deposit.account_id] -= o.amount;
+   });
+   if (fund.asset_id == EDC_ASSET)
+   {
+      d.modify(fund_deposit.account_id(d), [&](account_object& obj) {
+         obj.edc_in_deposits = d.get_user_deposits_sum(fund_deposit.account_id, EDC_ASSET);
+      });
+   }
+
+  return result;
+
+} FC_CAPTURE_AND_RETHROW( (o) ) }
+
 
 } } // graphene::chain

@@ -103,7 +103,7 @@ namespace graphene { namespace chain {
       asset           fee;
 
       account_id_type from_account;
-      fund_id_type    id; // fund id
+      fund_id_type    fund_id;
       share_type      amount;
       uint32_t        period;
 
@@ -184,7 +184,7 @@ namespace graphene { namespace chain {
 
       asset fee;
 
-      fund_deposit_id_type id; // fund deposit id
+      fund_deposit_id_type deposit_id;
       bool enabled = true;
 
       extensions_type extensions;
@@ -233,11 +233,11 @@ namespace graphene { namespace chain {
 
       asset fee;
 
-      account_id_type account;
+      account_id_type account_id;
       bool enabled = true;
 
       extensions_type extensions;
-      account_id_type fee_payer() const { return account; }
+      account_id_type fee_payer() const { return account_id; }
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
@@ -261,9 +261,37 @@ namespace graphene { namespace chain {
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& k) const { return 0; };
-   };
+
+   }; // deposit_renewal_operation
 
    struct fund_deposit_update_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      struct ext
+      {
+         optional<void_t> null_ext;
+         optional<bool>               apply_extension_flags_only;
+         optional<account_id_type>    account_id;
+         optional<fc::time_point_sec> datetime_end;
+      };
+
+      asset fee;
+
+      fund_deposit_id_type deposit_id;
+
+      uint32_t             percent;
+      bool                 reset = false;
+
+      extension<ext> extensions;
+
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+      share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
+
+   }; // fund_deposit_update_operation
+
+   struct fund_deposit_reduce_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
 
@@ -274,8 +302,7 @@ namespace graphene { namespace chain {
       asset fee;
 
       fund_deposit_id_type deposit_id;
-      uint32_t             percent;
-      bool                 reset = false;
+      share_type amount;
 
       extension<ext> extensions;
 
@@ -283,7 +310,7 @@ namespace graphene { namespace chain {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_deposit_set_enable_operation
+   }; // fund_deposit_update_operation
 
 } } // graphene::chain
 
@@ -310,7 +337,7 @@ FC_REFLECT( graphene::chain::fund_refill_operation,
 
 FC_REFLECT( graphene::chain::fund_deposit_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::fund_deposit_operation,
-            (fee)(from_account)(id)(amount)(period)(extensions) )
+            (fee)(from_account)(fund_id)(amount)(period)(extensions) )
 
 FC_REFLECT( graphene::chain::fund_withdrawal_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::fund_withdrawal_operation,
@@ -326,7 +353,7 @@ FC_REFLECT( graphene::chain::fund_set_enable_operation,
 
 FC_REFLECT( graphene::chain::fund_deposit_set_enable_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::fund_deposit_set_enable_operation,
-            (fee)(id)(enabled)(extensions) )
+            (fee)(deposit_id)(enabled)(extensions) )
 
 FC_REFLECT( graphene::chain::fund_remove_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::fund_remove_operation,
@@ -338,12 +365,15 @@ FC_REFLECT( graphene::chain::fund_change_payment_scheme_operation,
 
 FC_REFLECT( graphene::chain::enable_autorenewal_deposits_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::chain::enable_autorenewal_deposits_operation,
-            (fee)(account)(enabled)(extensions) )
+            (fee)(account_id)(enabled)(extensions) )
 
 FC_REFLECT( graphene::chain::deposit_renewal_operation::fee_parameters_type, (fee)(price_per_kbyte) )
 FC_REFLECT( graphene::chain::deposit_renewal_operation, (fee)(account_id)(deposit_id)(percent)(datetime_end) )
 
 FC_REFLECT( graphene::chain::fund_deposit_update_operation::fee_parameters_type, (fee) )
-FC_REFLECT( graphene::chain::fund_deposit_update_operation::ext, (null_ext) )
+FC_REFLECT( graphene::chain::fund_deposit_update_operation::ext, (null_ext)(apply_extension_flags_only)(account_id)(datetime_end) )
 FC_REFLECT( graphene::chain::fund_deposit_update_operation, (fee)(deposit_id)(percent)(reset)(extensions) )
 
+FC_REFLECT( graphene::chain::fund_deposit_reduce_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::chain::fund_deposit_reduce_operation::ext, (null_ext) )
+FC_REFLECT( graphene::chain::fund_deposit_reduce_operation, (deposit_id)(amount)(extensions) )

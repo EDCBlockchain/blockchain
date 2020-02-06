@@ -253,6 +253,7 @@ namespace detail {
 
          auto initial_state = [this] {
             ilog("Initializing database...");
+            FC_ASSERT(_options->count("genesis-json"), "you must specify genesis-file");
             if( _options->count("genesis-json") )
             {
                std::string genesis_str;

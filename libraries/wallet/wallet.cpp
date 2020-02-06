@@ -133,6 +133,7 @@ public:
    std::string operator()(const blind_transfer2_operation& op)const;
    std::string operator()(const fund_payment_operation& op)const;
    std::string operator()(const fund_deposit_update_operation& op)const;
+   std::string operator()(const fund_deposit_reduce_operation& op)const;
 };
 
 template<class T>
@@ -2519,7 +2520,8 @@ public:
          {
             custom_fee_enabled = true;
             share_type amount = std::round(xfer_op.amount.amount.value * (itr->percent / 100000.0));
-            amount = (amount == 0) ? 1 : amount;
+            const asset& calc_fee = _remote_db->get_current_fee_schedule().calculate_fee(xfer_op, fee_asset_obj->options.core_exchange_rate);
+            amount = (amount < calc_fee.amount) ? calc_fee.amount : amount;
             xfer_op.fee = asset(amount, xfer_op.amount.asset_id);
          }
       }
@@ -3377,16 +3379,24 @@ std::string operation_printer::operator()(const blind_transfer2_operation& op) c
 
 std::string operation_printer::operator()(const fund_payment_operation& op) const
 {
-   out << "Fund payment, fund ID=" << fc::to_string(op.fund_id.space_id) << "." << fc::to_string(op.fund_id.type_id) << "." << op.fund_id.instance.value
-       << ", amount=" << wallet.get_asset(op.asset_to_issue.asset_id).amount_to_pretty_string(op.asset_to_issue);
+   out << "Fund payment, fund ID " << fc::to_string(op.fund_id.space_id) << "." << fc::to_string(op.fund_id.type_id) << "." << op.fund_id.instance.value
+       << ", amount " << wallet.get_asset(op.asset_to_issue.asset_id).amount_to_pretty_string(op.asset_to_issue);
 
    return fee(op.fee);
 }
 
 std::string operation_printer::operator()(const fund_deposit_update_operation& op) const
 {
-   out << "Fund deposit update, deposit ID=" << fc::to_string(op.deposit_id.space_id) << "." << fc::to_string(op.deposit_id.type_id) << "." << op.deposit_id.instance.value
-       << ", percent=" << op.percent << ", reset=" << std::boolalpha << op.reset;
+   out << "Fund deposit update, deposit ID " << fc::to_string(op.deposit_id.space_id) << "." << fc::to_string(op.deposit_id.type_id) << "." << op.deposit_id.instance.value
+       << ", percent '" << op.percent << "', reset '" << std::boolalpha << "'" << op.reset;
+
+   return fee(op.fee);
+}
+
+std::string operation_printer::operator()(const fund_deposit_reduce_operation& op) const
+{
+   out << "Fund deposit reduce, deposit ID=" << fc::to_string(op.deposit_id.space_id) << "." << fc::to_string(op.deposit_id.type_id) << "." << op.deposit_id.instance.value
+       << ", amount reduced by '" << op.amount.value << "'";
 
    return fee(op.fee);
 }

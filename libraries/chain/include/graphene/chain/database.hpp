@@ -329,6 +329,10 @@ namespace graphene { namespace chain {
 
          share_type get_deposit_daily_payment(uint32_t percent, uint32_t period, share_type amount) const;
 
+         optional<chain::settings_fee> get_custom_fee(
+            const std::vector<chain::settings_fee>& fees
+            , const asset_id_type& asset_id) const;
+
          void rebuild_user_edc_deposit_availability(account_id_type acc_id);
 
          /**

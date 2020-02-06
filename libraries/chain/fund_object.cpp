@@ -103,7 +103,7 @@ void fund_object::process(database& db) const
    h_item.create_datetime = db.head_block_time();
 
    const auto& users_idx = db.get_index_type<account_index>().indices().get<by_id>();
-   std::vector<object_id_type> deps_to_remove;
+   std::vector<fund_deposit_id_type> deps_to_remove;
 
    // find own fund deposits
    auto range = db.get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(id);
@@ -213,29 +213,33 @@ void fund_object::process(database& db) const
                // remove deposit
                deps_to_remove.emplace_back(dep.get_id());
 
-               // return deposit to user
-               chain::fund_withdrawal_operation op;
-               op.issuer = asst.issuer;
-               op.fund_id = id;
-               op.asset_to_issue = asst.amount(dep.amount.amount);
-               op.issue_to_account = dep.account_id;
-               op.datetime         = db.head_block_time();
-
-               try
+               if ( (db.head_block_time() <= HARDFORK_628_TIME)
+                    || ((db.head_block_time() > HARDFORK_628_TIME) && (dep.amount.amount > 0)) )
                {
-                  op.validate();
-                  db.apply_operation(eval, op);
-               } catch (fc::assert_exception& e) { }
+                  // return deposit to user
+                  chain::fund_withdrawal_operation op;
+                  op.issuer = asst.issuer;
+                  op.fund_id = id;
+                  op.asset_to_issue = asst.amount(dep.amount.amount);
+                  op.issue_to_account = dep.account_id;
+                  op.datetime = db.head_block_time();
 
-               // reduce fund balance
-               db.modify(*this, [&](chain::fund_object& f) {
-                  f.balance -= dep.amount.amount;
-               });
+                  try
+                  {
+                     op.validate();
+                     db.apply_operation(eval, op);
+                  } catch (fc::assert_exception& e) {}
 
-               // disable deposit
-               db.modify(dep, [&](chain::fund_deposit_object& f) {
-                  f.enabled = false;
-               });
+                  // reduce fund balance
+                  db.modify(*this, [&](chain::fund_object& f) {
+                     f.balance -= dep.amount.amount;
+                  });
+
+                  // disable deposit
+                  db.modify(dep, [&](chain::fund_deposit_object& f) {
+                     f.enabled = false;
+                  });
+               }
             }
          }
       }
@@ -311,13 +315,17 @@ void fund_object::process(database& db) const
       }
    }
 
-   // erase overdue deposits if no full-node
-   if (db.get_history_size() > 0)
-   {
-      for (const object_id_type& obj_id: deps_to_remove) {
-         db.remove(db.get_object(obj_id));
-      }
-   }
+//   // erase overdued deposits if no full-node
+//   if (db.get_history_size() > 0)
+//   {
+//      for (const fund_deposit_id_type& dep_id: deps_to_remove)
+//      {
+//         auto itr = db.get_index_type<fund_deposit_index>().indices().get<by_id>().find(dep_id);
+//         if (itr != db.get_index_type<fund_deposit_index>().indices().get<by_id>().end()) {
+//            db.remove(*itr);
+//         }
+//      }
+//   }
 
    // erase old history items
    const auto& hist_obj = history_id(db);

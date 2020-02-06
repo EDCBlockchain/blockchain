@@ -294,7 +294,7 @@ BOOST_AUTO_TEST_CASE(fund_deposit_update_operation_test)
          op.amount = 10000;
          op.from_account = bob_id;
          op.period = 5;
-         op.id = fund.id;
+         op.fund_id = fund.id;
          set_expiration(db, trx);
          trx.operations.push_back(std::move(op));
          PUSH_TX(db, trx, ~0);
@@ -332,7 +332,6 @@ BOOST_AUTO_TEST_CASE(fund_deposit_update_operation_test)
       {
          fund_deposit_update_operation op;
          op.deposit_id = object_id_type(2, 21, 0);
-         op.percent = 0;
          op.reset = true;
          set_expiration(db, trx);
          trx.operations.push_back(std::move(op));
@@ -347,6 +346,78 @@ BOOST_AUTO_TEST_CASE(fund_deposit_update_operation_test)
 
       // 991200 + 400 (old amount of payment)
       BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 991600);
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 1385);
+
+      // change deposit owner
+      {
+         fund_deposit_update_operation op;
+         op.deposit_id = object_id_type(2, 21, 0);
+         op.reset = true;
+         op.extensions.value.account_id = alice_id;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 991600);
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 1879);
+
+      BOOST_CHECK(db.get_index_type<fund_deposit_index>().indices().get<by_account_id>().count(bob_id) == 0);
+      BOOST_CHECK(db.get_index_type<fund_deposit_index>().indices().get<by_account_id>().count(alice_id) == 1);
+
+      const auto& stats_obj = fund.statistics_id(db);
+      asset asst;
+
+      {
+         auto iter = stats_obj.users_deposits.find(bob_id);
+         if (iter != stats_obj.users_deposits.end()) {
+            asst = asset(iter->second, fund.asset_id);
+         }
+         BOOST_CHECK(asst.amount == 0);
+      }
+
+      {
+         auto iter = stats_obj.users_deposits.find(alice_id);
+         if (iter != stats_obj.users_deposits.end()) {
+            asst = asset(iter->second, fund.asset_id);
+         }
+         BOOST_CHECK(asst.amount == 10000);
+      }
+
+      // change 'datetime_end' of deposit
+      {
+         // disable autorenewal
+         enable_autorenewal_deposits_operation op_a;
+         op_a.account_id = alice_id;
+         op_a.enabled = false;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op_a));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+
+         fund_deposit_update_operation op;
+         op.deposit_id = object_id_type(2, 21, 0);
+         op.extensions.value.apply_extension_flags_only = true;
+         op.extensions.value.datetime_end = db.head_block_time() + fc::seconds(120);
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 12372);
+
+      //std::cout << get_balance(alice_id, EDC_ASSET) << std::endl;
 
    } FC_LOG_AND_RETHROW()
 }
@@ -401,7 +472,7 @@ BOOST_AUTO_TEST_CASE(fund_deposit_leasing_limit_test)
          op.amount = 20000000000;
          op.from_account = bob_id;
          op.period = 5;
-         op.id = fund.id;
+         op.fund_id = fund.id;
          set_expiration(db, trx);
          trx.operations.push_back(std::move(op));
          PUSH_TX(db, trx, ~0);
@@ -434,6 +505,90 @@ BOOST_AUTO_TEST_CASE(fund_deposit_leasing_limit_test)
 
       // fee must be only 800000000 (from only first deposit)
       BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 18000000000);
+
+   } FC_LOG_AND_RETHROW()
+}
+
+BOOST_AUTO_TEST_CASE(fund_deposit_reduce_operation_test)
+{
+
+   try
+   {
+      BOOST_TEST_MESSAGE( "=== fund_deposit_reduce_operation_test ===" );
+
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(bob)
+
+      // assign privileges for creating_asset_operation
+      SET_ACTOR_CAN_CREATE_ASSET(alice_id)
+
+      create_edc(100000000000);
+
+      issue_uia(bob_id, asset(1000000, EDC_ASSET));
+
+      fc::time_point_sec h_time = HARDFORK_627_TIME;
+      generate_blocks(h_time);
+
+      // payments to fund
+      fund_options::fund_rate fr;
+      fr.amount = 10000;
+      fr.day_percent = 5000;
+      // payments to users
+      fund_options::payment_rate pr;
+      pr.period = 5;
+      pr.percent = 20000;
+
+      fund_options options;
+      options.description = "FUND DESCRIPTION";
+      options.period = 10; // fund lifetime, days
+      options.min_deposit = 10000;
+      options.rates_reduction_per_month = 300;
+      options.fund_rates.push_back(std::move(fr));
+      options.payment_rates.push_back(std::move(pr));
+      make_fund("TESTFUND", options, alice_id);
+
+      auto fund_iter = db.get_index_type<fund_index>().indices().get<by_name>().find("TESTFUND");
+      const fund_object& fund = *fund_iter;
+
+      {
+         fund_deposit_operation op;
+         op.amount = 10000;
+         op.from_account = bob_id;
+         op.period = 5;
+         op.fund_id = fund.id;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 990400);
+
+      {
+         fund_deposit_reduce_operation op;
+         op.amount = 5000;
+         op.deposit_id = object_id_type(2, 21, 0);
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      // + only half of the initial cost
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 990600);
+
+      //std::cout << get_balance(bob_id, EDC_ASSET) << std::endl;
 
    } FC_LOG_AND_RETHROW()
 }

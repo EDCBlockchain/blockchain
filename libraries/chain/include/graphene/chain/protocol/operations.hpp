@@ -137,7 +137,8 @@ namespace graphene { namespace chain {
             account_update_authorities_operation, // [idx: 79]
             update_settings_operation,
             account_limit_daily_volume_operation,
-            fund_deposit_update_operation         // [idx: 82]
+            fund_deposit_update_operation,         // [idx: 82]
+            fund_deposit_reduce_operation
          > operation;
 
    /// @} // operations group

@@ -38,12 +38,10 @@ namespace graphene { namespace chain {
 
       if (d.head_block_time() > HARDFORK_627_TIME)
       {
-         auto itr = std::find_if(settings.cheque_fees.begin(), settings.cheque_fees.end(), [&asset_type](const chain::settings_fee& f) {
-            return (f.asset_id == asset_type.get_id());
-         });
-         if (itr != settings.cheque_fees.end())
+         optional<chain::settings_fee> fee = d.get_custom_fee(settings.cheque_fees, asset_type.get_id());
+         if (fee)
          {
-            fee_percent = itr->percent;
+            fee_percent = fee->percent;
             custom_fee = std::round(cheque_amount.value * d.get_percent(fee_percent));
 
             bool balance_is_valid = d.get_balance(from_account, asset_type).amount >= (cheque_amount + custom_fee);

@@ -380,6 +380,23 @@ share_type database::get_deposit_daily_payment(uint32_t percent, uint32_t period
    return (share_type)std::roundl(percent_per_day * (long double)amount.value);
 }
 
+optional<chain::settings_fee> database::get_custom_fee(
+   const std::vector<chain::settings_fee>& fees
+   , const asset_id_type& asset_id) const
+{
+   optional<chain::settings_fee> result;
+
+   auto itr = std::find_if(fees.begin(), fees.end(),
+    [&asset_id](const chain::settings_fee& item) {
+       return (item.asset_id == asset_id);
+    });
+   if (itr != fees.end()) {
+      result = *itr;
+   }
+
+   return result;
+}
+
 void database::rebuild_user_edc_deposit_availability(account_id_type acc_id)
 {
    const settings_object& settings = *find(settings_id_type(0));
@@ -402,7 +419,7 @@ void database::rebuild_user_edc_deposit_availability(account_id_type acc_id)
          if (item.amount.asset_id != EDC_ASSET) { continue; }
 
          amount_count += item.amount.amount;
-         bool can_use_percent = (amount_count < settings.edc_deposit_max_sum) ? true : false;
+         bool can_use_percent = (amount_count < settings.edc_deposit_max_sum);
 
          modify(item, [&](fund_deposit_object& obj) {
             obj.can_use_percent = can_use_percent;

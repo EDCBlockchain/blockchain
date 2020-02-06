@@ -154,7 +154,7 @@ struct get_impacted_items_visitor
    void operator()( const fund_deposit_operation& op)
    {
       _impacted_accounts.insert(op.from_account);
-      _impacted_funds.insert(op.id);
+      _impacted_funds.insert(op.fund_id);
    }
    void operator()( const fund_withdrawal_operation& op)
    {
@@ -169,7 +169,21 @@ struct get_impacted_items_visitor
    void operator()( const fund_set_enable_operation& op) {
       _impacted_funds.insert(op.id);
    }
-   void operator()( const fund_deposit_set_enable_operation& op) { }
+   void operator()( const fund_deposit_set_enable_operation& op)
+   {
+      if (db_ptr)
+      {
+         auto dep_itr = db_ptr->find(op.deposit_id);
+         if (dep_itr)
+         {
+            auto dep_owner_itr = db_ptr->find(dep_itr->account_id);
+            if (dep_owner_itr) {
+               _impacted_accounts.insert(dep_owner_itr->get_id());
+            }
+         }
+      }
+   }
+
    void operator()( const fund_remove_operation& op) {
       _impacted_accounts.insert(ALPHA_ACCOUNT_ID);
    }
@@ -179,7 +193,7 @@ struct get_impacted_items_visitor
       _impacted_funds.insert(op.id);
    }
    void operator()( const enable_autorenewal_deposits_operation& op) {
-      _impacted_accounts.insert(op.account);
+      _impacted_accounts.insert(op.account_id);
    }
    void operator()( const asset_update_operation& op )
    {
@@ -337,6 +351,16 @@ struct get_impacted_items_visitor
             if (fund_itr) {
                _impacted_accounts.insert(fund_itr->owner);
             }
+         }
+      }
+   }
+   void operator()( const fund_deposit_reduce_operation& op )
+   {
+      if (db_ptr)
+      {
+         auto dep_itr = db_ptr->find(op.deposit_id);
+         if (dep_itr) {
+            _impacted_accounts.insert(dep_itr->account_id);
          }
       }
    }

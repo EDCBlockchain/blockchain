@@ -484,8 +484,11 @@ namespace graphene { namespace app {
 
     inline void reserve_op(operation_history_object& h_obj)
     {
-       if (h_obj.op.which() == operation::tag<blind_transfer2_operation>::value) {
-          h_obj.op = blind_transfer2_operation();
+       if (h_obj.op.which() == operation::tag<blind_transfer2_operation>::value)
+       {
+          blind_transfer2_operation op;
+          op.fee = asset(h_obj.result.get<asset>().amount, h_obj.result.get<asset>().asset_id);
+          h_obj.op = op;
        }
        else if (h_obj.op.which() == operation::tag<cheque_create_operation>::value) {
           h_obj.op.get<cheque_create_operation>().code.clear();

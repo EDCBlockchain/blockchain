@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE( fund_deposit_test )
       fdo.fee = asset();
       fdo.from_account = alice_id;
       fdo.period = 50;
-      fdo.id = fund.id;
+      fdo.fund_id = fund.id;
       set_expiration(db, trx);
       trx.operations.push_back(std::move(fdo));
       PUSH_TX(db, trx, ~0);
@@ -360,7 +360,7 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
 
       // disable autorenewal
       enable_autorenewal_deposits_operation op_a;
-      op_a.account = bob_id;
+      op_a.account_id = bob_id;
       op_a.enabled = false;
       set_expiration(db, trx);
       trx.operations.push_back(std::move(op_a));
@@ -409,7 +409,7 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
       fdo.fee = asset();
       fdo.from_account = bob_id;
       fdo.period = 50;
-      fdo.id = fund.get_id();
+      fdo.fund_id = fund.get_id();
       trx.operations.push_back(std::move(fdo));
       PUSH_TX(db, trx, ~0);
       trx.clear();
@@ -527,7 +527,7 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
       fdo2.fee = asset();
       fdo2.from_account = bob_id;
       fdo2.period = 50;
-      fdo2.id = fund.get_id();
+      fdo2.fund_id = fund.get_id();
       set_expiration(db, trx);
       trx.operations.push_back(std::move(fdo2));
       PUSH_TX(db, trx, ~0);
@@ -632,7 +632,7 @@ BOOST_AUTO_TEST_CASE( fund_make_autorenewal_test )
       fdo1.fee = asset();
       fdo1.from_account = bob_id;
       fdo1.period = 1;
-      fdo1.id = fund.get_id();
+      fdo1.fund_id = fund.get_id();
       set_expiration(db, trx);
       trx.operations.push_back(std::move(fdo1));
       PUSH_TX(db, trx, ~0);
@@ -653,7 +653,7 @@ BOOST_AUTO_TEST_CASE( fund_make_autorenewal_test )
 
       // disable autorenewal
       enable_autorenewal_deposits_operation op;
-      op.account = bob_id;
+      op.account_id = bob_id;
       op.enabled = false;
       set_expiration(db, trx);
       trx.operations.push_back(std::move(op));
@@ -720,7 +720,7 @@ BOOST_AUTO_TEST_CASE( funds_hardfork_626_test )
       fdo1.fee = asset();
       fdo1.from_account = bob_id;
       fdo1.period = 1;
-      fdo1.id = fund.get_id();
+      fdo1.fund_id = fund.get_id();
       set_expiration(db, trx);
       trx.operations.push_back(std::move(fdo1));
       PUSH_TX(db, trx, ~0);
@@ -767,7 +767,7 @@ BOOST_AUTO_TEST_CASE( funds_deposits_limit )
       // disable autorenewal
       {
          enable_autorenewal_deposits_operation op_a;
-         op_a.account = alice_id;
+         op_a.account_id = alice_id;
          op_a.enabled = false;
          set_expiration(db, trx);
          trx.operations.push_back(std::move(op_a));
@@ -826,7 +826,7 @@ BOOST_AUTO_TEST_CASE( funds_deposits_limit )
          fdo.fee = asset();
          fdo.from_account = alice_id;
          fdo.period = 2;
-         fdo.id = fund1.get_id();
+         fdo.fund_id = fund1.get_id();
          set_expiration(db, trx);
          trx.operations.push_back(std::move(fdo));
          PUSH_TX(db, trx, ~0);
@@ -852,7 +852,7 @@ BOOST_AUTO_TEST_CASE( funds_deposits_limit )
          fdo.fee = asset();
          fdo.from_account = alice_id;
          fdo.period = 1;
-         fdo.id = fund2.get_id();
+         fdo.fund_id = fund2.get_id();
          set_expiration(db, trx);
          trx.operations.push_back(std::move(fdo));
          BOOST_REQUIRE_THROW(db.push_transaction(trx, ~0), fc::assert_exception);
@@ -871,7 +871,7 @@ BOOST_AUTO_TEST_CASE( funds_deposits_limit )
          fdo.fee = asset();
          fdo.from_account = alice_id;
          fdo.period = 1;
-         fdo.id = fund2.get_id();
+         fdo.fund_id = fund2.get_id();
          set_expiration(db, trx);
          trx.operations.push_back(std::move(fdo));
          PUSH_TX(db, trx, ~0);
@@ -924,7 +924,7 @@ BOOST_AUTO_TEST_CASE( funds_payments_limit )
       // disable autorenewal
       {
          enable_autorenewal_deposits_operation op_a;
-         op_a.account = bob_id;
+         op_a.account_id = bob_id;
          op_a.enabled = false;
          set_expiration(db, trx);
          trx.operations.push_back(std::move(op_a));
@@ -939,7 +939,7 @@ BOOST_AUTO_TEST_CASE( funds_payments_limit )
          fdo.fee = asset();
          fdo.from_account = bob_id;
          fdo.period = 10;
-         fdo.id = fund.get_id();
+         fdo.fund_id = fund.get_id();
          set_expiration(db, trx);
          trx.operations.push_back(std::move(fdo));
          PUSH_TX(db, trx, ~0);
@@ -964,7 +964,7 @@ BOOST_AUTO_TEST_CASE( funds_payments_limit )
          fdo.fee = asset();
          fdo.from_account = bob_id;
          fdo.period = 10;
-         fdo.id = fund.get_id();
+         fdo.fund_id = fund.get_id();
          set_expiration(db, trx);
          trx.operations.push_back(std::move(fdo));
          BOOST_REQUIRE_THROW(db.push_transaction(trx, ~0), fc::assert_exception);
@@ -985,7 +985,7 @@ BOOST_AUTO_TEST_CASE( funds_payments_limit )
          fdo.fee = asset();
          fdo.from_account = bob_id;
          fdo.period = 10;
-         fdo.id = fund.get_id();
+         fdo.fund_id = fund.get_id();
          set_expiration(db, trx);
          trx.operations.push_back(std::move(fdo));
          PUSH_TX(db, trx, ~0);

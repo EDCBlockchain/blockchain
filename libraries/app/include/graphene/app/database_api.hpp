@@ -117,7 +117,14 @@ struct cheque_info_object
    // amount for each payee
    asset payee_amount;
 
-}; // cheque_info_object
+};
+
+struct transfer_fee_info
+{
+   asset amount;
+   std::string name;
+   uint32_t precision = 0;
+};
 
 /**
  * @brief The database_api class implements the RPC API for the chain database.
@@ -650,6 +657,7 @@ class database_api
        */
       set<public_key_type> get_potential_signatures( const signed_transaction& trx )const;
       set<address> get_potential_address_signatures( const signed_transaction& trx )const;
+      fee_schedule get_current_fee_schedule() const;
 
       /**
        * @return true of the @ref trx has all of the required signatures, otherwise throws an exception
@@ -702,6 +710,10 @@ class database_api
 
       optional<signed_block> get_block_reserved(uint32_t block_num) const;
 
+      transfer_fee_info get_required_transfer_fee(const asset& amount) const;
+      transfer_fee_info get_required_blind_transfer_fee(const asset& amount) const;
+      transfer_fee_info get_required_cheque_fee(const asset& amount, uint32_t count) const;
+
    private:
       std::shared_ptr<database_api_impl> my;
 
@@ -719,6 +731,7 @@ FC_REFLECT( graphene::app::cheque_info_object,
             (datetime_expiration)
             (payee_amount)
           );
+FC_REFLECT(graphene::app::transfer_fee_info, (amount)(name)(precision));
 
 FC_API(graphene::app::database_api,
    // Objects
@@ -830,6 +843,7 @@ FC_API(graphene::app::database_api,
    (get_required_signatures)
    (get_potential_signatures)
    (get_potential_address_signatures)
+   (get_current_fee_schedule)
    (verify_authority)
    (verify_account_authority)
    (validate_transaction)
@@ -843,4 +857,8 @@ FC_API(graphene::app::database_api,
 
    // cheques
    (get_cheque_by_code)
+
+   (get_required_transfer_fee)
+   (get_required_blind_transfer_fee)
+   (get_required_cheque_fee)
 )

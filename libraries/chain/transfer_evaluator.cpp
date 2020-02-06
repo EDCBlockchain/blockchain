@@ -40,6 +40,7 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
    to_account_ptr = &op.to(d);
 
    const asset_object& asset_type = op.amount.asset_id(d);
+   const asset_object& fee_asset_type = asset_type.params.fee_paying_asset(d);
    asset_dyn_data_ptr = &asset_type.dynamic_asset_data_id(d);
    const settings_object& settings = *d.find(settings_id_type(0));
 
@@ -95,13 +96,17 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
             );
          }
 
-         auto itr = std::find_if(settings.transfer_fees.begin(), settings.transfer_fees.end(), [&asset_type](const chain::settings_fee& f) {
-            return (f.asset_id == asset_type.get_id());
-         });
-         if (itr != settings.transfer_fees.end())
+         optional<chain::settings_fee> fee;
+         if (d.head_block_time() > HARDFORK_628_TIME) {
+            fee = d.get_custom_fee(settings.transfer_fees, fee_asset_type.get_id());
+         }
+         else {
+            fee = d.get_custom_fee(settings.transfer_fees, asset_type.get_id());
+         }
+
+         if (fee)
          {
-            fee_percent = itr->percent;
-            custom_fee = std::round(op.amount.amount.value * d.get_percent(fee_percent));
+            custom_fee = std::round(op.amount.amount.value * d.get_percent(fee->percent));
 
             bool balance_is_valid = d.get_balance(from_account, asset_type).amount >= (op.amount.amount + custom_fee);
             FC_ASSERT(balance_is_valid,
@@ -230,13 +235,11 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
 
       if (d.head_block_time() > HARDFORK_627_TIME)
       {
-         auto itr = std::find_if(settings.blind_transfer_fees.begin(), settings.blind_transfer_fees.end(), [&asset_type](const chain::settings_fee& item) {
-            return (item.asset_id == asset_type.get_id());
-         });
-         if (itr != settings.blind_transfer_fees.end())
+         optional<chain::settings_fee> fee = d.get_custom_fee(settings.blind_transfer_fees, asset_type.get_id());
+         if (fee)
          {
-            custom_fee = asset(0, itr->asset_id);
-            custom_fee.amount = std::round(op.amount.amount.value * d.get_percent(itr->percent));
+            custom_fee = asset(0, fee->asset_id);
+            custom_fee.amount = std::round(op.amount.amount.value * d.get_percent(fee->percent));
 
             fee_dyn_data_ptr = &custom_fee.asset_id(d).dynamic_asset_data_id(d);
          }

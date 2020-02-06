@@ -162,6 +162,7 @@ namespace graphene { namespace chain {
    struct by_account_id;
    struct by_fund_id;
    struct by_period;
+   struct by_datetime_end;
 
    /**
     * @ingroup object_index
@@ -172,7 +173,8 @@ namespace graphene { namespace chain {
             ordered_unique<tag<by_id>, member<object, object_id_type, &object::id>>,
             ordered_non_unique<tag<by_account_id>, member<fund_deposit_object, account_id_type, &fund_deposit_object::account_id>>,
             ordered_non_unique<tag<by_fund_id>, member<fund_deposit_object, fund_id_type, &fund_deposit_object::fund_id>>,
-            ordered_non_unique<tag<by_period>, member<fund_deposit_object, uint32_t, &fund_deposit_object::period>>
+            ordered_non_unique<tag<by_period>, member<fund_deposit_object, uint32_t, &fund_deposit_object::period>>,
+            ordered_non_unique<tag<by_datetime_end>, member<fund_deposit_object, fc::time_point_sec, &fund_deposit_object::datetime_end>>
          >
    > fund_deposit_object_index_type;
 
