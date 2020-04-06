@@ -24,6 +24,7 @@
 #include <graphene/chain/asset_object.hpp>
 #include <graphene/chain/database.hpp>
 
+#include <fc/io/raw.hpp>
 #include <fc/uint128.hpp>
 
 #include <cmath>
@@ -37,10 +38,11 @@ share_type asset_bitasset_data_object::max_force_settlement_volume(share_type cu
    if( options.maximum_force_settlement_volume == GRAPHENE_100_PERCENT )
       return current_supply + force_settled_volume;
 
-   fc::uint128 volume = current_supply.value + force_settled_volume.value;
+   fc::uint128_t volume = current_supply.value;
+   volume += force_settled_volume.value;
    volume *= options.maximum_force_settlement_volume;
    volume /= GRAPHENE_100_PERCENT;
-   return volume.to_uint64();
+   return static_cast<uint64_t>(volume);
 }
 
 void graphene::chain::asset_bitasset_data_object::update_median_feeds(time_point_sec current_time)
@@ -158,3 +160,25 @@ string asset_object::amount_to_string(share_type amount) const
       result += "." + fc::to_string(scaled_precision.value + decimals).erase(0,1);
    return result;
 }
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::asset_dynamic_data_object, (graphene::db::object),
+                    (current_supply)
+                    (confidential_supply)
+                    (accumulated_fees)
+                    (fee_pool)
+                    (fee_burnt) )
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::asset_bitasset_data_object, (graphene::db::object),
+                    (options)
+                    (feeds)
+                    (current_feed)
+                    (current_feed_publication_time)
+                    (is_prediction_market)
+                    (force_settled_volume)
+                    (settlement_price)
+                    (settlement_fund)
+                  )
+
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::asset_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::asset_bitasset_data_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::asset_dynamic_data_object )

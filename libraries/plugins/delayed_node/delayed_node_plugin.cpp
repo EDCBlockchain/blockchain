@@ -23,15 +23,13 @@
  */
 
 #include <graphene/delayed_node/delayed_node_plugin.hpp>
-#include <graphene/chain/protocol/types.hpp>
+#include <graphene/protocol/types.hpp>
 #include <graphene/chain/database.hpp>
 #include <graphene/app/api.hpp>
 
 #include <fc/network/http/websocket.hpp>
 #include <fc/rpc/websocket_api.hpp>
 #include <fc/api.hpp>
-#include <fc/smart_ref_impl.hpp>
-
 
 namespace graphene { namespace delayed_node {
 namespace bpo = boost::program_options;
@@ -42,7 +40,6 @@ struct delayed_node_plugin_impl {
    fc::http::websocket_client client;
    std::shared_ptr<fc::rpc::websocket_api_connection> client_connection;
    fc::api<graphene::app::database_api> database_api;
-   //fc::api<graphene::app::secure_api> secure_api;
    boost::signals2::scoped_connection client_connection_closed;
    graphene::chain::block_id_type last_received_remote_head;
    graphene::chain::block_id_type last_processed_remote_head;
@@ -50,7 +47,7 @@ struct delayed_node_plugin_impl {
 }
 
 delayed_node_plugin::delayed_node_plugin()
-   : my(new detail::delayed_node_plugin_impl) { }
+   : my(nullptr) { }
 
 delayed_node_plugin::~delayed_node_plugin() { }
 
@@ -65,7 +62,12 @@ void delayed_node_plugin::connect()
    try
    {
       my->client_connection = std::make_shared<fc::rpc::websocket_api_connection>(
-      *my->client.connect(my->remote_endpoint), GRAPHENE_NET_MAX_NESTED_OBJECTS);
+      my->client.connect(my->remote_endpoint),
+      GRAPHENE_NET_MAX_NESTED_OBJECTS );
+      my->database_api = my->client_connection->get_remote_api<graphene::app::database_api>(0);
+      my->client_connection_closed = my->client_connection->closed.connect([this] {
+         connection_failed();
+      });
    }
    catch( const fc::exception& e )
    {
@@ -73,15 +75,8 @@ void delayed_node_plugin::connect()
       connection_failed();
       return;
    }
-   // // login api
-   // auto login_api = my->client_connection->get_remote_api<graphene::app::login_api>(1);
-   // FC_ASSERT(login_api->login("admin", "8GfMsn3baNWfvuZxEMQj"), "Failed to log in to API server");
-
    // database api
    my->database_api = my->client_connection->get_remote_api<graphene::app::database_api>(0);
-
-   //   // secure api
-   //   my->secure_api = my->client_connection->get_remote_api<graphene::app::secure_api>(0);
 
    my->client_connection_closed = my->client_connection->closed.connect([this] {
       connection_failed();
@@ -93,7 +88,10 @@ void delayed_node_plugin::connect()
    } );
 }
 
-void delayed_node_plugin::plugin_initialize(const boost::program_options::variables_map& options) {
+void delayed_node_plugin::plugin_initialize(const boost::program_options::variables_map& options)
+{
+   FC_ASSERT(options.count("trusted-node") > 0);
+   my = std::unique_ptr<detail::delayed_node_plugin_impl>{ new detail::delayed_node_plugin_impl() };
    my->remote_endpoint = "ws://" + options.at("trusted-node").as<std::string>();
 }
 

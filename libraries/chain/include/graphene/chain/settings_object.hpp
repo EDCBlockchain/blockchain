@@ -1,5 +1,5 @@
 #pragma once
-#include <graphene/chain/protocol/operations.hpp>
+#include <graphene/protocol/operations.hpp>
 #include <graphene/db/generic_index.hpp>
 #include <boost/multi_index/composite_key.hpp>
 #include <fc/uint128.hpp>
@@ -42,20 +42,8 @@ namespace graphene { namespace chain {
 
 }}
 
-FC_REFLECT_DERIVED( graphene::chain::settings_object,
-                    (graphene::db::object),
-                    (transfer_fees)
-                    (blind_transfer_fees)
-                    (cheque_fees)
-                    (blind_transfer_default_fee)
-                    (edc_deposit_max_sum)
-                    (edc_transfers_daily_limit)
-                    (create_market_address_fee_edc) )
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::settings_object)
 
+FC_REFLECT_TYPENAME( graphene::chain::settings_object )
 
-
-
-
-
-
-
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::settings_object )

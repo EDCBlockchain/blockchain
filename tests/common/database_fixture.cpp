@@ -43,7 +43,6 @@
 #include <graphene/utilities/tempdir.hpp>
 
 #include <fc/crypto/digest.hpp>
-#include <fc/smart_ref_impl.hpp>
 
 #include "database_fixture.hpp"
 
@@ -89,7 +88,7 @@ database_fixture::database_fixture()
       genesis_state.initial_witness_candidates.push_back({name, init_account_priv_key.get_public_key()});
    }
 
-   genesis_state.initial_parameters.current_fees->zero_all_fees();
+   genesis_state.initial_parameters.get_mutable_fees().zero_all_fees();
    open_database();
        
    // app.initialize();
@@ -589,7 +588,7 @@ void database_fixture::change_fees(
       new_fees.scale = new_scale;
 
    chain_parameters new_chain_params = current_chain_params;
-   new_chain_params.current_fees = new_fees;
+   new_chain_params.get_mutable_fees() = new_fees;
 
    db.modify(db.get_global_properties(), [&](global_property_object& p) {
       p.parameters = new_chain_params;
@@ -598,8 +597,7 @@ void database_fixture::change_fees(
 
 const account_object& database_fixture::create_account(
    const string& name,
-   const public_key_type& key /* = public_key_type() */
-   )
+   const public_key_type& key)
 {
    set_expiration(db, trx);
    trx.operations.push_back(make_account(name, key));
@@ -607,9 +605,6 @@ const account_object& database_fixture::create_account(
    processed_transaction ptx = db.push_transaction(trx, ~0);
    const account_object& result = db.get<account_object>(ptx.operation_results[0].get<object_id_type>());
    trx.operations.clear();
-
-   //result.can_create_and_update_asset = true;
-
    return result;
 }
 
@@ -915,14 +910,12 @@ void database_fixture::fund_fee_pool( const account_object& from, const asset_ob
 
 void database_fixture::enable_fees()
 {
-   db.modify(global_property_id_type()(db), [](global_property_object& gpo)
-      {
-         gpo.parameters.current_fees = fee_schedule::get_default();
-      });
+   db.modify(global_property_id_type()(db), [](global_property_object& gpo) {
+      gpo.parameters.get_mutable_fees() = fee_schedule::get_default();
+   });
 }
 
-void database_fixture::upgrade_to_lifetime_member(account_id_type account)
-{
+void database_fixture::upgrade_to_lifetime_member(account_id_type account) {
    upgrade_to_lifetime_member(account(db));
 }
 
@@ -944,8 +937,7 @@ void database_fixture::upgrade_to_lifetime_member( const account_object& account
    FC_CAPTURE_AND_RETHROW((account))
 }
 
-void database_fixture::upgrade_to_annual_member(account_id_type account)
-{
+void database_fixture::upgrade_to_annual_member(account_id_type account) {
    upgrade_to_annual_member(account(db));
 }
 

@@ -25,7 +25,7 @@
 
 #include <graphene/app/full_account.hpp>
 
-#include <graphene/chain/protocol/types.hpp>
+#include <graphene/protocol/types.hpp>
 
 #include <graphene/chain/database.hpp>
 
@@ -124,6 +124,19 @@ struct transfer_fee_info
    asset amount;
    std::string name;
    uint32_t precision = 0;
+};
+
+struct max_transfer_info
+{
+   struct fee_t
+   {
+      asset amount;
+      std::string name;
+      uint32_t precision = 0;
+   };
+
+   asset amount;
+   fee_t fee;
 };
 
 /**
@@ -713,25 +726,33 @@ class database_api
       transfer_fee_info get_required_transfer_fee(const asset& amount) const;
       transfer_fee_info get_required_blind_transfer_fee(const asset& amount) const;
       transfer_fee_info get_required_cheque_fee(const asset& amount, uint32_t count) const;
+      max_transfer_info get_max_transfer_amount_and_fee(const asset& amount, bool is_blind) const;
+      max_transfer_info get_max_cheque_amount_and_fee(const asset& amount) const;
+      asset get_burnt_asset(asset_id_type id) const;
 
-   private:
+private:
       std::shared_ptr<database_api_impl> my;
 
 }; // database_api
 
 } }
 
-FC_REFLECT( graphene::app::order, (price)(quote)(base) );
-FC_REFLECT( graphene::app::order_book, (base)(quote)(bids)(asks) );
-FC_REFLECT( graphene::app::market_ticker, (base)(quote)(latest)(lowest_ask)(highest_bid)(percent_change)(base_volume)(quote_volume) );
-FC_REFLECT( graphene::app::market_volume, (base)(quote)(base_volume)(quote_volume) );
-FC_REFLECT( graphene::app::market_trade, (date)(price)(amount)(value) );
+FC_REFLECT( graphene::app::order, (price)(quote)(base) )
+FC_REFLECT( graphene::app::order_book, (base)(quote)(bids)(asks) )
+FC_REFLECT( graphene::app::market_ticker, (base)(quote)(latest)(lowest_ask)(highest_bid)(percent_change)(base_volume)(quote_volume) )
+FC_REFLECT( graphene::app::market_volume, (base)(quote)(base_volume)(quote_volume) )
+FC_REFLECT( graphene::app::market_trade, (date)(price)(amount)(value) )
 FC_REFLECT( graphene::app::cheque_info_object,
             (id)
             (datetime_expiration)
             (payee_amount)
-          );
-FC_REFLECT(graphene::app::transfer_fee_info, (amount)(name)(precision));
+          )
+FC_REFLECT(graphene::app::transfer_fee_info, (amount)(name)(precision))
+
+FC_REFLECT(graphene::app::max_transfer_info::fee_t, (amount)(name)(precision))
+FC_REFLECT(graphene::app::max_transfer_info, (amount)(fee))
+
+extern template class fc::api<graphene::app::database_api>;
 
 FC_API(graphene::app::database_api,
    // Objects
@@ -858,7 +879,11 @@ FC_API(graphene::app::database_api,
    // cheques
    (get_cheque_by_code)
 
+   // others
    (get_required_transfer_fee)
    (get_required_blind_transfer_fee)
    (get_required_cheque_fee)
+   (get_max_transfer_amount_and_fee)
+   (get_max_cheque_amount_and_fee)
+   (get_burnt_asset)
 )

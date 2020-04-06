@@ -25,8 +25,11 @@
 #include <graphene/chain/asset_object.hpp>
 #include <graphene/chain/database.hpp>
 #include <graphene/chain/hardfork.hpp>
+
+#include <fc/io/raw.hpp>
 #include <fc/uint128.hpp>
 #include <iostream>
+
 namespace graphene { namespace chain {
 
 share_type cut_fee(share_type a, uint16_t p)
@@ -36,10 +39,10 @@ share_type cut_fee(share_type a, uint16_t p)
    if( p == GRAPHENE_100_PERCENT )
       return a;
 
-   fc::uint128 r(a.value);
+   fc::uint128_t r = a.value;
    r *= p;
    r /= GRAPHENE_100_PERCENT;
-   return r.to_uint64();
+   return static_cast<uint64_t>(r);
 }
 
 void account_balance_object::adjust_balance(const asset& delta)
@@ -435,17 +438,79 @@ void account_member_index::object_modified(const object& after)
 
 }
 
-void account_referrer_index::object_inserted( const object& obj )
-{
-}
-void account_referrer_index::object_removed( const object& obj )
-{
-}
-void account_referrer_index::about_to_modify( const object& before )
-{
-}
-void account_referrer_index::object_modified( const object& after  )
-{
-}
+void account_referrer_index::object_inserted( const object& obj ) { }
+void account_referrer_index::object_removed( const object& obj ) { }
+void account_referrer_index::about_to_modify( const object& before ) { }
+void account_referrer_index::object_modified( const object& after  ) { }
 
 } } // graphene::chain
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::account_object,
+                                (graphene::db::object),
+                                (membership_expiration_date)
+                                (registrar)(referrer)(lifetime_referrer)
+                                (network_fee_percentage)(lifetime_referrer_fee_percentage)(referrer_rewards_percentage)
+                                (name)(owner)(active)(addresses)(options)(statistics)(whitelisting_accounts)(blacklisting_accounts)(deposit_sums)
+                                (whitelisted_accounts)(blacklisted_accounts)
+                                (cashback_vb)
+                                (owner_special_authority)(active_special_authority)
+                                (top_n_control_flags)
+                                (allowed_assets)
+                                (register_datetime)(last_generated_address)
+                                (current_restriction)(is_market)(verification_is_required)
+                                (can_create_and_update_asset)(can_create_addresses)
+                                (burning_mode_enabled)
+                                (deposits_autorenewal_enabled)
+                                (edc_in_deposits)
+                                (edc_limit_daily_volume_enabled)
+                                (edc_transfers_daily_amount_counter)
+                              )
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::account_balance_object,
+                                (graphene::db::object),
+                                (owner)(asset_type)(balance)(mandatory_transfer)
+                              )
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::account_statistics_object,
+                                (graphene::chain::object),
+                                (owner)(most_recent_op)(total_ops)(total_core_in_orders)
+                                (lifetime_fees_paid)(pending_fees)(pending_vested_fees)
+                              )
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::restricted_account_object,
+                                (graphene::db::object),
+                                (account)(restriction_type)
+                              )
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::accounts_online_object,
+                                (graphene::db::object),
+                                (online_info)
+                              )
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::market_address_object,
+                                (graphene::db::object),
+                                (market_account_id)
+                                (addr)
+                                (notes)
+                                (create_datetime)
+                              )
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::blind_transfer2_object,
+                                (graphene::db::object),
+                                (from)(to)(amount)(datetime)(memo)(fee)
+                              )
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::bonus_balances_object,
+                                (graphene::db::object),
+                                (owner)(balances_by_date)
+                              )
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::account_mature_balance_object,
+                                (graphene::db::object),
+                                (owner)(asset_type)(balance)(history)(mandatory_transfer)
+                              )
+
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::account_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::restricted_account_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::accounts_online_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::market_address_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::blind_transfer2_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::bonus_balances_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::account_balance_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::account_mature_balance_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::account_statistics_object )

@@ -32,7 +32,6 @@
 #include <graphene/chain/database.hpp>
 
 #include <fc/thread/thread.hpp>
-#include <fc/smart_ref_impl.hpp>
 
 #include <boost/filesystem/path.hpp>
 
@@ -64,7 +63,6 @@ BOOST_AUTO_TEST_CASE( two_node_network )
       cfg.emplace("p2p-endpoint", boost::program_options::variable_value(string("127.0.0.1:3939"), false));
       cfg.emplace("genesis-json", boost::program_options::variable_value(create_genesis_file(app_dir), false));
       cfg.emplace("seed-nodes", boost::program_options::variable_value(string("[]"), false));
-      cfg.emplace("referrer_mode_enabled", boost::program_options::variable_value(string("[]"), false));
       app1.initialize(app_dir.path(), cfg);
 
       BOOST_TEST_MESSAGE( "Creating and initializing app2" );
@@ -77,7 +75,6 @@ BOOST_AUTO_TEST_CASE( two_node_network )
       cfg2.emplace("genesis-json", boost::program_options::variable_value(create_genesis_file(app_dir), false));
       cfg2.emplace("seed-node", boost::program_options::variable_value(vector<string>{"127.0.0.1:3939"}, false));
       cfg2.emplace("seed-nodes", boost::program_options::variable_value(string("[]"), false));
-      cfg2.emplace("referrer_mode_enabled", boost::program_options::variable_value(string("[]"), false));
       app2.initialize(app2_dir.path(), cfg2);
 
       BOOST_TEST_MESSAGE( "Starting app1 and waiting 500 ms" );

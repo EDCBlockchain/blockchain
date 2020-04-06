@@ -60,11 +60,11 @@ sha1 operator << ( const sha1& h1, uint32_t i ) {
 }
 sha1 operator ^ ( const sha1& h1, const sha1& h2 ) {
   sha1 result;
-  result._hash[0] = h1._hash[0] ^ h2._hash[0];
-  result._hash[1] = h1._hash[1] ^ h2._hash[1];
-  result._hash[2] = h1._hash[2] ^ h2._hash[2];
-  result._hash[3] = h1._hash[3] ^ h2._hash[3];
-  result._hash[4] = h1._hash[4] ^ h2._hash[4];
+  result._hash[0] = h1._hash[0].value() ^ h2._hash[0].value();
+  result._hash[1] = h1._hash[1].value() ^ h2._hash[1].value();
+  result._hash[2] = h1._hash[2].value() ^ h2._hash[2].value();
+  result._hash[3] = h1._hash[3].value() ^ h2._hash[3].value();
+  result._hash[4] = h1._hash[4].value() ^ h2._hash[4].value();
   return result;
 }
 bool operator >= ( const sha1& h1, const sha1& h2 ) {
@@ -92,7 +92,7 @@ bool operator == ( const sha1& h1, const sha1& h2 ) {
     std::vector<char> ve = v.as< std::vector<char> >( max_depth );
     memset( &bi, char(0), sizeof(bi) );
     if( ve.size() )
-       memcpy( &bi, ve.data(), fc::min<size_t>(ve.size(),sizeof(bi)) );
+       memcpy( &bi, ve.data(), std::min<size_t>(ve.size(),sizeof(bi)) );
   }
   
 } // fc

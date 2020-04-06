@@ -30,6 +30,7 @@
 #include <graphene/chain/vesting_balance_object.hpp>
 #include <graphene/chain/witness_object.hpp>
 #include <graphene/chain/settings_object.hpp>
+#include <graphene/chain/hardfork.hpp>
 
 #include <iostream>
 #include <boost/range/adaptor/reversed.hpp>
@@ -240,7 +241,7 @@ void database::process_bonus_balances(account_id_type account_id)
 
       if (head_block_time() < HARDFORK_621_TIME)
       {
-         chain::referral_issue_operation r_op;
+         referral_issue_operation r_op;
          r_op.issuer = edc_asset->issuer;
          r_op.asset_to_issue = check_supply_overflow( edc_asset->amount( balance_info.referral.quantity ) );
          r_op.issue_to_account = account_id;
@@ -255,7 +256,7 @@ void database::process_bonus_balances(account_id_type account_id)
 
       for (auto blns : balance_info.balances) {
          auto account_balance = get_balance(account_id, blns.first).amount;
-         chain::daily_issue_operation op;
+         daily_issue_operation op;
          op.issuer = blns.first(*this).issuer;
          op.asset_to_issue = check_supply_overflow( asset( blns.second, blns.first ) );
          op.issue_to_account = account_id;
@@ -354,16 +355,11 @@ share_type database::get_user_deposits_sum(account_id_type acc_id, asset_id_type
 {
    share_type amount = 0;
 
-   const auto& idx_funds = get_index_type<fund_index>().indices().get<by_id>();
-   for (const fund_object& fund_obj: idx_funds)
+   const account_object& acc = acc_id(*this);
+   for (const std::pair<fund_id_type, asset>& item_pair: acc.deposit_sums)
    {
-      if (fund_obj.asset_id == asset_id)
-      {
-         const auto& stats_obj = fund_obj.get_id()(*this).statistics_id(*this);
-         auto iter = stats_obj.users_deposits.find(acc_id);
-         if (iter != stats_obj.users_deposits.end()) {
-            amount += iter->second;
-         }
+      if (item_pair.second.asset_id == asset_id) {
+         amount += item_pair.second.amount;
       }
    }
 
@@ -428,6 +424,12 @@ void database::rebuild_user_edc_deposit_availability(account_id_type acc_id)
    }
 }
 
+asset database::get_burnt_asset(asset_id_type id)
+{
+   const asset_dynamic_data_object& asset_dyn_data_ptr = id(*this).dynamic_asset_data_id(*this);
+   return asset(asset_dyn_data_ptr.fee_burnt, id);
+}
+
 void database::issue_referral()
 {
    const auto& idx = get_index_type<chain::account_index>();
@@ -469,7 +471,7 @@ void database::issue_referral()
          }
          if ( (head_block_time() < HARDFORK_620_TIME) && ( balance.value * 0.0065 * online_part < 1 ) ) { continue; }
 
-         chain::referral_issue_operation r_op;
+         referral_issue_operation r_op;
          r_op.issuer = edc_asset->issuer;
          r_op.asset_to_issue = check_supply_overflow( 
                                         edc_asset->amount( head_block_time() > HARDFORK_618_TIME && head_block_time() < HARDFORK_619_TIME ? 
@@ -551,8 +553,10 @@ void database::deposit_cashback(const account_object& acct, share_type amount, b
        acct.get_id() == GRAPHENE_TEMP_ACCOUNT )
    {
       // The blockchain's accounts do not get cashback; it simply goes to the reserve pool.
-      modify(get(asset_id_type()).dynamic_asset_data_id(*this), [amount](asset_dynamic_data_object& d) {
+      modify(get(asset_id_type()).dynamic_asset_data_id(*this), [amount](asset_dynamic_data_object& d)
+      {
          d.current_supply -= amount;
+         d.fee_burnt += amount;
       });
       return;
    }

@@ -1,6 +1,4 @@
 #pragma once
-#include <fc/utility.hpp>
-#include <fc/shared_ptr.hpp>
 #include <memory>
 
 namespace fc {
@@ -36,8 +34,8 @@ namespace fc {
       fc::ip::endpoint local_endpoint()const;
 
     private:
-      class                impl;
-      fc::shared_ptr<impl> my;
+      class                 impl;
+      std::shared_ptr<impl> my;
   };
 
 }

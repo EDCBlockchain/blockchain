@@ -22,37 +22,29 @@
  * THE SOFTWARE.
  */
 
-#include <algorithm>
-#include <iomanip>
 #include <iostream>
-#include <iterator>
 
 #include <fc/io/json.hpp>
 #include <fc/io/stdio.hpp>
-#include <fc/network/http/server.hpp>
 #include <fc/network/http/websocket.hpp>
 #include <fc/rpc/cli.hpp>
-#include <fc/rpc/http_api.hpp>
 #include <fc/rpc/websocket_api.hpp>
-#include <fc/smart_ref_impl.hpp>
 
 #include <graphene/app/api.hpp>
-
-#include <graphene/chain/protocol/protocol.hpp>
+#include <graphene/chain/config.hpp>
 #include <graphene/egenesis/egenesis.hpp>
 #include <graphene/utilities/key_conversion.hpp>
 #include <graphene/wallet/wallet.hpp>
 
-#include <fc/interprocess/signals.hpp>
 #include <boost/program_options.hpp>
+
+#include <fc/interprocess/signals.hpp>
+#include <fc/asio.hpp>
 
 #include <fc/log/console_appender.hpp>
 #include <fc/log/file_appender.hpp>
 #include <fc/log/logger.hpp>
 #include <fc/log/logger_config.hpp>
-#include <fc/asio.hpp>
-
-#include <graphene/chain/config.hpp>
 
 #ifdef WIN32
 # include <signal.h>
@@ -67,9 +59,68 @@ using namespace graphene::wallet;
 using namespace std;
 namespace bpo = boost::program_options;
 
+fc::log_level string_to_level(string level)
+{
+   fc::log_level result;
+   if(level == "info")
+      result = fc::log_level::info;
+   else if(level == "debug")
+      result = fc::log_level::debug;
+   else if(level == "warn")
+      result = fc::log_level::warn;
+   else if(level == "error")
+      result = fc::log_level::error;
+   else if(level == "all")
+      result = fc::log_level::all;
+   else
+      FC_THROW("Log level not allowed. Allowed levels are info, debug, warn, error and all.");
+
+   return result;
+}
+
+void setup_logging(string console_level, bool file_logger, string file_level, string file_name)
+{
+   fc::logging_config cfg;
+
+   // console logger
+   fc::console_appender::config console_appender_config;
+   console_appender_config.level_colors.emplace_back(
+   fc::console_appender::level_color(fc::log_level::debug,
+                                     fc::console_appender::color::green));
+   console_appender_config.level_colors.emplace_back(
+   fc::console_appender::level_color(fc::log_level::warn,
+                                     fc::console_appender::color::brown));
+   console_appender_config.level_colors.emplace_back(
+   fc::console_appender::level_color(fc::log_level::error,
+                                     fc::console_appender::color::red));
+   cfg.appenders.push_back(fc::appender_config( "default", "console", fc::variant(console_appender_config, 20)));
+   cfg.loggers = { fc::logger_config("default"), fc::logger_config( "rpc") };
+   cfg.loggers.front().level = string_to_level(console_level);
+   cfg.loggers.front().appenders = {"default"};
+
+   // file logger
+   if(file_logger) {
+      fc::path data_dir;
+      fc::path log_dir = data_dir / "cli_wallet_logs";
+      fc::file_appender::config ac;
+      ac.filename             = log_dir / file_name;
+      ac.flush                = true;
+      ac.rotate               = true;
+      ac.rotation_interval    = fc::hours( 1 );
+      ac.rotation_limit       = fc::days( 1 );
+      cfg.appenders.push_back(fc::appender_config( "rpc", "file", fc::variant(ac, 5)));
+      cfg.loggers.back().level = string_to_level(file_level);
+      cfg.loggers.back().appenders = {"rpc"};
+      fc::configure_logging( cfg );
+      ilog ("Logging RPC to file: " + (ac.filename).preferred_string());
+   }
+}
+
 int main( int argc, char** argv )
 {
+
    try {
+
       boost::program_options::options_description opts;
          opts.add_options()
          ("help,h", "Print this help message and exit.")
@@ -86,6 +137,10 @@ int main( int argc, char** argv )
          ("delayed",  bpo::bool_switch(), "Connect to delayed node if specified")
          ("no-backups",  bpo::bool_switch(), "Disable before/after import key backups creation if specified")
          ("io-threads", bpo::value<uint16_t>()->implicit_value(1), "Number of IO threads, default to 1")
+         ("logs-rpc-console-level", bpo::value<string>()->default_value("info"), "Level of console logging")
+         ("logs-rpc-file", bpo::value<bool>()->default_value(true), "Turn on/off file logging")
+         ("logs-rpc-file-level", bpo::value<string>()->default_value("debug"), "Level of file logging")
+         ("logs-rpc-file-name", bpo::value<string>()->default_value("rpc.log"), "File name for file rpc logs")
          ;
 
       bpo::variables_map options;
@@ -104,27 +159,9 @@ int main( int argc, char** argv )
          fc::asio::default_io_service_scope::set_num_threads(num_threads);
       }
 
-      fc::path data_dir;
-      fc::logging_config cfg;
-      fc::path log_dir = data_dir / "logs";
-
-      fc::file_appender::config ac;
-      ac.filename             = log_dir / "rpc" / "rpc.log";
-      ac.flush                = true;
-      ac.rotate               = true;
-      ac.rotation_interval    = fc::hours( 1 );
-      ac.rotation_limit       = fc::days( 1 );
-
-      std::cout << "Logging RPC to file: " << (data_dir / ac.filename).preferred_string() << "\n";
-
-      cfg.appenders.push_back(fc::appender_config( "default", "console", fc::variant(fc::console_appender::config(), 20)));
-      cfg.appenders.push_back(fc::appender_config( "rpc", "file", fc::variant(ac, 5)));
-
-      cfg.loggers = { fc::logger_config("default"), fc::logger_config( "rpc") };
-      cfg.loggers.front().level = fc::log_level::info;
-      cfg.loggers.front().appenders = {"default"};
-      cfg.loggers.back().level = fc::log_level::debug;
-      cfg.loggers.back().appenders = {"rpc"};
+      // logging
+      setup_logging(options.at("logs-rpc-console-level").as<string>(),options.at("logs-rpc-file").as<bool>(),
+                    options.at("logs-rpc-file-level").as<string>(), options.at("logs-rpc-file-name").as<string>());
 
       fc::ecc::private_key committee_private_key = fc::ecc::private_key::regenerate(fc::sha256::hash(string("null_key")));
 
@@ -141,6 +178,7 @@ int main( int argc, char** argv )
       //    load_wallet_file().  Seems like this could be better
       //    designed.
       //
+
       wallet_data wdata;
 
       fc::path wallet_file( options.count("wallet-file") ? options.at("wallet-file").as<string>() : "wallet.json");
@@ -176,7 +214,7 @@ int main( int argc, char** argv )
          wdata.ws_server = "wss://127.0.0.1:5909";
       else if (options.count("server-rpc-endpoint"))
          wdata.ws_server = options.at("server-rpc-endpoint").as<std::string>();
-         
+
       if( options.count("server-rpc-user") )
          wdata.ws_user = options.at("server-rpc-user").as<std::string>();
       if( options.count("server-rpc-password") )
@@ -185,7 +223,7 @@ int main( int argc, char** argv )
       fc::http::websocket_client client;
       idump((wdata.ws_server));
       auto con  = client.connect( wdata.ws_server );
-      auto apic = std::make_shared<fc::rpc::websocket_api_connection>(*con, GRAPHENE_MAX_NESTED_OBJECTS);
+      auto apic = std::make_shared<fc::rpc::websocket_api_connection>(con, GRAPHENE_MAX_NESTED_OBJECTS);
 
       auto remote_api = apic->get_remote_api< login_api >(1);
       edump((wdata.ws_user)(wdata.ws_password) );
@@ -202,7 +240,7 @@ int main( int argc, char** argv )
       if (options.count("no-backups") && options.at("no-backups").as<bool>()) {
          wapiptr->disable_backups();
       }
-         
+
       fc::api<wallet_api> wapi(wapiptr);
 
       auto wallet_cli = std::make_shared<fc::rpc::cli>(GRAPHENE_MAX_NESTED_OBJECTS);
@@ -213,7 +251,6 @@ int main( int argc, char** argv )
          cerr << "Server has disconnected us.\n";
          wallet_cli->stop();
       }));
-      (void)(closed_connection);
 
       if( wapiptr->is_new() )
       {
@@ -226,22 +263,19 @@ int main( int argc, char** argv )
          wallet_cli->set_prompt(  locked ? "locked >>> " : "unlocked >>> " );
       }));
 
-      auto _websocket_server = std::make_shared<fc::http::websocket_server>();
-      std::string rpc_endpoint = "127.0.0.1:8081";
+      std::shared_ptr<fc::http::websocket_server> _websocket_server;
       if( options.count("rpc-endpoint") )
       {
-         rpc_endpoint = options.at("rpc-endpoint").as<string>();
+         _websocket_server = std::make_shared<fc::http::websocket_server>();
+         _websocket_server->on_connection([&wapi]( const fc::http::websocket_connection_ptr& c ){
+            auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(c, GRAPHENE_MAX_NESTED_OBJECTS);
+            wsc->register_api(wapi);
+            c->set_session_data( wsc );
+         });
+         ilog( "Listening for incoming HTTP and WS RPC requests on ${p}", ("p", options.at("rpc-endpoint").as<string>() ));
+         _websocket_server->listen( fc::ip::endpoint::from_string(options.at("rpc-endpoint").as<string>()) );
+         _websocket_server->start_accept();
       }
-      _websocket_server->on_connection([&wapi]( const fc::http::websocket_connection_ptr& c ){
-        //std::cout << "here... \n";
-        //wlog("." );
-        auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(*c, GRAPHENE_MAX_NESTED_OBJECTS);
-        wsc->register_api(wapi);
-        c->set_session_data( wsc );
-      });
-      ilog( "Listening for incoming RPC requests on ${p}", ("p", rpc_endpoint ));
-      _websocket_server->listen( fc::ip::endpoint::from_string(rpc_endpoint) );
-      _websocket_server->start_accept();
 
       string cert_pem = "server.pem";
       if( options.count( "rpc-tls-certificate" ) )
@@ -251,7 +285,7 @@ int main( int argc, char** argv )
       if( options.count("rpc-tls-endpoint") )
       {
          _websocket_tls_server->on_connection([&wapi]( const fc::http::websocket_connection_ptr& c ){
-            auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(*c, GRAPHENE_MAX_NESTED_OBJECTS);
+            auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(c, GRAPHENE_MAX_NESTED_OBJECTS);
             wsc->register_api(wapi);
             c->set_session_data( wsc );
          });
@@ -260,36 +294,67 @@ int main( int argc, char** argv )
          _websocket_tls_server->start_accept();
       }
 
-      auto _http_server = std::make_shared<fc::http::server>();
-      std::string rpc_http_endpoint = "127.0.0.1:8082";
-      if( options.count("rpc-http-endpoint" ) )
-      {
-         rpc_http_endpoint = options.at("rpc-http-endpoint").as<string>();
-      }
-      ilog( "Listening for incoming HTTP RPC requests on ${p}", ("p", rpc_http_endpoint ) );
-      _http_server->listen( fc::ip::endpoint::from_string( rpc_http_endpoint ) );
-      //
-      // due to implementation, on_request() must come AFTER listen()
-      //
-      _http_server->on_request(
-         [&wapi]( const fc::http::request& req, const fc::http::server::response& resp )
-         {
-            std::shared_ptr< fc::rpc::http_api_connection > conn =
-            std::make_shared< fc::rpc::http_api_connection>(GRAPHENE_MAX_NESTED_OBJECTS);
-            conn->register_api( wapi );
-            conn->on_request( req, resp );
-         } );
-
-
       if( !options.count( "daemon" ) )
       {
+         auto wallet_cli = std::make_shared<fc::rpc::cli>( GRAPHENE_MAX_NESTED_OBJECTS );
+
+         wallet_cli->set_regex_secret("\\s*(unlock|set_password)\\s*");
+
+         for( auto& name_formatter : wapiptr->get_result_formatters() )
+            wallet_cli->format_result( name_formatter.first, name_formatter.second );
+
+         std::cout << "\nType \"help\" for a list of available commands.\n";
+         std::cout << "Type \"gethelp <command>\" for info about individual commands.\n\n";
+         if( wapiptr->is_new() )
+         {
+            std::cout << "Please use the \"set_password\" method to initialize a new wallet before continuing\n";
+            wallet_cli->set_prompt( "new >>> " );
+         }
+         else
+            wallet_cli->set_prompt( "locked >>> " );
+
+         boost::signals2::scoped_connection locked_connection( wapiptr->lock_changed.connect(
+         [wallet_cli](bool locked) {
+            wallet_cli->set_prompt( locked ? "locked >>> " : "unlocked >>> " );
+         }));
+
+         auto sig_set = fc::set_signal_handler( [wallet_cli](int signal) {
+            ilog( "Captured SIGINT not in daemon mode, exiting" );
+            fc::set_signal_handler( [](int sig) {}, SIGINT ); // reinstall an empty SIGINT handler
+            wallet_cli->cancel();
+         }, SIGINT );
+
+         fc::set_signal_handler( [wallet_cli,sig_set](int signal) {
+            ilog( "Captured SIGTERM not in daemon mode, exiting" );
+            sig_set->cancel();
+            fc::set_signal_handler( [](int sig) {}, SIGINT ); // reinstall an empty SIGINT handler
+            wallet_cli->cancel();
+         }, SIGTERM );
+#ifdef SIGQUIT
+         fc::set_signal_handler( [wallet_cli,sig_set](int signal) {
+            ilog( "Captured SIGQUIT not in daemon mode, exiting" );
+            sig_set->cancel();
+            fc::set_signal_handler( [](int sig) {}, SIGINT ); // reinstall an empty SIGINT handler
+            wallet_cli->cancel();
+         }, SIGQUIT );
+#endif
+         boost::signals2::scoped_connection closed_connection( con->closed.connect( [wallet_cli,sig_set] {
+            elog( "Server has disconnected us." );
+            sig_set->cancel();
+            fc::set_signal_handler( [](int sig) {}, SIGINT ); // reinstall an empty SIGINT handler
+            wallet_cli->cancel();
+         }));
+
          wallet_cli->register_api( wapi );
          wallet_cli->start();
          wallet_cli->wait();
+
+         locked_connection.disconnect();
+         closed_connection.disconnect();
       }
       else
       {
-        fc::promise<int>::ptr exit_promise = new fc::promise<int>("UNIX Signal Handler");
+        fc::promise<int>::ptr exit_promise = fc::promise<int>::create("UNIX Signal Handler");
         fc::set_signal_handler([&exit_promise](int signal) {
            exit_promise->set_value(signal);
         }, SIGINT);
@@ -301,11 +366,14 @@ int main( int argc, char** argv )
       wapi->save_wallet_file(wallet_file.generic_string());
       locked_connection.disconnect();
       closed_connection.disconnect();
+
+
    }
    catch ( const fc::exception& e )
    {
-      std::cout << e.to_detail_string() << "\n";
+      std::cout << "Exception: " << e.to_detail_string() << "\n";
       return -1;
    }
+
    return 0;
 }

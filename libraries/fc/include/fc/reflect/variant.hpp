@@ -63,17 +63,17 @@ namespace fc
          const uint32_t _max_depth;
    };
 
-   template<typename IsEnum=fc::false_type>
-   struct if_enum
+   template<typename T, typename Dummy = void>
+   struct if_enum;
+   template<typename T>
+   struct if_enum<T, std::enable_if_t<!std::is_enum<T>::value>>
    {
-      template<typename T>
       static inline void to_variant( const T& v, fc::variant& vo, uint32_t max_depth )
       {
          mutable_variant_object mvo;
          fc::reflector<T>::visit( to_variant_visitor<T>( mvo, v, max_depth ) );
-         vo = fc::move(mvo);
+         vo = std::move(mvo);
       }
-      template<typename T>
       static inline void from_variant( const fc::variant& v, T& o, uint32_t max_depth )
       {
          const variant_object& vo = v.get_object();
@@ -81,15 +81,13 @@ namespace fc
       }
    };
 
-    template<> 
-    struct if_enum<fc::true_type> 
+    template<typename T>
+    struct if_enum<T, std::enable_if_t<std::is_enum<T>::value>>
     {
-       template<typename T>
        static inline void to_variant( const T& o, fc::variant& v, uint32_t max_depth = 1 )
        { 
            v = fc::reflector<T>::to_fc_string(o);
        }
-       template<typename T>
        static inline void from_variant( const fc::variant& v, T& o, uint32_t max_depth = 1 )
        { 
            if( v.is_string() )
@@ -103,12 +101,12 @@ namespace fc
    template<typename T>
    void to_variant( const T& o, variant& v, uint32_t max_depth )
    {
-      if_enum<typename fc::reflector<T>::is_enum>::to_variant( o, v, max_depth );
+      if_enum<T>::to_variant( o, v, max_depth );
    }
 
    template<typename T>
    void from_variant( const variant& v, T& o, uint32_t max_depth )
    {
-      if_enum<typename fc::reflector<T>::is_enum>::from_variant( v, o, max_depth );
+      if_enum<T>::from_variant( v, o, max_depth );
    }
 }

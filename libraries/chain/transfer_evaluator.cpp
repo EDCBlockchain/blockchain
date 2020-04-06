@@ -40,7 +40,11 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
    to_account_ptr = &op.to(d);
 
    const asset_object& asset_type = op.amount.asset_id(d);
-   const asset_object& fee_asset_type = asset_type.params.fee_paying_asset(d);
+
+   const asset_object* fee_asset_type_ptr = d.find(asset_type.params.fee_paying_asset);
+   // many unit tests don't have an edc-asset
+   const asset_object& fee_asset_type = fee_asset_type_ptr ? *fee_asset_type_ptr : CORE_ASSET(d);
+
    asset_dyn_data_ptr = &asset_type.dynamic_asset_data_id(d);
    const settings_object& settings = *d.find(settings_id_type(0));
 
@@ -78,7 +82,7 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
          GRAPHENE_ASSERT(
             from_account.id == asset_type.issuer || to_account_ptr->id == asset_type.issuer,
             transfer_restricted_transfer_asset,
-            "Asset {asset} has transfer_restricted flag enabled",
+            "Asset ${asset} has transfer_restricted flag enabled",
             ("asset", op.amount.asset_id)
           );
       }
@@ -115,7 +119,6 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
                       ("fee", d.to_pretty_string(asset(custom_fee, op.amount.asset_id)))
                       ("balance", d.to_pretty_string(d.get_balance(from_account, asset_type))));
          }
-
          if (custom_fee > 0) {
             FC_ASSERT(op.fee.amount >= custom_fee, "Wrong fee amount (${fee}) sent. Custom fee: ${cfee}", ("fee", op.fee.amount)("cfee", custom_fee) );
          }
@@ -158,8 +161,10 @@ void_result transfer_evaluator::do_apply( const transfer_operation& o )
       // burning
       else if (asset_dyn_data_ptr)
       {
-         d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
+         d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data)
+         {
             data.current_supply -= o.amount.amount;
+            data.fee_burnt += o.amount.amount;
          });
       }
 
@@ -223,7 +228,7 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
          GRAPHENE_ASSERT(
             from_account.id == asset_type.issuer || to_account_ptr->id == asset_type.issuer,
             transfer_restricted_transfer_asset,
-            "Asset {asset} has transfer_restricted flag enabled",
+            "Asset ${asset} has transfer_restricted flag enabled",
             ("asset", op.amount.asset_id)
          );
       }
@@ -240,7 +245,6 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
          {
             custom_fee = asset(0, fee->asset_id);
             custom_fee.amount = std::round(op.amount.amount.value * d.get_percent(fee->percent));
-
             fee_dyn_data_ptr = &custom_fee.asset_id(d).dynamic_asset_data_id(d);
          }
 
@@ -331,8 +335,10 @@ asset blind_transfer2_evaluator::do_apply( const blind_transfer2_operation& o )
       }
       if (fee_dyn_data_ptr)
       {
-         d.modify(*fee_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
+         d.modify(*fee_dyn_data_ptr, [&](asset_dynamic_data_object& data)
+         {
             data.current_supply -= custom_fee.amount;
+            data.fee_burnt += custom_fee.amount;
          });
       }
    }
@@ -354,8 +360,10 @@ asset blind_transfer2_evaluator::do_apply( const blind_transfer2_operation& o )
       // burning
       else if (asset_dyn_data_ptr)
       {
-         d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
+         d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data)
+         {
             data.current_supply -= o.amount.amount;
+            data.fee_burnt += o.amount.amount;
          });
       }
 
@@ -456,8 +464,10 @@ void_result override_transfer_evaluator::do_apply( const override_transfer_opera
       }
       else if (asset_dyn_data_ptr)
       {
-         d.modify( *asset_dyn_data_ptr, [&]( asset_dynamic_data_object& data ) {
+         d.modify( *asset_dyn_data_ptr, [&]( asset_dynamic_data_object& data )
+         {
             data.current_supply -= o.amount.amount;
+            data.fee_burnt += o.amount.amount;
          });
       }
    }

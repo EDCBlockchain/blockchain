@@ -7,11 +7,11 @@
 namespace fc {
   class stringstream::impl {
     public:
-    impl( fc::string&s )
+    impl( std::string&s )
     :ss( s )
     { ss.exceptions( std::stringstream::badbit ); }
 
-    impl( const fc::string&s )
+    impl( const std::string&s )
     :ss( s )
     { ss.exceptions( std::stringstream::badbit ); }
 
@@ -20,21 +20,21 @@ namespace fc {
     std::stringstream ss;
   };
 
-  stringstream::stringstream( fc::string& s )
+  stringstream::stringstream( std::string& s )
   :my(s) {
   }
-  stringstream::stringstream( const fc::string& s )
+  stringstream::stringstream( const std::string& s )
   :my(s) {
   }
   stringstream::stringstream(){}
   stringstream::~stringstream(){}
 
 
-  fc::string stringstream::str(){
-    return my->ss.str();//.c_str();//*reinterpret_cast<fc::string*>(&st);
+  std::string stringstream::str(){
+    return my->ss.str();//.c_str();//*reinterpret_cast<std::string*>(&st);
   }
 
-  void stringstream::str(const fc::string& s) {
+  void stringstream::str(const std::string& s) {
     my->ss.str(s);
   }
 
@@ -75,31 +75,6 @@ namespace fc {
 
   void     stringstream::close(){ my->ss.flush(); };
   void     stringstream::flush(){ my->ss.flush(); };
-
-  /*
-  istream&   stringstream::read( char* buf, size_t len ) {
-    my->ss.read(buf,len);
-    return *this;
-  }
-  istream& stringstream::read( int64_t&     v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( uint64_t&    v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( int32_t&     v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( uint32_t&    v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( int16_t&     v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( uint16_t&    v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( int8_t&      v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( uint8_t&     v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( float&       v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( double&      v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( bool&        v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( char&        v ) { my->ss >> v; return *this; }
-  istream& stringstream::read( fc::string&  v ) { my->ss >> *reinterpret_cast<std::string*>(&v); return *this; }
-
-  ostream& stringstream::write( const fc::string& s) {
-    my->ss.write( s.c_str(), s.size() );
-    return *this;
-  }
-  */
 
   char     stringstream::peek() 
   { 

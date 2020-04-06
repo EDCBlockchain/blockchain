@@ -1,0 +1,21 @@
+{
+   "permission_map" :
+   [
+      [
+         "admin",
+         {
+            "password_hash_b64" : "79H2kPrd0dRxCiImy+jPElShB5WfxUy+0YoLfXkkHUw=",
+            "password_salt_b64" : "5K8N/9YqSr4=",
+            "allowed_apis" : ["secure_api", "database_api", "history_api", "network_api", "network_broadcast_api", "crypto_api"]
+         }
+      ],
+      [
+         "*",
+         {
+            "password_hash_b64" : "*",
+            "password_salt_b64" : "*",
+            "allowed_apis" : ["database_api", "network_broadcast_api", "history_api", "crypto_api"]
+         }
+      ]
+   ]
+}

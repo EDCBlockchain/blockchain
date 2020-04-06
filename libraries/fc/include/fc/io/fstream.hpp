@@ -1,8 +1,8 @@
 #pragma once
-#include <fc/shared_ptr.hpp>
 #include <fc/filesystem.hpp>
 #include <fc/io/iostream.hpp>
 #include <fstream>
+#include <memory>
 
 namespace fc {
   class path;
@@ -21,7 +21,7 @@ namespace fc {
 
     private:
       class impl;
-      fc::shared_ptr<impl> my;
+      std::shared_ptr<impl> my;
   };
 
   class ifstream : virtual public istream {
@@ -44,7 +44,7 @@ namespace fc {
       bool      eof()const;
     private:
       class impl;
-      fc::shared_ptr<impl> my;
+      std::shared_ptr<impl> my;
   };
 
   /**

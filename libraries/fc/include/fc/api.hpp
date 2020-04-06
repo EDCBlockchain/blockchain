@@ -1,7 +1,7 @@
 #pragma once 
 #include <fc/thread/future.hpp>
-#include <fc/any.hpp>
 #include <functional>
+#include <boost/any.hpp>
 #include <boost/config.hpp>
 
 // ms visual c++ (as of 2013) doesn't accept the standard syntax for calling a 
@@ -13,13 +13,91 @@
 #endif
 
 namespace fc {
-  struct identity_member { 
+  namespace detail {
+    /// This metafunction determines whether its template argument is an instantiation of fc::optional
+    template<typename T> struct is_optional : public std::false_type {};
+    template<typename T> struct is_optional<fc::optional<T>> : public std::true_type {};
+    /// This metafunction determines whether all of its template arguments are instantiations of fc::optional
+    template<typename... Ts> struct all_optionals;
+    template<> struct all_optionals<> : public std::true_type {};
+    template<typename T, typename... Ts> struct all_optionals<T, Ts...> : public std::false_type {};
+    template<typename T, typename... Ts> struct all_optionals<fc::optional<T>, Ts...> : public all_optionals<Ts...> {};
+
+    /// A wrapper of std::function allowing callers to omit the last several arguments if those arguments are
+    /// fc::optional types. i.e. given a function taking (int, double, bool, fc::optional<string>, fc::optional<char>),
+    /// whereas normally the last two arguments must be provided, this template allows them to be omitted.
+    /// Note that this only applies to trailing optional arguments, i.e. given a callable taking
+    /// (fc::optional<int>, int, fc::optional<int>), only the last argument can be omitted.
+    ///
+    /// A discussion of how exactly this works is available here:
+    /// https://github.com/bitshares/bitshares-fc/pull/126#issuecomment-490566060
+    template<typename R, typename... Parameters>
+    struct optionals_callable : public std::function<R(Parameters...)> {
+       using std::function<R(Parameters...)>::operator();
+
+       template<typename... CutList>
+       struct short_pack {};
+       /// This metafunction removes the first several types from a variadic parameter pack of types.
+       /// The first parameter is the number of arguments to remove from the beginning of the pack.
+       /// All subsequent parameters are types in the list to be cut
+       /// The result pack_cutter<...>::type is a short_pack<RemainingTypes>
+       template<unsigned RemoveCount, typename... Types>
+       struct pack_cutter;
+       template<unsigned RemoveCount, typename, typename... Types>
+       struct pack_cutter_impl;
+       template<typename... Types>
+       struct pack_cutter_impl<0, void, Types...> {
+           static_assert(all_optionals<Types...>::value, "All omitted arguments must correspond to optional parameters.");
+           using type = short_pack<Types...>;
+       };
+       template<unsigned RemoveCount, typename T, typename... Types>
+       struct pack_cutter_impl<RemoveCount, std::enable_if_t<RemoveCount != 0>, T, Types...>
+               : public pack_cutter_impl<RemoveCount - 1, void, Types...> {};
+       template<unsigned RemoveCount, typename... Types>
+       struct pack_cutter : public pack_cutter_impl<RemoveCount, void, Types...> {};
+       template<unsigned RemoveCount, typename... Types>
+       using pack_cutter_t = typename pack_cutter<RemoveCount, Types...>::type;
+
+       template<typename F, typename... OptionalTypes>
+       R call_function(F&& f, short_pack<OptionalTypes...>) {
+           return f(OptionalTypes()...);
+       }
+
+       /// Overload the function call operator, enabled if the caller provides fewer arguments than there are parameters.
+       /// Pads out the provided arguments with default-constructed optionals, checking that they are indeed optional types
+       template<class... Args>
+       std::enable_if_t<sizeof...(Args) < sizeof...(Parameters), R> operator()(Args... args) {
+           // Partially apply with the arguments provided
+           auto partial_function = [this, &args...](auto&&... rest) {
+               return (*this)(std::forward<decltype(args)>(args)..., std::move(rest)...);
+           };
+           // Cut the provided arguments' types out of the Parameters list, and store the rest in a dummy type
+           pack_cutter_t<sizeof...(Args), std::decay_t<Parameters>...> dummy;
+           // Pass the partially applied function and the dummy type to another function which can deduce the optional
+           // types and call the function with default instantiations of those types
+           return call_function(std::move(partial_function), dummy);
+       }
+    };
+  }
+
+  // This is no longer used and probably no longer can be used without generalizing the infrastructure around it, but I
+  // kept it because it is informative.
+//  struct identity_member {
+//       template<typename R, typename C, typename P, typename... Args>
+//       static std::function<R(Args...)> functor( P&& p, R (C::*mem_func)(Args...) );
+//       template<typename R, typename C, typename P, typename... Args>
+//       static std::function<R(Args...)> functor( P&& p, R (C::*mem_func)(Args...)const );
+//  };
+  /// Used as the Transform template parameter for APIs, this type has two main purposes: first, it reads the argument
+  /// list and return type of a method into template parameters; and second, it uses those types in conjunction with the
+  /// optionals_callable template above to create a function pointer which supports optional arguments.
+  struct identity_member_with_optionals {
        template<typename R, typename C, typename P, typename... Args>
-       static std::function<R(Args...)> functor( P&& p, R (C::*mem_func)(Args...) );
+       static detail::optionals_callable<R, Args...> functor( P&& p, R (C::*mem_func)(Args...) );
        template<typename R, typename C, typename P, typename... Args>
-       static std::function<R(Args...)> functor( P&& p, R (C::*mem_func)(Args...)const );
+       static detail::optionals_callable<R, Args...> functor( P&& p, R (C::*mem_func)(Args...)const );
   };
-   
+
   template< typename Interface, typename Transform  >
   struct vtable  : public std::enable_shared_from_this<vtable<Interface,Transform>> 
   { private: vtable(); };
@@ -57,13 +135,13 @@ namespace fc {
 
         // defined in api_connection.hpp
         template< typename T >
-        api<T, identity_member> as();
+        api<T, identity_member_with_optionals> as();
   };
   typedef std::shared_ptr< api_base > api_ptr;
 
   class api_connection;
 
-  template<typename Interface, typename Transform = identity_member >
+  template<typename Interface, typename Transform = identity_member_with_optionals >
   class api : public api_base {
     public:
       typedef vtable<Interface,Transform> vtable_type;
@@ -75,7 +153,7 @@ namespace fc {
       api( const T& p )
       :_vtable( std::make_shared<vtable_type>() )
       {
-         _data = std::make_shared<fc::any>(p);
+         _data = std::make_shared<boost::any>(p);
          T& ptr = boost::any_cast<T&>(*_data);
          auto& pointed_at = *ptr;
          typedef typename std::remove_reference<decltype(pointed_at)>::type source_vtable_type;
@@ -95,7 +173,7 @@ namespace fc {
 
     protected:
       std::shared_ptr<vtable_type>    _vtable;
-      std::shared_ptr<fc::any>        _data;
+      std::shared_ptr<boost::any>     _data;
   };
 
 } // namespace fc

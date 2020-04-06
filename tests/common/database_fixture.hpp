@@ -26,9 +26,9 @@
 #include <graphene/app/application.hpp>
 #include <graphene/chain/database.hpp>
 #include <fc/io/json.hpp>
-#include <fc/smart_ref_impl.hpp>
 
 #include <graphene/chain/operation_history_object.hpp>
+#include <graphene/chain/committee_member_object.hpp>
 
 #include <iostream>
 
@@ -106,7 +106,7 @@ extern uint32_t GRAPHENE_TESTING_GENESIS_TIMESTAMP;
    REQUIRE_OP_VALIDATION_FAILURE_2( op, field, value, fc::exception )
 
 #define REQUIRE_THROW_WITH_VALUE_2(op, field, value, exc_type) \
-{ \
+{  \
    auto bak = op.field; \
    op.field = value; \
    trx.operations.back() = op; \

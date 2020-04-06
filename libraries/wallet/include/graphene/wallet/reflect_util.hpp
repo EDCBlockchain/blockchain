@@ -23,8 +23,6 @@
  */
 #pragma once
 
-#include <cstddef>
-
 // This file contains various reflection methods that are used to
 // support the wallet, e.g. allow specifying operations by name
 // instead of ID.
@@ -41,9 +39,9 @@ namespace impl {
 
 std::string clean_name( const std::string& name )
 {
-   const static std::string prefix = "graphene::chain::";
+   const static std::string prefix = "graphene::protocol::";
    const static std::string suffix = "_operation";
-   // graphene::chain::.*_operation
+   // graphene::protocol::.*_operation
    if(    (name.size() >= prefix.size() + suffix.size())
        && (name.substr( 0, prefix.size() ) == prefix)
        && (name.substr( name.size()-suffix.size(), suffix.size() ) == suffix )
@@ -63,14 +61,14 @@ struct static_variant_map_visitor
    template< typename T >
    result_type operator()( const T& dummy )
    {
-      assert( (size_t)which == m.which_to_name.size() );
+      FC_ASSERT( which == m.which_to_name.size(), "This should not happen" );
       std::string name = clean_name( fc::get_typename<T>::name() );
       m.name_to_which[ name ] = which;
       m.which_to_name.push_back( name );
    }
 
    static_variant_map m;
-   int which;
+   uint16_t which; // 16 bit should be practically enough
 };
 
 template< typename StaticVariant >
@@ -109,6 +107,7 @@ static_variant_map create_static_variant_map()
 {
    T dummy;
    int n = dummy.count();
+   FC_ASSERT( n <= std::numeric_limits<uint16_t>::max(), "Too many items in this static_variant" );
    impl::static_variant_map_visitor vtor;
    for( int i=0; i<n; i++ )
    {

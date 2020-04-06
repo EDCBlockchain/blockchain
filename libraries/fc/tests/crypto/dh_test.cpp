@@ -78,8 +78,8 @@ BOOST_AUTO_TEST_CASE(dh_size_mismatch_test)
 
    BOOST_CHECK( alice.compute_shared_key( bob.pub_key ) );
    BOOST_CHECK( bob.compute_shared_key( alice.pub_key ) );
-   BOOST_CHECK_EQUAL( 15, (int) alice.shared_key.size() );
-   BOOST_CHECK_EQUAL( 15, (int) bob.shared_key.size() );
+   BOOST_CHECK_EQUAL( 15u, alice.shared_key.size() );
+   BOOST_CHECK_EQUAL( 15u, bob.shared_key.size() );
    BOOST_CHECK( !memcmp( alice.shared_key.data(), bob.shared_key.data(), alice.shared_key.size() ) );
 
    BOOST_CHECK_EQUAL( SHARED_KEY, std::string( alice.shared_key.begin(), alice.shared_key.end() ) );

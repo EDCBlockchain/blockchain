@@ -1,5 +1,4 @@
 #pragma once
-#include <fc/utility.hpp>
 #include <fc/fwd.hpp>
 #include <fc/io/iostream.hpp>
 #include <fc/time.hpp>
@@ -52,9 +51,10 @@ namespace fc {
       friend class tcp_server;
       class impl;
       #ifdef _WIN64
-      fc::fwd<impl,0x81> my;
+      fc::fwd<impl,0xa8> my;
       #else
-      fc::fwd<impl,0x54> my;
+      //fc::fwd<impl,0x54> my;
+      fc::fwd<impl,0x96> my;
       #endif
   };
   typedef std::shared_ptr<tcp_socket> tcp_socket_ptr;

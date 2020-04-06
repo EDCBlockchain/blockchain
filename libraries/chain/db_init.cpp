@@ -41,7 +41,7 @@
 #include <graphene/chain/operation_history_object.hpp>
 #include <graphene/chain/proposal_object.hpp>
 #include <graphene/chain/special_authority_object.hpp>
-#include <graphene/chain/transaction_object.hpp>
+#include <graphene/chain/transaction_history_object.hpp>
 #include <graphene/chain/vesting_balance_object.hpp>
 #include <graphene/chain/withdraw_permission_object.hpp>
 #include <graphene/chain/witness_object.hpp>
@@ -68,9 +68,8 @@
 #include <graphene/chain/cheque_evaluator.hpp>
 #include <graphene/chain/settings_evaluator.hpp>
 
-#include <graphene/chain/protocol/fee_schedule.hpp>
+#include <graphene/protocol/fee_schedule.hpp>
 
-#include <fc/smart_ref_impl.hpp>
 #include <fc/uint128.hpp>
 #include <fc/crypto/digest.hpp>
 
@@ -117,8 +116,8 @@ const uint8_t operation_history_object::type_id;
 const uint8_t proposal_object::space_id;
 const uint8_t proposal_object::type_id;
 
-const uint8_t transaction_object::space_id;
-const uint8_t transaction_object::type_id;
+const uint8_t transaction_history_object::space_id;
+const uint8_t transaction_history_object::type_id;
 
 const uint8_t vesting_balance_object::space_id;
 const uint8_t vesting_balance_object::type_id;
@@ -299,8 +298,8 @@ void database::init_genesis(const genesis_state_type& genesis_state)
 
    transaction_evaluation_state genesis_eval_state(this);
 
-   flat_index<block_summary_object>& bsi = get_mutable_index_type< flat_index<block_summary_object> >();
-   bsi.resize(0xffff+1);
+//   flat_index<block_summary_object>& bsi = get_mutable_index_type< flat_index<block_summary_object> >();
+//   bsi.resize(0xffff+1);
 
    // Create blockchain accounts
    //fc::ecc::private_key null_private_key = fc::ecc::private_key::regenerate(fc::sha256::hash(string("null_key")));
@@ -450,14 +449,14 @@ void database::init_genesis(const genesis_state_type& genesis_state)
        p.parameters = genesis_state.initial_parameters;
        // Set fees to zero initially, so that genesis initialization needs not pay them
        // We'll fix it at the end of the function
-       p.parameters.current_fees->zero_all_fees();
+       p.parameters.get_mutable_fees().zero_all_fees();
 
    });
    create<dynamic_global_property_object>([&](dynamic_global_property_object& p) {
       p.time = genesis_state.initial_timestamp;
       p.dynamic_flags = 0;
       p.witness_budget = 0;
-      p.recent_slots_filled = fc::uint128::max_value();
+      p.recent_slots_filled = std::numeric_limits<fc::uint128_t>::max();
    });
 
    create<account_properties_object>([&](account_properties_object& p) { });
@@ -477,7 +476,10 @@ void database::init_genesis(const genesis_state_type& genesis_state)
       p.chain_id = chain_id;
       p.immutable_parameters = genesis_state.immutable_parameters;
    } );
-   create<block_summary_object>([&](block_summary_object&) {});
+
+   for (uint32_t i = 0; i <= 0x10000; i++) {
+      create<block_summary_object>( [&]( block_summary_object&) {});
+   }
 
    // Create initial accounts
    for( const auto& account : genesis_state.initial_accounts )
@@ -496,8 +498,8 @@ void database::init_genesis(const genesis_state_type& genesis_state)
          cop.active = authority(1, account.active_key, 1);
          cop.options.memo_key = account.active_key;
       }
-      account_id_type account_id(apply_operation(genesis_eval_state, cop).get<object_id_type>());
 
+      account_id_type account_id(apply_operation(genesis_eval_state, cop).get<object_id_type>());
       if( account.is_lifetime_member )
       {
           account_upgrade_operation op;

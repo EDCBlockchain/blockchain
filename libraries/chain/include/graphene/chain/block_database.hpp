@@ -23,7 +23,7 @@
  */
 #pragma once
 #include <fstream>
-#include <graphene/chain/protocol/block.hpp>
+#include <graphene/protocol/block.hpp>
 
 namespace graphene { namespace chain {
    class block_database 

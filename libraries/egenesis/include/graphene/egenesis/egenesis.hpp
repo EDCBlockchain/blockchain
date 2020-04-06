@@ -27,7 +27,7 @@
 #include <string>
 
 #include <fc/crypto/sha256.hpp>
-#include <graphene/chain/protocol/types.hpp>
+#include <graphene/protocol/types.hpp>
 #include <graphene/chain/genesis_state.hpp>
 
 namespace graphene { namespace egenesis {
@@ -36,7 +36,7 @@ namespace graphene { namespace egenesis {
  * Get the chain ID of the built-in egenesis, or chain_id_type()
  * if none was compiled in.
  */
-graphene::chain::chain_id_type get_egenesis_chain_id();
+graphene::protocol::chain_id_type get_egenesis_chain_id();
 
 /**
  * Get the egenesis JSON, or the empty string if none was compiled in.

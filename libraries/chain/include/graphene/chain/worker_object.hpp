@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 #pragma once
+#include <graphene/chain/types.hpp>
 #include <graphene/db/object.hpp>
 #include <graphene/db/generic_index.hpp>
 
@@ -158,20 +159,13 @@ using worker_index = generic_index<worker_object, worker_object_multi_index_type
 
 } } // graphene::chain
 
-FC_REFLECT( graphene::chain::refund_worker_type, (total_burned) )
-FC_REFLECT( graphene::chain::vesting_balance_worker_type, (balance) )
-FC_REFLECT( graphene::chain::burn_worker_type, (total_burned) )
+
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::worker_object)
+
+FC_REFLECT_TYPENAME( graphene::chain::refund_worker_type )
+FC_REFLECT_TYPENAME( graphene::chain::vesting_balance_worker_type )
+FC_REFLECT_TYPENAME( graphene::chain::burn_worker_type )
 FC_REFLECT_TYPENAME( graphene::chain::worker_type )
-FC_REFLECT_DERIVED( graphene::chain::worker_object, (graphene::db::object),
-                    (worker_account)
-                    (work_begin_date)
-                    (work_end_date)
-                    (daily_pay)
-                    (worker)
-                    (vote_for)
-                    (vote_against)
-                    (total_votes_for)
-                    (total_votes_against)
-                    (name)
-                    (url)
-                  )
+FC_REFLECT_TYPENAME( graphene::chain::worker_object )
+
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::worker_object )

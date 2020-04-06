@@ -1,9 +1,9 @@
-#include <fc/smart_ref_impl.hpp>
 #include <graphene/chain/settings_evaluator.hpp>
 #include <graphene/chain/settings_object.hpp>
 #include <graphene/chain/database.hpp>
 #include <graphene/chain/exceptions.hpp>
 #include <graphene/chain/hardfork.hpp>
+
 #include <iostream>
 
 namespace graphene { namespace chain {

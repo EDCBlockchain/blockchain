@@ -3,7 +3,7 @@
 
 #include <string>
 
-/// This file contains general purpose utilities related to UTF-8 <-> Unicode conversions
+// This file contains general purpose utilities related to UTF-8 <-> Unicode conversions
 
 namespace fc
 {

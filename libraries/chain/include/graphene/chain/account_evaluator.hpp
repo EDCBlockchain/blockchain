@@ -27,6 +27,8 @@
 
 namespace graphene { namespace chain {
 
+class settings_object;
+
 class account_create_evaluator: public evaluator<account_create_evaluator>
 {
 public:

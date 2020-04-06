@@ -1,9 +1,11 @@
 #pragma once
-#include <graphene/chain/protocol/operations.hpp>
+#include <graphene/protocol/operations.hpp>
 #include <graphene/chain/evaluator.hpp>
 #include <graphene/chain/database.hpp>
 
 namespace graphene { namespace chain {
+
+   class settings_object;
 
    class settings_evaluator: public evaluator<settings_evaluator>
    {

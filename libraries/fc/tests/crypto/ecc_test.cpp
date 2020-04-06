@@ -23,7 +23,7 @@ static void interop_do(const char * const data, size_t len) {
 }
 
 static void interop_do(const fc::ecc::public_key_data &data) {
-    interop_do(data.begin(), data.size());
+    interop_do((char*) data.data(), data.size());
 }
 
 static void interop_do(const fc::ecc::private_key_secret &data) {
@@ -31,7 +31,7 @@ static void interop_do(const fc::ecc::private_key_secret &data) {
 }
 
 static void interop_do(const fc::ecc::public_key_point_data &data) {
-    interop_do(data.begin(), data.size());
+    interop_do((char*) data.data(), data.size());
 }
 
 static void interop_do(const std::string &data) {
@@ -44,11 +44,11 @@ static void interop_do(const fc::sha512 &data) {
 
 static void interop_do(fc::ecc::compact_signature &data) {
     if (write_mode) {
-        interop_data.write((char*) data.begin(), data.size());
+        interop_data.write((char*) data.data(), data.size());
         return;
     }
 
-    interop_data.read((char*) data.begin(), data.size());
+    interop_data.read((char*) data.data(), data.size());
 }
 
 static void interop_file(const char * const name) {

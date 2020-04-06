@@ -1,5 +1,4 @@
 #include <fc/thread/thread.hpp>
-#include <fc/vector.hpp>
 #include <fc/io/sstream.hpp>
 #include <fc/log/logger.hpp>
 #include "thread_d.hpp"
@@ -73,11 +72,12 @@ namespace fc {
    }
 
    thread::thread( const std::string& name, thread_idle_notifier* notifier ) {
-      promise<void>::ptr p(new promise<void>("thread start"));
+      promise<void>::ptr p = promise<void>::create("thread start");
       boost::thread* t = new boost::thread( [this,p,name,notifier]() {
           try {
             set_thread_name(name.c_str()); // set thread's name for the debugger to display
             this->my = new thread_d( *this, notifier );
+            cleanup();
             current_thread() = this;
             p->set_value();
             exec();
@@ -114,8 +114,10 @@ namespace fc {
    }
 
    thread::~thread() {
-      if( my )
+      if( my && is_running() )
+      {
         quit();
+      }
 
       delete my;
    }
@@ -127,8 +129,10 @@ namespace fc {
    }
 
    void thread::cleanup() {
-     delete current_thread();
-     current_thread() = nullptr;
+     if ( current_thread() ) {
+        delete current_thread();
+        current_thread() = nullptr;
+     }
    }
 
    const string& thread::name()const
@@ -136,7 +140,7 @@ namespace fc {
      return my->name;
    }
 
-   void thread::set_name( const fc::string& n )
+   void thread::set_name( const std::string& n )
    {
      if (!is_current())
      {
@@ -154,7 +158,18 @@ namespace fc {
       return NULL;
    }
 
-   void          thread::debug( const fc::string& d ) { /*my->debug(d);*/ }
+   void          thread::debug( const std::string& d ) { /*my->debug(d);*/ }
+
+#if defined(__linux__) || defined(__APPLE__)
+#include <signal.h>
+#endif
+
+   void thread::signal(int sig)
+   {
+#if defined(__linux__) || defined(__APPLE__)
+      pthread_kill( my->boost_thread->native_handle(), sig );
+#endif
+   }
 
   void thread::quit()
   {
@@ -329,6 +344,10 @@ namespace fc {
 
    void thread::async_task( task_base* t, const priority& p, const time_point& tp ) {
       assert(my);
+      if ( !is_running() )
+      {
+         FC_THROW_EXCEPTION( canceled_exception, "Thread is not running.");
+      }
       t->_when = tp;
       task_base* stale_head = my->task_in_queue.load(boost::memory_order_relaxed);
       do { t->_next = stale_head;
@@ -360,12 +379,12 @@ namespace fc {
 
    int wait_any( std::vector<promise_base::ptr>&& v, const microseconds& timeout_us  )
    {
-      return thread::current().wait_any_until( fc::move(v), time_point::now() + timeout_us );
+      return thread::current().wait_any_until( std::move(v), time_point::now() + timeout_us );
    }
 
    int wait_any_until( std::vector<promise_base::ptr>&& v, const time_point& tp )
    {
-      return thread::current().wait_any_until( fc::move(v), tp );
+      return thread::current().wait_any_until( std::move(v), tp );
    }
 
    void thread::wait_until( promise_base::ptr&& p, const time_point& timeout )

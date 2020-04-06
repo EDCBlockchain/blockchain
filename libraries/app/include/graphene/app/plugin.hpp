@@ -126,13 +126,13 @@ T dejsonify(const string& s, uint32_t max_depth)
    return fc::json::from_string(s).as<T>(max_depth);
 }
 
-      namespace impl {
-         template<typename T>
-         T dejsonify( const string& s )
-         {
-            return graphene::app::dejsonify<T>( s, GRAPHENE_MAX_NESTED_OBJECTS );
-         }
-      }
+namespace impl {
+   template<typename T>
+   T dejsonify( const string& s )
+   {
+      return graphene::app::dejsonify<T>( s, GRAPHENE_MAX_NESTED_OBJECTS );
+   }
+}
 
 #define DEFAULT_VALUE_VECTOR(value) default_value({fc::json::to_string(value)}, fc::json::to_string(value))
 #define LOAD_VALUE_SET(options, name, container, type) \

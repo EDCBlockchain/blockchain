@@ -22,10 +22,12 @@
  * THE SOFTWARE.
  */
 #pragma once
-#include <graphene/chain/protocol/asset_ops.hpp>
-#include <boost/multi_index/composite_key.hpp>
-#include <graphene/db/flat_index.hpp>
+#include <graphene/chain/types.hpp>
 #include <graphene/db/generic_index.hpp>
+#include <graphene/protocol/asset_ops.hpp>
+#include <graphene/db/flat_index.hpp>
+
+#include <boost/multi_index/composite_key.hpp>
 
 /**
  * @defgroup prediction_market Prediction Market
@@ -38,7 +40,7 @@
  */
 
 namespace graphene { namespace chain {
-   class account_object;
+   class asset_bitasset_data_object;
    class database;
    using namespace graphene::db;
 
@@ -58,16 +60,15 @@ namespace graphene { namespace chain {
    {
       public:
          static const uint8_t space_id = implementation_ids;
-         static const uint8_t type_id  = impl_asset_dynamic_data_type;
+         static const uint8_t type_id  = impl_asset_dynamic_data_object_type;
 
          /// The number of shares currently in existence
          share_type current_supply;
          share_type confidential_supply; ///< total asset held in confidential balances
-         share_type accumulated_fees; ///< fees accumulate to be paid out over time
-         share_type fee_pool;         ///< in core asset
+         share_type accumulated_fees;    ///< fees accumulate to be paid out over time
+         share_type fee_pool;            ///< in core asset
+         share_type fee_burnt;           // burnt fee of this asset
    };
-    
-    
 
    /**
     *  @brief tracks the parameters of an asset
@@ -177,7 +178,7 @@ namespace graphene { namespace chain {
    {
       public:
          static const uint8_t space_id = implementation_ids;
-         static const uint8_t type_id  = impl_asset_bitasset_data_type;
+         static const uint8_t type_id  = impl_asset_bitasset_data_object_type;
 
          /// The tunable options for BitAssets are stored in this field.
          bitasset_options options;
@@ -256,19 +257,9 @@ namespace graphene { namespace chain {
 
 } } // graphene::chain
 
-FC_REFLECT_DERIVED( graphene::chain::asset_dynamic_data_object, (graphene::db::object),
-                    (current_supply)(confidential_supply)(accumulated_fees)(fee_pool) )
-
-FC_REFLECT_DERIVED( graphene::chain::asset_bitasset_data_object, (graphene::db::object),
-                    (feeds)
-                    (current_feed)
-                    (current_feed_publication_time)
-                    (options)
-                    (force_settled_volume)
-                    (is_prediction_market)
-                    (settlement_price)
-                    (settlement_fund)
-                  )
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::asset_object)
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::asset_dynamic_data_object)
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::asset_bitasset_data_object)
 
 FC_REFLECT_DERIVED( graphene::chain::asset_object, (graphene::db::object),
                     (symbol)
@@ -280,3 +271,10 @@ FC_REFLECT_DERIVED( graphene::chain::asset_object, (graphene::db::object),
                     (bitasset_data_id)
                     (buyback_account)
                   )
+
+FC_REFLECT_TYPENAME( graphene::chain::asset_bitasset_data_object )
+FC_REFLECT_TYPENAME( graphene::chain::asset_dynamic_data_object )
+
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::asset_object )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::asset_bitasset_data_object )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::asset_dynamic_data_object )

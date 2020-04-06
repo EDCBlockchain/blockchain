@@ -1,16 +1,15 @@
 #pragma once
+#include <fc/network/http/websocket.hpp>
 #include <fc/rpc/api_connection.hpp>
 #include <fc/rpc/state.hpp>
-#include <fc/network/http/websocket.hpp>
-#include <fc/io/json.hpp>
-#include <fc/reflect/variant.hpp>
 
 namespace fc { namespace rpc {
 
    class websocket_api_connection : public api_connection
    {
       public:
-         websocket_api_connection( fc::http::websocket_connection& c, uint32_t max_conversion_depth );
+         websocket_api_connection( const std::shared_ptr<fc::http::websocket_connection> &c,
+                                   uint32_t max_conversion_depth );
          ~websocket_api_connection();
 
          virtual variant send_call(
@@ -25,12 +24,12 @@ namespace fc { namespace rpc {
             variants args = variants() ) override;
 
       protected:
-         std::string on_message(
-            const std::string& message,
-            bool send_message = true );
+         response on_message( const std::string& message );
+         response on_request( const variant& message );
+         void     on_response( const variant& message );
 
-         fc::http::websocket_connection&  _connection;
-         fc::rpc::state                   _rpc_state;
+         std::shared_ptr<fc::http::websocket_connection>  _connection;
+         fc::rpc::state                                   _rpc_state;
    };
 
 } } // namespace fc::rpc

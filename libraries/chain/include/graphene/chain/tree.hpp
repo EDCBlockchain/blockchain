@@ -2,7 +2,7 @@
 
 #include <list>
 #include <graphene/chain/account_object.hpp>
-#include <graphene/chain/protocol/asset.hpp>
+#include <graphene/protocol/asset.hpp>
 #include "tree.hh"
 #include <iostream>
 

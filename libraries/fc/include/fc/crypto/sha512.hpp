@@ -1,6 +1,7 @@
 #pragma once
+#include <boost/endian/buffers.hpp>
+#include <fc/io/raw_fwd.hpp>
 #include <fc/fwd.hpp>
-#include <fc/string.hpp>
 
 namespace fc
 {
@@ -9,16 +10,16 @@ class sha512
 {
   public:
     sha512();
-    explicit sha512( const string& hex_str );
+    explicit sha512( const std::string& hex_str );
 
-    string str()const;
-    operator string()const;
+    std::string str()const;
+    operator std::string()const;
 
     char*    data()const;
-    size_t data_size()const { return 512 / 8; }
+    static constexpr size_t data_size() { return 512 / 8; }
 
     static sha512 hash( const char* d, uint32_t dlen );
-    static sha512 hash( const string& );
+    static sha512 hash( const std::string& );
 
     template<typename T>
     static sha512 hash( const T& t ) 
@@ -63,7 +64,7 @@ class sha512
     friend bool   operator >  ( const sha512& h1, const sha512& h2 ); 
     friend bool   operator <  ( const sha512& h1, const sha512& h2 ); 
                              
-    uint64_t _hash[8]; 
+    boost::endian::little_uint64_buf_t _hash[8];
 };
 
 namespace raw {

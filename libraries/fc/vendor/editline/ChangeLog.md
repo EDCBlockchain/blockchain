@@ -4,6 +4,18 @@ Change Log
 All notable changes to the project are documented in this file.
 
 
+[1.16.1][UNRELEASED]
+--------------------
+
+### Changes
+- Major updates to the `editline.3` man page
+
+### Fixes
+- Fix #20: `configure --disable-eof` does not bite
+- Fix #23: Make Ctrl-L clear the screan instead of starting a new line
+- Fix #24: Fix behavior when TTY is narrower than column width, by Will Dietz
+
+
 [1.16.0][] - 2018-09-16
 -----------------------
 
@@ -204,6 +216,7 @@ Adaptations to Debian editline package.
 
 
 [UNRELEASED]:    https://github.com/troglobit/finit/compare/1.16.0...HEAD
+[1.16.1]:        https://github.com/troglobit/finit/compare/1.16.0...1.16.1
 [1.16.0]:        https://github.com/troglobit/finit/compare/1.15.3...1.16.0
 [1.15.3]:        https://github.com/troglobit/finit/compare/1.15.2...1.15.3
 [1.15.2]:        https://github.com/troglobit/finit/compare/1.15.1...1.15.2

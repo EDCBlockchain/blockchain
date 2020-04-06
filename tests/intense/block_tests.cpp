@@ -28,7 +28,6 @@
 #include <boost/test/unit_test.hpp>
 
 #include <graphene/chain/database.hpp>
-#include <graphene/chain/protocol/protocol.hpp>
 #include <graphene/chain/account_object.hpp>
 #include <graphene/chain/proposal_object.hpp>
 #include <graphene/chain/vesting_balance_object.hpp>
@@ -287,6 +286,7 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
    try {
 
       BOOST_TEST_MESSAGE( "=== witness_order_mc_test, database_fixture ===" );
+
       size_t num_witnesses = db.get_global_properties().active_witnesses.size();
       size_t dmin = num_witnesses >> 1;
 
@@ -295,8 +295,8 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
       // if we make the maximum witness count testable,
       // we'll need to enlarge this.
       std::bitset< 0x40 > witness_seen;
-      size_t total_blocks = 1000000;
-      //size_t total_blocks = 10;
+      //size_t total_blocks = 1000000;
+      size_t total_blocks = 1000;
 
       cur_round.reserve( num_witnesses );
       full_schedule.reserve( total_blocks );

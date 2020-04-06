@@ -91,6 +91,7 @@ static const char *el_input = NILSTR;
 static char       *Yanked;
 static char       *Screen;
 static char       NEWLINE[]= CRLF;
+static char       CLEAR[]= "\ec";
 static const char *el_term = "dumb";
 static int        Repeat;
 static int        old_point;
@@ -159,16 +160,12 @@ static void tty_flush(void)
     ssize_t res;
 
     if (!ScreenCount)
-        return;
+	return;
 
     if (!el_no_echo) {
-        if (rl_check_secret(rl_line_buffer))
-            res = write(el_outfd, "", 1);
-        else
-            res = write(el_outfd, Screen, ScreenCount);
-
-        if (res > 0)
-            ScreenCount = 0;
+	res = write(el_outfd, Screen, ScreenCount);
+	if (res > 0)
+	    ScreenCount = 0;
     }
 }
 
@@ -287,13 +284,16 @@ void el_print_columns(int ac, char **av)
     int         skip;
     int         longest;
     int         cols;
+    int         colwidth;
 
     /* Find longest name, determine column count from that. */
     for (longest = 0, i = 0; i < ac; i++) {
         if ((j = strlen((char *)av[i])) > longest)
             longest = j;
     }
-    cols = tty_cols / (longest + 3);
+    colwidth = longest + 3;
+    if (colwidth > tty_cols) colwidth = tty_cols;
+    cols = tty_cols / colwidth;
 
     tty_puts(NEWLINE);
     for (skip = ac / cols + 1, i = 0; i < skip; i++) {
@@ -302,7 +302,7 @@ void el_print_columns(int ac, char **av)
                 tty_put(*p);
 
             if (j + skip < ac) {
-                while (++len < longest + 3)
+                while (++len < colwidth)
                     tty_put(' ');
 	    }
         }
@@ -536,26 +536,34 @@ int rl_insert_text(const char *text)
     return rl_point - mark;
 }
 
-static el_status_t redisplay(void)
+static el_status_t redisplay(int cls)
 {
-    /* XXX: Use "\r\e[K" to get really neat effect on ANSI capable terminals. */
-    tty_puts(NEWLINE);
+    if (cls && rl_point == 0 && rl_end == 0)
+	tty_puts(CLEAR);
+    else
+	tty_puts("\r\e[K");
+
     tty_puts(rl_prompt);
     tty_string(rl_line_buffer);
 
     return CSmove;
 }
 
+static el_status_t refresh(void)
+{
+    return redisplay(1);
+}
+
 int rl_refresh_line(int ignore1 __attribute__((unused)), int ignore2 __attribute__((unused)))
 {
-    redisplay();
+    redisplay(0);
     return 0;
 }
 
 static el_status_t toggle_meta_mode(void)
 {
     rl_meta_chars = ! rl_meta_chars;
-    return redisplay();
+    return redisplay(0);
 }
 
 
@@ -683,16 +691,17 @@ static el_status_t h_search_end(const char *p)
     rl_prompt = old_prompt;
     Searching = 0;
 
-    if (p == NULL && el_intr_pending > 0) {
+    if (el_intr_pending > 0) {
         el_intr_pending = 0;
         clear_line();
-        return redisplay();
+        return redisplay(0);
     }
 
     p = search_hist(p, search_move);
     if (p == NULL) {
         el_ring_bell();
-        return redisplay();
+        clear_line();
+        return redisplay(0);
     }
 
     return do_insert_hist(p);
@@ -892,7 +901,7 @@ static el_status_t end_line(void)
 
 static el_status_t del_char(void)
 {
-    return delete_string(Repeat == NO_ARG ? 1 : Repeat);
+    return delete_string(Repeat == NO_ARG ? CSeof : Repeat);
 }
 
 el_status_t el_del_char(void)
@@ -1130,16 +1139,12 @@ static void hist_add(const char *p)
     char *s;
 
 #ifdef CONFIG_UNIQUE_HISTORY
-    if (H.Pos && strcmp(p, H.Lines[H.Pos - 1]) == 0)
+    if (H.Size && strcmp(p, H.Lines[H.Size - 1]) == 0)
         return;
 #endif
 
     s = strdup(p);
     if (s == NULL)
-        return;
-
-    /* Don't add secret information in history */
-    if (rl_check_secret(s))
         return;
 
     if (H.Size < el_hist_size) {
@@ -1305,7 +1310,7 @@ void rl_clear_message(void)
 
 void rl_forced_update_display()
 {
-    redisplay();
+    redisplay(0);
     tty_flush();
 }
 
@@ -1851,7 +1856,7 @@ static el_keymap_t Map[64] = {
     {   CTL('I'),       c_complete      },
     {   CTL('J'),       accept_line     },
     {   CTL('K'),       kill_line       },
-    {   CTL('L'),       redisplay       },
+    {   CTL('L'),       refresh         },
     {   CTL('M'),       accept_line     },
     {   CTL('N'),       h_next          },
     {   CTL('O'),       el_ring_bell    },
@@ -1947,6 +1952,13 @@ el_status_t el_bind_key(int key, el_keymap_func_t function)
 el_status_t el_bind_key_in_metamap(int key, el_keymap_func_t function)
 {
     return el_bind_key_in_map(key, function, MetaMap, NELEMS(MetaMap));
+}
+
+rl_getc_func_t *rl_set_getc_func(rl_getc_func_t *func)
+{
+    rl_getc_func_t *old = rl_getc_function;
+    rl_getc_function = func;
+    return old;
 }
 
 /**

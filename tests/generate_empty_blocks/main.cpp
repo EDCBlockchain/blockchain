@@ -30,10 +30,8 @@
 #include <fc/io/fstream.hpp>
 #include <fc/io/json.hpp>
 #include <fc/io/stdio.hpp>
-#include <fc/smart_ref_impl.hpp>
 
 #include <graphene/app/api.hpp>
-#include <graphene/chain/protocol/protocol.hpp>
 #include <graphene/egenesis/egenesis.hpp>
 #include <graphene/utilities/key_conversion.hpp>
 
@@ -123,6 +121,7 @@ int main( int argc, char** argv )
 
       database db;
       fc::path db_path = data_dir / "db";
+      db.enable_referrer_mode();
       db.open(db_path, [&]() { return genesis; } );
 
       uint32_t slot = 1;
@@ -133,14 +132,14 @@ int main( int argc, char** argv )
          signed_block b = db.generate_block(db.get_slot_time(slot), db.get_scheduled_witness(slot), nathan_priv_key, database::skip_nothing);
          FC_ASSERT( db.head_block_id() == b.id() );
          fc::sha256 h = b.digest();
-         uint64_t rand = h._hash[0];
+         uint64_t rand = h._hash[0].value();
          slot = 1;
          while(true)
          {
             if( (rand % 100) < miss_rate )
             {
                slot++;
-               rand = (rand/100) ^ h._hash[slot&3];
+               rand = (rand/100) ^ h._hash[slot&3].value();
                missed++;
             }
             else

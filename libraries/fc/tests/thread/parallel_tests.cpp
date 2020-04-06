@@ -200,25 +200,25 @@ BOOST_AUTO_TEST_CASE( serial_valve )
    fc::serial_valve valve;
 
    { // Simple test, f2 finishes before f1
-      fc::promise<void>* syncer = new fc::promise<void>();
-      fc::promise<void>* waiter = new fc::promise<void>();
+      fc::promise<void>::ptr syncer = fc::promise<void>::create();
+      fc::promise<void>::ptr waiter = fc::promise<void>::create();
       auto p1 = fc::async([&counter,&valve,syncer,waiter] () {
          valve.do_serial( [syncer,waiter](){ syncer->set_value();
-                                             fc::future<void>( fc::shared_ptr<fc::promise<void>>( waiter, true ) ).wait(); },
+                                             fc::future<void>( waiter ).wait(); },
                           [&counter](){ BOOST_CHECK_EQUAL( 0u, counter.load() );
                                         counter.fetch_add(1); } );
       });
-      fc::future<void>( fc::shared_ptr<fc::promise<void>>( syncer, true ) ).wait();
+      fc::future<void>( syncer ).wait();
 
       // at this point, p1.f1 has started executing and is waiting on waiter
 
-      syncer = new fc::promise<void>();
+      syncer = fc::promise<void>::create();
       auto p2 = fc::async([&counter,&valve,syncer] () {
          valve.do_serial( [syncer](){ syncer->set_value(); },
                           [&counter](){ BOOST_CHECK_EQUAL( 1u, counter.load() );
                                         counter.fetch_add(1); } );
       });
-      fc::future<void>( fc::shared_ptr<fc::promise<void>>( syncer, true ) ).wait();
+      fc::future<void>( syncer ).wait();
 
       fc::usleep( fc::milliseconds(10) );
 
@@ -237,37 +237,37 @@ BOOST_AUTO_TEST_CASE( serial_valve )
    }
 
    { // Triple test, f3 finishes first, then f1, finally f2
-      fc::promise<void>* syncer = new fc::promise<void>();
-      fc::promise<void>* waiter = new fc::promise<void>();
+      fc::promise<void>::ptr syncer = fc::promise<void>::create();
+      fc::promise<void>::ptr waiter = fc::promise<void>::create();
       counter.store(0);
       auto p1 = fc::async([&counter,&valve,syncer,waiter] () {
          valve.do_serial( [&syncer,waiter](){ syncer->set_value();
-                                              fc::future<void>( fc::shared_ptr<fc::promise<void>>( waiter, true ) ).wait(); },
+                                              fc::future<void>( waiter ).wait(); },
                           [&counter](){ BOOST_CHECK_EQUAL( 0u, counter.load() );
                                         counter.fetch_add(1); } );
       });
-      fc::future<void>( fc::shared_ptr<fc::promise<void>>( syncer, true ) ).wait();
+      fc::future<void>( syncer ).wait();
 
       // at this point, p1.f1 has started executing and is waiting on waiter
 
-      syncer = new fc::promise<void>();
+      syncer = fc::promise<void>::create();
       auto p2 = fc::async([&counter,&valve,syncer] () {
          valve.do_serial( [&syncer](){ syncer->set_value();
                                        fc::usleep( fc::milliseconds(100) ); },
                           [&counter](){ BOOST_CHECK_EQUAL( 1u, counter.load() );
                                         counter.fetch_add(1); } );
       });
-      fc::future<void>( fc::shared_ptr<fc::promise<void>>( syncer, true ) ).wait();
+      fc::future<void>( syncer ).wait();
 
       // at this point, p2.f1 has started executing and is sleeping
 
-      syncer = new fc::promise<void>();
+      syncer = fc::promise<void>::create();
       auto p3 = fc::async([&counter,&valve,syncer] () {
          valve.do_serial( [syncer](){ syncer->set_value(); },
                           [&counter](){ BOOST_CHECK_EQUAL( 2u, counter.load() );
                                         counter.fetch_add(1); } );
       });
-      fc::future<void>( fc::shared_ptr<fc::promise<void>>( syncer, true ) ).wait();
+      fc::future<void>( syncer ).wait();
 
       fc::usleep( fc::milliseconds(10) );
 
@@ -288,37 +288,37 @@ BOOST_AUTO_TEST_CASE( serial_valve )
    }
 
    { // Triple test again but with invocations from different threads
-      fc::promise<void>* syncer = new fc::promise<void>();
-      fc::promise<void>* waiter = new fc::promise<void>();
+      fc::promise<void>::ptr syncer = fc::promise<void>::create();
+      fc::promise<void>::ptr waiter = fc::promise<void>::create();
       counter.store(0);
       auto p1 = fc::do_parallel([&counter,&valve,syncer,waiter] () {
          valve.do_serial( [&syncer,waiter](){ syncer->set_value();
-                                              fc::future<void>( fc::shared_ptr<fc::promise<void>>( waiter, true ) ).wait(); },
+                                              fc::future<void>( waiter ).wait(); },
                           [&counter](){ BOOST_CHECK_EQUAL( 0u, counter.load() );
                                         counter.fetch_add(1); } );
       });
-      fc::future<void>( fc::shared_ptr<fc::promise<void>>( syncer, true ) ).wait();
+      fc::future<void>( syncer ).wait();
 
       // at this point, p1.f1 has started executing and is waiting on waiter
 
-      syncer = new fc::promise<void>();
+      syncer = fc::promise<void>::create();
       auto p2 = fc::do_parallel([&counter,&valve,syncer] () {
          valve.do_serial( [&syncer](){ syncer->set_value();
                                        fc::usleep( fc::milliseconds(100) ); },
                           [&counter](){ BOOST_CHECK_EQUAL( 1u, counter.load() );
                                         counter.fetch_add(1); } );
       });
-      fc::future<void>( fc::shared_ptr<fc::promise<void>>( syncer, true ) ).wait();
+      fc::future<void>( syncer ).wait();
 
       // at this point, p2.f1 has started executing and is sleeping
 
-      syncer = new fc::promise<void>();
+      syncer = fc::promise<void>::create();
       auto p3 = fc::do_parallel([&counter,&valve,syncer] () {
          valve.do_serial( [syncer](){ syncer->set_value(); },
                           [&counter](){ BOOST_CHECK_EQUAL( 2u, counter.load() );
                                         counter.fetch_add(1); } );
       });
-      fc::future<void>( fc::shared_ptr<fc::promise<void>>( syncer, true ) ).wait();
+      fc::future<void>( syncer ).wait();
 
       fc::usleep( fc::milliseconds(10) );
 

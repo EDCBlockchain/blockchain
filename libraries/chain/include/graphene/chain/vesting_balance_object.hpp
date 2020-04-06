@@ -23,19 +23,18 @@
  */
 #pragma once
 
-#include <graphene/chain/protocol/asset.hpp>
-#include <graphene/db/object.hpp>
 #include <graphene/db/generic_index.hpp>
+#include <graphene/protocol/asset.hpp>
+#include <boost/multi_index/composite_key.hpp>
 
 #include <fc/static_variant.hpp>
 #include <fc/uint128.hpp>
 
-#include <algorithm>
-
-
+//#include <algorithm>
 
 namespace graphene { namespace chain {
    using namespace graphene::db;
+   using namespace graphene::protocol;
 
    class vesting_balance_object;
 
@@ -187,6 +186,8 @@ namespace graphene { namespace chain {
 
 } } // graphene::chain
 
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::vesting_balance_object)
+
 FC_REFLECT(graphene::chain::linear_vesting_policy,
            (begin_timestamp)
            (vesting_cliff_seconds)
@@ -208,3 +209,31 @@ FC_REFLECT_DERIVED(graphene::chain::vesting_balance_object, (graphene::db::objec
                    (balance)
                    (policy)
                   )
+
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::linear_vesting_policy )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::cdd_vesting_policy )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::vesting_balance_object )
+
+/**
+FC_REFLECT(graphene::chain::linear_vesting_policy,
+           (begin_timestamp)
+           (vesting_cliff_seconds)
+           (vesting_duration_seconds)
+           (begin_balance)
+          )
+
+FC_REFLECT(graphene::chain::cdd_vesting_policy,
+           (vesting_seconds)
+           (start_claim)
+           (coin_seconds_earned)
+           (coin_seconds_earned_last_update)
+          )
+
+FC_REFLECT_TYPENAME( graphene::chain::vesting_policy )
+
+FC_REFLECT_DERIVED(graphene::chain::vesting_balance_object, (graphene::db::object),
+                   (owner)
+                   (balance)
+                   (policy)
+                  )
+*/

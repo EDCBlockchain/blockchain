@@ -38,9 +38,6 @@
 #include <graphene/db/simple_index.hpp>
 #include <fc/signals.hpp>
 
-#include <graphene/chain/hardfork.hpp>
-#include <graphene/chain/protocol/protocol.hpp>
-
 #include <fc/log/logger.hpp>
 
 #include <map>
@@ -50,6 +47,13 @@ namespace graphene { namespace chain {
    using graphene::db::object;
    class op_evaluator;
    class transaction_evaluation_state;
+   class proposal_object;
+   class operation_history_object;
+   class chain_property_object;
+   class witness_object;
+   class force_settlement_object;
+   class limit_order_object;
+   class call_order_object;
 
    struct budget_record;
 
@@ -335,6 +339,8 @@ namespace graphene { namespace chain {
 
          void rebuild_user_edc_deposit_availability(account_id_type acc_id);
 
+         asset get_burnt_asset(asset_id_type id);
+
          /**
           * @brief Helper to make lazy deposit to CDD VBO.
           *
@@ -450,9 +456,6 @@ namespace graphene { namespace chain {
          /** when popping a block, the transactions that were removed get cached here so they
           * can be reapplied at the proper time */
          std::deque< signed_transaction >       _popped_tx;
-
-         // rework later
-         bool                              maint_needed          = false;
 
          /**
           * @}
@@ -600,4 +603,4 @@ namespace graphene { namespace chain {
        }
    }
 
-} }
+} } // namespace graphene::chain

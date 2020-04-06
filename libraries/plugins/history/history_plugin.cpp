@@ -35,7 +35,8 @@
 #include <graphene/chain/fund_object.hpp>
 #include <graphene/chain/transaction_evaluation_state.hpp>
 
-#include <fc/smart_ref_impl.hpp>
+#include <graphene/chain/hardfork.hpp>
+
 #include <fc/thread/thread.hpp>
 
 namespace graphene { namespace history {

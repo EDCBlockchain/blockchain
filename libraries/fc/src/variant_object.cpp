@@ -9,8 +9,8 @@ namespace fc
    // entry
 
    variant_object::entry::entry() {}
-   variant_object::entry::entry( string k, fc::variant v ) : _key(fc::move(k)),_value(fc::move(v)) {}
-   variant_object::entry::entry( entry&& e ) : _key(fc::move(e._key)),_value(fc::move(e._value)) {}
+   variant_object::entry::entry( string k, variant v ) : _key(std::move(k)),_value(std::move(v)) {}
+   variant_object::entry::entry( entry&& e ) : _key(std::move(e._key)),_value(std::move(e._value)) {}
    variant_object::entry::entry( const entry& e ) : _key(e._key),_value(e._value) {}
    variant_object::entry& variant_object::entry::operator=( const variant_object::entry& e )
    {
@@ -23,8 +23,8 @@ namespace fc
    }
    variant_object::entry& variant_object::entry::operator=( variant_object::entry&& e )
    {
-      fc_swap( _key, e._key );
-      fc_swap( _value, e._value );
+      std::swap( _key, e._key );
+      std::swap( _value, e._value );
       return *this;
    }
    
@@ -33,18 +33,18 @@ namespace fc
       return _key;
    }
 
-   const fc::variant& variant_object::entry::value()const
+   const variant& variant_object::entry::value()const
    {
       return _value;
    }
-   fc::variant& variant_object::entry::value()
+   variant& variant_object::entry::value()
    {
       return _value;
    }
 
-   void  variant_object::entry::set( fc::variant v )
+   void  variant_object::entry::set( variant v )
    {
-      fc_swap( _value, v );
+      std::swap( _value, v );
    }
 
    // ---------------------------------------------------------------
@@ -78,12 +78,12 @@ namespace fc
       return end();
    }
 
-   const fc::variant& variant_object::operator[]( const string& key )const
+   const variant& variant_object::operator[]( const string& key )const
    {
       return (*this)[key.c_str()];
    }
 
-   const fc::variant& variant_object::operator[]( const char* key )const
+   const variant& variant_object::operator[]( const char* key )const
    {
       auto itr = find( key );
       if( itr != end() ) return itr->value();
@@ -100,10 +100,10 @@ namespace fc
    {
    }
 
-   variant_object::variant_object( string key, fc::variant val )
+   variant_object::variant_object( string key, variant val )
       : _key_value(std::make_shared<std::vector<entry>>())
    {
-       _key_value->emplace_back(entry(fc::move(key), fc::move(val)));
+       _key_value->emplace_back(entry(std::move(key), std::move(val)));
    }
 
    variant_object::variant_object( const variant_object& obj )
@@ -113,7 +113,7 @@ namespace fc
    }
 
    variant_object::variant_object( variant_object&& obj)
-   : _key_value( fc::move(obj._key_value) )
+   : _key_value( std::move(obj._key_value) )
    {
       obj._key_value = std::make_shared<std::vector<entry>>();
       assert( _key_value != nullptr );
@@ -125,7 +125,7 @@ namespace fc
    }
 
    variant_object::variant_object( mutable_variant_object&& obj )
-   : _key_value(fc::move(obj._key_value))
+   : _key_value(std::move(obj._key_value))
    {
       assert( _key_value != nullptr );
    }
@@ -134,7 +134,7 @@ namespace fc
    {
       if (this != &obj)
       {
-         fc_swap(_key_value, obj._key_value );
+         std::swap(_key_value, obj._key_value );
          assert( _key_value != nullptr );
       }
       return *this;
@@ -151,7 +151,7 @@ namespace fc
 
    variant_object& variant_object::operator=( mutable_variant_object&& obj )
    {
-      _key_value = fc::move(obj._key_value);
+      _key_value = std::move(obj._key_value);
       obj._key_value.reset( new std::vector<entry>() );
       return *this;
    }
@@ -162,12 +162,12 @@ namespace fc
       return *this;
    }
 
-   void to_variant( const variant_object& var, fc::variant& vo, uint32_t max_depth )
+   void to_variant( const variant_object& var, variant& vo, uint32_t max_depth )
    {
-      vo = fc::variant(var);
+      vo = variant(var);
    }
 
-   void from_variant( const fc::variant& var, variant_object& vo, uint32_t max_depth )
+   void from_variant( const variant& var, variant_object& vo, uint32_t max_depth )
    {
       vo = var.get_object();
    }
@@ -229,27 +229,27 @@ namespace fc
       return end();
    }
 
-   const fc::variant& mutable_variant_object::operator[]( const string& key )const
+   const variant& mutable_variant_object::operator[]( const string& key )const
    {
       return (*this)[key.c_str()];
    }
 
-   const fc::variant& mutable_variant_object::operator[]( const char* key )const
+   const variant& mutable_variant_object::operator[]( const char* key )const
    {
       auto itr = find( key );
       if( itr != end() ) return itr->value();
       FC_THROW_EXCEPTION( key_not_found_exception, "Key ${key}", ("key",key) );
    }
-   fc::variant& mutable_variant_object::operator[]( const string& key )
+   variant& mutable_variant_object::operator[]( const string& key )
    {
       return (*this)[key.c_str()];
    }
 
-   fc::variant& mutable_variant_object::operator[]( const char* key )
+   variant& mutable_variant_object::operator[]( const char* key )
    {
       auto itr = find( key );
       if( itr != end() ) return itr->value();
-      _key_value->emplace_back(entry(key, fc::variant()));
+      _key_value->emplace_back(entry(key, variant()));
       return _key_value->back().value();
    }
 
@@ -263,10 +263,10 @@ namespace fc
    {
    }
 
-   mutable_variant_object::mutable_variant_object( string key, fc::variant val )
+   mutable_variant_object::mutable_variant_object( string key, variant val )
       : _key_value(new std::vector<entry>())
    {
-       _key_value->push_back(entry(fc::move(key), fc::move(val)));
+       _key_value->push_back(entry(std::move(key), std::move(val)));
    }
 
    mutable_variant_object::mutable_variant_object( const variant_object& obj )
@@ -280,7 +280,7 @@ namespace fc
    }
 
    mutable_variant_object::mutable_variant_object( mutable_variant_object&& obj )
-      : _key_value(fc::move(obj._key_value))
+      : _key_value(std::move(obj._key_value))
    {
    }
 
@@ -294,7 +294,7 @@ namespace fc
    {
       if (this != &obj)
       {
-         _key_value = fc::move(obj._key_value);
+         _key_value = std::move(obj._key_value);
       }
       return *this;
    }
@@ -326,16 +326,16 @@ namespace fc
    }
 
    /** replaces the value at \a key with \a var or insert's \a key if not found */
-   mutable_variant_object& mutable_variant_object::set( string key, fc::variant var )
+   mutable_variant_object& mutable_variant_object::set( string key, variant var )
    {
       auto itr = find( key.c_str() );
       if( itr != end() )
       {
-         itr->set( fc::move(var) );
+         itr->set( std::move(var) );
       }
       else
       {
-         _key_value->push_back( entry( fc::move(key), fc::move(var) ) );
+         _key_value->push_back( entry( std::move(key), std::move(var) ) );
       }
       return *this;
    }
@@ -343,9 +343,9 @@ namespace fc
    /** Appends \a key and \a var without checking for duplicates, designed to
     *  simplify construction of dictionaries using (key,val)(key2,val2) syntax 
     */
-   mutable_variant_object& mutable_variant_object::operator()( string key, fc::variant var, uint32_t max_depth )
+   mutable_variant_object& mutable_variant_object::operator()( string key, variant var, uint32_t max_depth )
    {
-      _key_value->push_back( entry( fc::move(key), fc::move(var) ) );
+      _key_value->push_back( entry( std::move(key), std::move(var) ) );
       return *this;
    }
 
@@ -397,12 +397,12 @@ namespace fc
       return *this;
    }
 
-   void to_variant( const mutable_variant_object& var, fc::variant& vo, uint32_t max_depth )
+   void to_variant( const mutable_variant_object& var, variant& vo, uint32_t max_depth )
    {
-      vo = fc::variant(var);
+      vo = variant(var);
    }
 
-   void from_variant( const fc::variant& var, mutable_variant_object& vo, uint32_t max_depth )
+   void from_variant( const variant& var, mutable_variant_object& vo, uint32_t max_depth )
    {
       vo = var.get_object();
    }

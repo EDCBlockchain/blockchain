@@ -22,7 +22,8 @@
  * THE SOFTWARE.
  */
 #pragma once
-#include <fc/array.hpp>
+#include <array>
+
 #include <fc/io/varint.hpp>
 #include <fc/network/ip.hpp>
 #include <fc/io/raw.hpp>

@@ -22,9 +22,8 @@
  * THE SOFTWARE.
  */
 #include <graphene/chain/block_database.hpp>
-#include <graphene/chain/protocol/fee_schedule.hpp>
+#include <graphene/protocol/fee_schedule.hpp>
 #include <fc/io/raw.hpp>
-#include <fc/smart_ref_impl.hpp>
 
 namespace graphene { namespace chain {
 
@@ -82,8 +81,7 @@ void block_database::store( const block_id_type& _id, const signed_block& b )
       id = b.id();
       elog( "id argument of block_database::store() was not initialized for block ${id}", ("id", id) );
    }
-   auto num = block_header::num_from_id(id);
-   _block_num_to_pos.seekp( sizeof( index_entry ) * num );
+   _block_num_to_pos.seekp( sizeof( index_entry ) * int64_t(block_header::num_from_id(id)) );
    index_entry e;
    _blocks.seekp( 0, _blocks.end );
    auto vec = fc::raw::pack( b );

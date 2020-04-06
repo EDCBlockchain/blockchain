@@ -8,12 +8,12 @@ state::~state()
    close();
 }
 
-void state::add_method( const fc::string& name, method m )
+void state::add_method( const std::string& name, method m )
 {
-   _methods.emplace(std::pair<std::string,method>(name,fc::move(m)));
+   _methods.emplace(std::pair<std::string,method>(name,std::move(m)));
 }
 
-void state::remove_method( const fc::string& name )
+void state::remove_method( const std::string& name )
 {
    _methods.erase(name);
 }
@@ -29,7 +29,8 @@ variant state::local_call( const string& method_name, const variants& args )
 
 void  state::handle_reply( const response& response )
 {
-   auto await = _awaiting.find( response.id );
+   FC_ASSERT( response.id, "Response without ID: ${response}", ("response",response) );
+   auto await = _awaiting.find( *response.id );
    FC_ASSERT( await != _awaiting.end(), "Unknown Response ID: ${id}", ("id",response.id)("response",response) );
    if( response.result ) 
       await->second->set_value( *response.result );
@@ -45,10 +46,10 @@ void  state::handle_reply( const response& response )
 request state::start_remote_call( const string& method_name, variants args )
 {
    request request{ _next_id++, method_name, std::move(args) };
-   _awaiting[*request.id] = fc::promise<variant>::ptr( new fc::promise<variant>("json_connection::async_call") );
+   _awaiting[*request.id] = fc::promise<variant>::create("json_connection::async_call");
    return request;
 }
-variant state::wait_for_response( uint64_t request_id )
+variant state::wait_for_response( const variant& request_id )
 {
    auto itr = _awaiting.find(request_id);
    FC_ASSERT( itr != _awaiting.end() );

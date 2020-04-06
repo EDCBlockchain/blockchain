@@ -25,8 +25,8 @@
 
 #include <graphene/app/database_api.hpp>
 
-#include <graphene/chain/protocol/types.hpp>
-#include <graphene/chain/protocol/confidential.hpp>
+#include <graphene/protocol/types.hpp>
+#include <graphene/protocol/confidential.hpp>
 
 #include <graphene/market_history/market_history_plugin.hpp>
 
@@ -120,7 +120,7 @@ namespace graphene { namespace app {
                                                               , unsigned operation_type = 0) const;
 
          vector<operation_history_object> get_account_operation_history3(
-                                                              account_id_type account
+                                                              account_id_type account_id
                                                               , operation_history_id_type stop = operation_history_id_type()
                                                               , unsigned limit = 100
                                                               , operation_history_id_type start = operation_history_id_type()
@@ -132,6 +132,12 @@ namespace graphene { namespace app {
                                                               , operation_history_id_type start = operation_history_id_type()
                                                               , unsigned limit = 100
                                                               , const vector<uint16_t>& operation_types = vector<uint16_t>()) const;
+
+         vector<operation_history_object> get_account_leasing_history(account_id_type account_id
+                                                              , const std::vector<fund_id_type> funds
+                                                              , unsigned limit
+                                                              , operation_history_id_type start) const;
+
          // funds
          vector<operation_history_object> get_fund_history(fund_id_type fund_id
                                                            , operation_history_id_type stop = operation_history_id_type()
@@ -327,7 +333,16 @@ namespace graphene { namespace app {
                                          
          range_proof_info range_get_info( const std::vector<char>& proof );
    };
-
+} } // graphene::app
+   
+extern template class fc::api<graphene::app::network_broadcast_api>;
+extern template class fc::api<graphene::app::network_node_api>;
+extern template class fc::api<graphene::app::history_api>;
+extern template class fc::api<graphene::app::crypto_api>;
+extern template class fc::api<graphene::app::database_api>;
+extern template class fc::api<graphene::debug_witness::debug_api>;
+  
+namespace graphene { namespace app {
    /**
     * @brief The login_api class implements the bottom layer of the RPC API
     *
@@ -379,6 +394,9 @@ namespace graphene { namespace app {
    };
 
 }}  // graphene::app
+
+extern template class fc::api<graphene::app::login_api>;
+
 FC_REFLECT( graphene::app::listtransactions_result, (transfer)(confirmations) );
 FC_REFLECT( graphene::app::network_broadcast_api::transaction_confirmation,
         (id)(block_num)(trx_num)(trx) )
@@ -397,6 +415,7 @@ FC_API(graphene::app::history_api,
        (get_account_operation_history2)
        (get_account_operation_history3)
        (get_account_operation_history4)
+       (get_account_leasing_history)
        (get_fund_history)
        (get_fund_payments_history)
        (get_relative_history)

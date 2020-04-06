@@ -11,11 +11,11 @@
  **/
 #pragma once
 
+#include <array>
 #include <functional>
 #include <stdexcept>
 #include <typeinfo>
 
-#include <fc/array.hpp>
 #include <fc/exception/exception.hpp>
 
 namespace fc {
@@ -141,58 +141,53 @@ struct storage_ops<N> {
 
 template<typename X>
 struct position<X> {
-    static const int pos = -1;
+    static constexpr int pos = -1;
 };
 
 template<typename X, typename... Ts>
 struct position<X, X, Ts...> {
-    static const int pos = 0;
+    static constexpr int pos = 0;
 };
 
 template<typename X, typename T, typename... Ts>
 struct position<X, T, Ts...> {
-    static const int pos = position<X, Ts...>::pos != -1 ? position<X, Ts...>::pos + 1 : -1;
+    static constexpr int pos = position<X, Ts...>::pos != -1 ? position<X, Ts...>::pos + 1 : -1;
 };
 
 template<typename T, typename... Ts>
 struct type_info<T&, Ts...> {
-    static const bool no_reference_types = false;
-    static const bool no_duplicates = position<T, Ts...>::pos == -1 && type_info<Ts...>::no_duplicates;
-    static const size_t size = type_info<Ts...>::size > sizeof(T&) ? type_info<Ts...>::size : sizeof(T&);
-    static const size_t count = 1 + type_info<Ts...>::count;
+    static constexpr bool no_reference_types = false;
+    static constexpr bool no_duplicates = position<T, Ts...>::pos == -1 && type_info<Ts...>::no_duplicates;
+    static constexpr size_t size = type_info<Ts...>::size > sizeof(T&) ? type_info<Ts...>::size : sizeof(T&);
+    static constexpr size_t count = 1 + type_info<Ts...>::count;
 };
 
 template<typename T, typename... Ts>
 struct type_info<T, Ts...> {
-    static const bool no_reference_types = type_info<Ts...>::no_reference_types;
-    static const bool no_duplicates = position<T, Ts...>::pos == -1 && type_info<Ts...>::no_duplicates;
-    static const size_t size = type_info<Ts...>::size > sizeof(T) ? type_info<Ts...>::size : sizeof(T&);
-    static const size_t count = 1 + type_info<Ts...>::count;
+    static constexpr bool no_reference_types = type_info<Ts...>::no_reference_types;
+    static constexpr bool no_duplicates = position<T, Ts...>::pos == -1 && type_info<Ts...>::no_duplicates;
+    static constexpr size_t size = type_info<Ts...>::size > sizeof(T) ? type_info<Ts...>::size : sizeof(T&);
+    static constexpr size_t count = 1 + type_info<Ts...>::count;
 };
 
 template<>
 struct type_info<> {
-    static const bool no_reference_types = true;
-    static const bool no_duplicates = true;
-    static const size_t count = 0;
-    static const size_t size = 0;
+    static constexpr bool no_reference_types = true;
+    static constexpr bool no_duplicates = true;
+    static constexpr size_t count = 0;
+    static constexpr size_t size = 0;
 };
 
 template<typename TTag>
-size_t size( TTag )
+constexpr size_t size( TTag )
 {
     return 0;
 }
 
 template<typename TTag, typename A, typename...Ts>
-size_t size( TTag tag )
+constexpr size_t size( TTag tag )
 {
-    if (tag <= 0)
-    {
-        return sizeof(A);
-    }
-
-    return size<TTag, Ts...>( --tag );
+    return tag <= 0 ? sizeof(A) : size<TTag, Ts...>( --tag );
 }
 
 
@@ -216,36 +211,36 @@ public:
 } // namespace impl
 
 template<int L,typename Visitor,typename Data>
-static const fc::array<typename Visitor::result_type(*)(Visitor&,Data),L>
+static const std::array<typename Visitor::result_type(*)(Visitor&,Data),L>
       init_wrappers( Visitor& v, Data d, typename Visitor::result_type(**funcs)(Visitor&,Data) = 0)
 {
-   return fc::array<typename Visitor::result_type(*)(Visitor&,Data),L>();
+   return std::array<typename Visitor::result_type(*)(Visitor&,Data),L>();
 }
 
 template<int L,typename Visitor,typename Data,typename T, typename ... Types>
-static const fc::array<typename Visitor::result_type(*)(Visitor&,Data),L>
+static const std::array<typename Visitor::result_type(*)(Visitor&,Data),L>
       init_wrappers( Visitor& v, Data d, typename Visitor::result_type(**funcs)(Visitor&,Data) = 0 )
 {
-   fc::array<typename Visitor::result_type(*)(Visitor&,Data),L> result;
-   if( !funcs ) funcs = result.begin();
+   std::array<typename Visitor::result_type(*)(Visitor&,Data),L> result{};
+   if( !funcs ) funcs = result.data();
    *funcs++ = [] ( Visitor& v, Data d ) { return v( *reinterpret_cast<T*>( d ) ); };
    init_wrappers<L,Visitor,Data,Types...>( v, d, funcs );
    return result;
 }
 
 template<int L,typename Visitor,typename Data>
-static const fc::array<typename Visitor::result_type(*)(Visitor&,Data),L>
+static const std::array<typename Visitor::result_type(*)(Visitor&,Data),L>
       init_const_wrappers( Visitor& v, Data d, typename Visitor::result_type(**funcs)(Visitor&,Data) = 0 )
 {
-   return fc::array<typename Visitor::result_type(*)(Visitor&,Data),L>();
+   return std::array<typename Visitor::result_type(*)(Visitor&,Data),L>();
 }
 
 template<int L,typename Visitor,typename Data,typename T, typename ... Types>
-static const fc::array<typename Visitor::result_type(*)(Visitor&,Data),L>
+static const std::array<typename Visitor::result_type(*)(Visitor&,Data),L>
       init_const_wrappers( Visitor& v, Data d, typename Visitor::result_type(**funcs)(Visitor&,Data) = 0 )
 {
-   fc::array<typename Visitor::result_type(*)(Visitor&,Data),L> result;
-   if( !funcs ) funcs = result.begin();
+   std::array<typename Visitor::result_type(*)(Visitor&,Data),L> result{};
+   if( !funcs ) funcs = result.data();
    *funcs++ = [] ( Visitor& v, Data d ) { return v( *reinterpret_cast<const T*>( d ) ); };
    init_const_wrappers<L,Visitor,Data,Types...>( v, d, funcs );
    return result;
@@ -253,6 +248,9 @@ static const fc::array<typename Visitor::result_type(*)(Visitor&,Data),L>
 
 template<typename... Types>
 class static_variant {
+public:
+    using tag_type = int64_t;
+
 protected:
     static_assert(impl::type_info<Types...>::no_reference_types, "Reference types are not permitted in static_variant.");
     static_assert(impl::type_info<Types...>::no_duplicates, "static_variant type arguments contain duplicate types.");
@@ -260,7 +258,6 @@ protected:
     template<typename X>
     using type_in_typelist = typename std::enable_if<impl::position<X, Types...>::pos != -1, X>::type; // type is in typelist of static_variant.
 
-    using tag_type = int64_t;
     tag_type _tag;
     impl::dynamic_storage storage;
 
@@ -302,7 +299,7 @@ public:
     template<typename X, typename = type_in_typelist<X>>
     struct tag
     {
-       static const int value = impl::position<X, Types...>::pos;
+       static constexpr int value = impl::position<X, Types...>::pos;
     };
 
     static_variant()
@@ -432,7 +429,7 @@ public:
         return wrappers[tag]( v, data );
     }
 
-    static int count() { return impl::type_info<Types...>::count; }
+    static constexpr int count() { return impl::type_info<Types...>::count; }
     void set_which( tag_type w ) {
       FC_ASSERT( w >= 0 );
       FC_ASSERT( w < count() );
@@ -441,6 +438,9 @@ public:
     }
 
     tag_type which() const {return _tag;}
+
+    template<typename T>
+    bool is_type() const { return _tag == tag<T>::value; }
 };
 
    struct from_static_variant 

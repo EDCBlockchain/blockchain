@@ -94,9 +94,8 @@ namespace graphene { namespace net {
       {
         try
         {
-           std::vector<potential_peer_record> peer_records = fc::json::from_file(_peer_database_filename).as<std::vector<potential_peer_record> >( GRAPHENE_NET_MAX_NESTED_OBJECTS );
-           std::copy(peer_records.begin(), peer_records.end(), std::inserter(_potential_peer_set, _potential_peer_set.end()));
-
+          std::vector<potential_peer_record> peer_records = fc::json::from_file(_peer_database_filename).as<std::vector<potential_peer_record> >( GRAPHENE_NET_MAX_NESTED_OBJECTS );
+          std::copy(peer_records.begin(), peer_records.end(), std::inserter(_potential_peer_set, _potential_peer_set.end()));
           if (_potential_peer_set.size() > MAXIMUM_PEERDB_SIZE)
           {
             // prune database to a reasonable size
@@ -275,3 +274,14 @@ namespace graphene { namespace net {
   }
 
 } } // end namespace graphene::net
+
+FC_REFLECT_ENUM( graphene::net::potential_peer_last_connection_disposition,
+                 (never_attempted_to_connect)
+                 (last_connection_failed)(last_connection_rejected)
+                 (last_connection_handshaking_failed)(last_connection_succeeded) )
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::net::potential_peer_record, BOOST_PP_SEQ_NIL,
+                                (endpoint)(last_seen_time)(last_connection_disposition)
+                                (last_connection_attempt_time)(number_of_successful_connection_attempts)
+                                (number_of_failed_connection_attempts)(last_error) )
+
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::net::potential_peer_record)

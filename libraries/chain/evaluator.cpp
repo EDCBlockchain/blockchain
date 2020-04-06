@@ -32,7 +32,7 @@
 #include <graphene/chain/account_object.hpp>
 #include <graphene/chain/fba_object.hpp>
 #include <graphene/chain/committee_member_object.hpp>
-#include <graphene/chain/protocol/fee_schedule.hpp>
+#include <graphene/protocol/fee_schedule.hpp>
 
 #include <fc/uint128.hpp>
 
@@ -58,6 +58,7 @@ database& generic_evaluator::db()const { return trx_state->db(); }
       auto result = evaluate( op );
 
       if( apply ) result = this->apply( op );
+
       return result;
    } FC_CAPTURE_AND_RETHROW() }
 
@@ -111,8 +112,10 @@ database& generic_evaluator::db()const { return trx_state->db(); }
             database& d = db();
             if (d.head_block_time() > HARDFORK_623_TIME)
             {
-               d.modify(*fee_asset_dyn_data, [this](asset_dynamic_data_object& d) {
+               d.modify(*fee_asset_dyn_data, [this](asset_dynamic_data_object& d)
+               {
                   d.current_supply -= fee_from_account.amount;
+                  d.fee_burnt += fee_from_account.amount;
                });
             }
             else

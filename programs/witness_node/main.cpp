@@ -30,13 +30,13 @@
 #include <fc/exception/exception.hpp>
 #include <fc/thread/thread.hpp>
 #include <fc/interprocess/signals.hpp>
+
 #include <fc/log/console_appender.hpp>
 #include <fc/log/file_appender.hpp>
 #include <fc/log/logger.hpp>
 #include <fc/log/logger_config.hpp>
 
 #include <boost/filesystem.hpp>
-
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -69,7 +69,6 @@ int main(int argc, char** argv) {
             ("data-dir,d", bpo::value<boost::filesystem::path>()->default_value("witness_node_data_dir"), "Directory containing databases, configuration file, etc.")
             ("key-path,K", bpo::value<boost::filesystem::path>()->default_value(""), "Path to file with EDC owner key")
             ("fast",  bpo::value<int>(0), "Size of history in days")
-            ("referrer_mode_enabled", "Any LTM-member can create accounts")
             ;
 
       bpo::variables_map options;
@@ -177,7 +176,7 @@ int main(int argc, char** argv) {
       node->startup();
       node->startup_plugins();
 
-      fc::promise<int>::ptr exit_promise = new fc::promise<int>("UNIX Signal Handler");
+      fc::promise<int>::ptr exit_promise = fc::promise<int>::create("UNIX Signal Handler");
 
       fc::set_signal_handler([&exit_promise](int signal) {
          elog( "Caught SIGINT attempting to exit cleanly (WAIT please until the process is finished)" );

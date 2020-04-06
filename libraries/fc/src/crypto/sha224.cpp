@@ -60,7 +60,7 @@ namespace fc {
     sha224 operator ^ ( const sha224& h1, const sha224& h2 ) {
       sha224 result;
       for( uint32_t i = 0; i < 7; ++i )
-         result._hash[i] = h1._hash[i] ^ h2._hash[i];
+         result._hash[i] = h1._hash[i].value() ^ h2._hash[i].value();
       return result;
     }
     bool operator >= ( const sha224& h1, const sha224& h2 ) {
@@ -88,7 +88,7 @@ namespace fc {
       std::vector<char> ve = v.as< std::vector<char> >( max_depth );
       memset( &bi, char(0), sizeof(bi) );
       if( ve.size() )
-         memcpy( &bi, ve.data(), fc::min<size_t>(ve.size(),sizeof(bi)) );
+         memcpy( &bi, ve.data(), std::min<size_t>(ve.size(),sizeof(bi)) );
   }
 
     template<>

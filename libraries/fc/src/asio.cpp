@@ -100,9 +100,8 @@ namespace fc {
      *
      * @param num_threads the number of threads
      */
-    void default_io_service_scope::set_num_threads(uint16_t num_threads)
-    {
-       FC_ASSERT(num_threads > 0);
+    void default_io_service_scope::set_num_threads(uint16_t num_threads) {
+       FC_ASSERT(num_io_threads == 0);
        num_io_threads = num_threads;
     }
 
@@ -191,7 +190,7 @@ namespace fc {
         try
         {
           resolver res( fc::asio::default_io_service() );
-          promise<std::vector<boost::asio::ip::tcp::endpoint> >::ptr p( new promise<std::vector<boost::asio::ip::tcp::endpoint> >("tcp::resolve completion") );
+          promise<std::vector<boost::asio::ip::tcp::endpoint> >::ptr p = promise<std::vector<boost::asio::ip::tcp::endpoint> >::create("tcp::resolve completion");
           res.async_resolve( boost::asio::ip::tcp::resolver::query(hostname,port),
                             boost::bind( detail::resolve_handler<boost::asio::ip::tcp::endpoint,resolver_iterator>, p, _1, _2 ) );
           return p->wait();
@@ -205,7 +204,7 @@ namespace fc {
         try
         {
           resolver res( fc::asio::default_io_service() );
-          promise<std::vector<endpoint> >::ptr p( new promise<std::vector<endpoint> >("udp::resolve completion") );
+          promise<std::vector<endpoint> >::ptr p = promise<std::vector<endpoint> >::create("udp::resolve completion");
           res.async_resolve( resolver::query(hostname,port),
                               boost::bind( detail::resolve_handler<endpoint,resolver_iterator>, p, _1, _2 ) );
           return p->wait();

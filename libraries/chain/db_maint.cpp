@@ -22,10 +22,9 @@
  * THE SOFTWARE.
  */
 
-#include <boost/multiprecision/integer.hpp>
-
-#include <fc/smart_ref_impl.hpp>
 #include <fc/uint128.hpp>
+
+#include <graphene/protocol/market.hpp>
 
 #include <graphene/chain/database.hpp>
 #include <graphene/chain/fba_accumulator_id.hpp>
@@ -141,10 +140,10 @@ void database::pay_workers( share_type& budget )
       share_type requested_pay = active_worker.daily_pay;
       if( head_block_time() - get_dynamic_global_properties().last_budget_time != fc::days(1) )
       {
-         fc::uint128 pay(requested_pay.value);
+         fc::uint128_t pay(requested_pay.value);
          pay *= (head_block_time() - get_dynamic_global_properties().last_budget_time).count();
          pay /= fc::days(1).count();
-         requested_pay = pay.to_uint64();
+         requested_pay = static_cast<uint64_t>(pay);
       }
 
       share_type actual_pay = std::min(budget, requested_pay);
@@ -363,8 +362,8 @@ void database::initialize_budget_record( fc::time_point_sec now, budget_record& 
    budget_u128 += ((uint64_t(1) << GRAPHENE_CORE_ASSET_CYCLE_RATE_BITS) - 1);
    budget_u128 >>= GRAPHENE_CORE_ASSET_CYCLE_RATE_BITS;
    share_type budget;
-   if( budget_u128 < reserve.value )
-      rec.total_budget = share_type(budget_u128.to_uint64());
+   if( budget_u128 < (uint64_t)reserve.value )
+      rec.total_budget = share_type(static_cast<uint64_t>(budget_u128));
    else
       rec.total_budget = reserve;
 
@@ -417,10 +416,10 @@ void database::process_budget()
       worker_budget_u128 /= 60*60*24;
 
       share_type worker_budget;
-      if( worker_budget_u128 >= available_funds.value )
+      if( worker_budget_u128 >= (uint64_t)available_funds.value )
          worker_budget = available_funds;
       else
-         worker_budget = worker_budget_u128.to_uint64();
+         worker_budget = static_cast<uint64_t>(worker_budget_u128);
       rec.worker_budget = worker_budget;
       available_funds -= worker_budget;
 
@@ -547,8 +546,10 @@ void split_fba_balance(
    if( !fba.is_configured(db) )
    {
       ilog( "${n} core given to network at block ${b} due to non-configured FBA", ("n", fba.accumulated_fba_fees)("b", db.head_block_time()) );
-      db.modify( core_dd, [&]( asset_dynamic_data_object& _core_dd ) {
+      db.modify( core_dd, [&]( asset_dynamic_data_object& _core_dd )
+      {
          _core_dd.current_supply -= fba.accumulated_fba_fees;
+         _core_dd.fee_burnt += fba.accumulated_fba_fees;
       } );
       db.modify( fba, [&]( fba_accumulator_object& _fba )
       {
@@ -560,12 +561,12 @@ void split_fba_balance(
    fc::uint128_t buyback_amount_128 = fba.accumulated_fba_fees.value;
    buyback_amount_128 *= designated_asset_buyback_pct;
    buyback_amount_128 /= GRAPHENE_100_PERCENT;
-   share_type buyback_amount = buyback_amount_128.to_uint64();
+   share_type buyback_amount = static_cast<uint64_t>(buyback_amount_128);
 
    fc::uint128_t issuer_amount_128 = fba.accumulated_fba_fees.value;
    issuer_amount_128 *= designated_asset_issuer_pct;
    issuer_amount_128 /= GRAPHENE_100_PERCENT;
-   share_type issuer_amount = issuer_amount_128.to_uint64();
+   share_type issuer_amount = static_cast<uint64_t>(issuer_amount_128);
 
    // this assert should never fail
    FC_ASSERT( buyback_amount + issuer_amount <= fba.accumulated_fba_fees );
@@ -576,8 +577,10 @@ void split_fba_balance(
 
    if( network_amount != 0 )
    {
-      db.modify( core_dd, [&]( asset_dynamic_data_object& _core_dd ) {
+      db.modify( core_dd, [&]( asset_dynamic_data_object& _core_dd )
+      {
          _core_dd.current_supply -= network_amount;
+         _core_dd.fee_burnt += network_amount;
       } );
    }
 
@@ -826,7 +829,7 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
    modify(gpo, [this](global_property_object& p) {
       // Remove scaling of account registration fee
       const auto& dgpo = get_dynamic_global_properties();
-      p.parameters.current_fees->get<account_create_operation>().basic_fee >>= p.parameters.account_fee_scale_bitshifts *
+      p.parameters.get_mutable_fees().get<account_create_operation>().basic_fee >>= p.parameters.account_fee_scale_bitshifts *
             (dgpo.accounts_registered_this_interval / p.parameters.accounts_per_fee_scale);
 
       if( p.pending_parameters )
@@ -1026,7 +1029,7 @@ void database::process_cheques()
       if ( (cheque_obj.status == cheque_status::cheque_new)
            && ((dpo.next_maintenance_time - gpo.parameters.maintenance_interval) >= cheque_obj.datetime_expiration) )
       {
-         chain::cheque_reverse_operation op;
+         cheque_reverse_operation op;
          op.cheque_id  = cheque_obj.get_id();
          op.account_id = cheque_obj.drawer;
          op.amount     = cheque_obj.get_remaining_amount();
@@ -1073,13 +1076,13 @@ void database::issue_bonuses()
 
    auto& alpha_list = ALPHA_ACCOUNT_ID(*this).blacklisted_accounts;
 
-   asset_idx.inspect_all_objects( [&](const chain::object& obj) {
+   asset_idx.inspect_all_objects( [&](const db::object& obj) {
       const chain::asset_object& asset = static_cast<const chain::asset_object&>(obj);
       if (asset.id == asset_id_type(0)) { return; }
       if (!asset.params.daily_bonus || (asset.params.bonus_percent == 0) ) { return; }
       auto& issuer_list = asset.issuer(*this).blacklisted_accounts;
 
-      idx.inspect_all_objects( [&](const chain::object& obj)
+      idx.inspect_all_objects( [&](const db::object& obj)
       {
          const chain::account_object& account = static_cast<const chain::account_object&>(obj);
          share_type balance = get_balance_for_bonus( account.get_id(), asset.get_id() ).amount;
@@ -1100,7 +1103,7 @@ void database::issue_bonuses()
          {
             auto real_balance = get_balance(account.get_id(), asset.get_id()).amount;
 
-            chain::daily_issue_operation op;
+            daily_issue_operation op;
             op.issuer = asset.issuer;
             op.asset_to_issue = check_supply_overflow( asset.amount( quantity ) );
             op.issue_to_account = account.id;
@@ -1115,7 +1118,7 @@ void database::issue_bonuses()
    issue_referral();
 
    // applying appropriate bonuses
-   idx.inspect_all_objects( [&](const chain::object& obj) {
+   idx.inspect_all_objects( [&](const db::object& obj) {
       process_bonus_balances(obj.id);
    });
 }
@@ -1139,7 +1142,7 @@ void database::issue_bonuses_before_620()
    double default_online_part = online_info.size() ? 0 : 1;
    rtree.form();
    auto ops = rtree.scan();
-   idx.inspect_all_objects( [&](const chain::object& obj) {
+   idx.inspect_all_objects( [&](const db::object& obj) {
       const chain::account_object& account = static_cast<const chain::account_object&>(obj);
       process_bonus_balances(account.id);
       auto real_balance = get_balance(account.get_id(), asset->get_id()).amount;
@@ -1161,7 +1164,7 @@ void database::issue_bonuses_before_620()
       if (head_block_time() > HARDFORK_620_TIME)
          adjust_bonus_balance(account.id, asset->amount(quantity));
       else {
-         chain::daily_issue_operation op;
+         daily_issue_operation op;
          op.issuer = asset->issuer;
          op.asset_to_issue = asset->amount(quantity);
          op.issue_to_account = account.id;
@@ -1181,7 +1184,7 @@ void database::issue_bonuses_before_620()
       {
          std::uint64_t amnt = (head_block_time() > HARDFORK_618_TIME && head_block_time() < HARDFORK_619_TIME) ? (e->quantity * online_part) : e->quantity;
 
-         chain::referral_issue_operation r_op;
+         referral_issue_operation r_op;
          r_op.issuer = asset->issuer;
          r_op.asset_to_issue = asset->amount(amnt);
          r_op.issue_to_account = e->to_account_id;
@@ -1200,7 +1203,7 @@ void database::issue_bonuses_before_620()
       }
    });
    if (head_block_time() > HARDFORK_620_TIME) {
-      idx.inspect_all_objects( [&](const chain::object& obj) {
+      idx.inspect_all_objects( [&](const db::object& obj) {
          process_bonus_balances(obj.id);
       });
    }
@@ -1249,7 +1252,7 @@ void database::issue_bonuses_old() {
       }
       if (need_continue) continue;
 
-      chain::referral_issue_operation op;
+      referral_issue_operation op;
       op.issuer = asset->issuer;
       op.asset_to_issue = asset->amount(e.quantity);
       op.issue_to_account = e.to_account_id;
@@ -1259,7 +1262,7 @@ void database::issue_bonuses_old() {
          apply_operation(eval, op);
       } catch (fc::assert_exception& e) { }
    }
-   idx.inspect_all_objects( [this,&asset,&eval,&alpha_list,&issuer_list](const chain::object& obj){
+   idx.inspect_all_objects( [this,&asset,&eval,&alpha_list,&issuer_list](const db::object& obj){
       const chain::account_object& account = static_cast<const chain::account_object&>(obj);
 
       if (alpha_list.count(account.id)) return;
@@ -1287,7 +1290,7 @@ void database::issue_bonuses_old() {
       if (balance.value == 0) return;
       uint64_t quantity = 0.0065 * balance.value;
       if (quantity < 1) return;
-      chain::daily_issue_operation op;
+      daily_issue_operation op;
       op.issuer = asset->issuer;
       op.asset_to_issue = asset->amount(quantity);
       op.issue_to_account = account.id;

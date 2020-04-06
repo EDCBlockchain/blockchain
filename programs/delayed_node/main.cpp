@@ -69,12 +69,12 @@ int main(int argc, char** argv) {
             ("help,h", "Print this help message and exit.")
             ("data-dir,d", bpo::value<boost::filesystem::path>()->default_value("delayed_node_data_dir"), "Directory containing databases, configuration file, etc.")
             ("fast",  bpo::value<int>(), "Size of history in days")
-            ("trusted-node", bpo::value<std::string>()->required(), "RPC endpoint of a trusted validating node (required)")
-            ("referrer_mode_enabled", "Any LTM-member can create accounts")
+            ("trusted-node", bpo::value<std::string>(), "RPC endpoint of a trusted validating node")
             ;
 
       bpo::variables_map options;
 
+      auto delayed_plug = node.register_plugin<delayed_node::delayed_node_plugin>();
       auto history_plug = node.register_plugin<history::history_plugin>();
       auto market_history_plug = node.register_plugin<market_history::market_history_plugin>();
 
@@ -147,6 +147,7 @@ int main(int argc, char** argv) {
       // Parse configuration file
       try {
          bpo::store(bpo::parse_config_file<char>(config_ini_path.preferred_string().c_str(), cfg_options, true), options);
+         bpo::store(bpo::parse_config_file<char>(config_ini_path.preferred_string().c_str(), app_options, true), options);
          // try to get logging options from the config file.
          try
          {
@@ -165,19 +166,13 @@ int main(int argc, char** argv) {
          return 1;
       }
 
-      if (options.count("io-threads")) {
-         fc::asio::default_io_service_scope::set_num_threads(options["io-threads"].as<uint16_t>());
-      }
-      // here (not above), because it creates 'default_io_service_scope' with default io-threads count
-      auto delayed_plug = node.register_plugin<delayed_node::delayed_node_plugin>();
-
       node.initialize(data_dir, options);
       node.initialize_plugins( options );
 
       node.startup();
       node.startup_plugins();
 
-      fc::promise<int>::ptr exit_promise = new fc::promise<int>("UNIX Signal Handler");
+      fc::promise<int>::ptr exit_promise = fc::promise<int>::create("UNIX Signal Handler");
       fc::set_signal_handler([&exit_promise](int signal) {
          exit_promise->set_value(signal);
       }, SIGINT);

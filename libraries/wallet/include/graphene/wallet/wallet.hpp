@@ -23,13 +23,15 @@
  */
 #pragma once
 
+#include <fc/optional.hpp>
 #include <graphene/app/api.hpp>
 #include <graphene/utilities/key_conversion.hpp>
 
 using namespace graphene::app;
 using namespace graphene::chain;
 using namespace graphene::utilities;
-using namespace std;
+using std::string;
+using std::vector;
 
 namespace fc
 {
@@ -161,10 +163,8 @@ struct wallet_data
                      [](const account_object& ao) { return ao.id; });
       return ids;
    }
-   /* Add acct to @my_accounts, or update it if it is already in @ref my_account
-   * @param acct the account whose you want to update
-   @return true if the account was get_account_history_partly inserted; false if it was only updated
-    **/
+   /// Add acct to @ref my_accounts, or update it if it is already in @ref my_accounts
+   /// @return true if the account was newly inserted; false if it was only updated
    bool update_account(const account_object& acct)
    {
       auto& idx = my_accounts.get<by_id>();
@@ -193,7 +193,7 @@ struct wallet_data
    key_label_index_type                                              labeled_keys;
    blind_receipt_index_type                                          blind_receipts;
 
-   string                    ws_server = "ws://127.0.0.1:5930";
+   string                    ws_server = "ws://localhost:8090";
    string                    ws_user;
    string                    ws_password;
 };
@@ -791,7 +791,6 @@ class wallet_api
                                   string asset_symbol,
                                   string memo,
                                   bool broadcast = false);
-
       /**
        *  This method works just like transfer, except it always broadcasts and
        *  returns the transaction ID (hash) along with the signed transaction.
@@ -801,6 +800,7 @@ class wallet_api
 
       signed_transaction set_online_time( map<account_id_type, uint16_t> online_info);
       signed_transaction set_verification_is_required( account_id_type target, bool verification_is_required);
+
       signed_transaction set_account_limit_daily_volume(const std::string& name_or_id, bool enabled);
 
       /**
@@ -1489,6 +1489,14 @@ class wallet_api
       std::vector<cheque_object>
       get_account_cheques(const string& name_or_id, unsigned from = 0, unsigned limit = 100);
 
+      /** Returns asset which was burnt by various operations
+       *
+       * @param id ID of the asset
+       * 
+       * @return burnt asset
+       */
+      asset get_burnt_asset(asset_id_type id);
+
       /** Set your vote for the number of witnesses and committee_members in the system.
        *
        * Each account can voice their opinion on how many committee_members and how many 
@@ -1537,7 +1545,7 @@ class wallet_api
        * you can fill in.  It's better than nothing.
        * 
        * @param operation_type the type of operation to return, must be one of the 
-       *                       operations defined in `graphene/chain/operations.hpp`
+       *                       operations defined in `graphene/protocol/operations.hpp`
        *                       (e.g., "global_parameters_update_operation")
        * @return a default-constructed operation of the given type
        */
@@ -1659,7 +1667,9 @@ class wallet_api
 
 }; // wallet_api
 
-} }
+} } // namespace graphene::wallet
+
+extern template class fc::api<graphene::wallet::wallet_api>;
 
 FC_REFLECT( graphene::wallet::key_label, (label)(key) )
 FC_REFLECT( graphene::wallet::blind_balance, (amount)(from)(to)(one_time_key)(blinding_factor)(commitment)(used) )
@@ -1872,6 +1882,7 @@ FC_API( graphene::wallet::wallet_api,
         (get_account_addresses)
         (get_account_blind_transfers2)
         (get_account_cheques)
+        (get_burnt_asset)
         (set_market)
         (get_market_by_address)
         (generate_market_address)

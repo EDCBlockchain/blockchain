@@ -33,6 +33,19 @@
 
 namespace graphene { namespace chain {
 
+namespace detail {
+
+   share_type calculate_percent(const share_type& value, uint16_t percent)
+   {
+      fc::uint128_t a(value.value);
+      a *= percent;
+      a /= GRAPHENE_100_PERCENT;
+      FC_ASSERT( a <= GRAPHENE_MAX_SHARE_SUPPLY, "overflow when calculating percent" );
+      return static_cast<int64_t>(a);
+   }
+
+} //detail
+
 /**
  * All margin positions are force closed at the swan price
  * Collateral received goes into a force-settlement fund
@@ -359,8 +372,9 @@ bool database::fill_order( const call_order_object& order, const asset& pays, co
 
    modify( mia_ddo, [&]( asset_dynamic_data_object& ao )
    {
-       //idump((receives));
-        ao.current_supply -= receives.amount;
+      //idump((receives));
+      ao.current_supply -= receives.amount;
+      ao.fee_burnt += receives.amount;
    });
 
    const account_object& borrower = order.borrower(*this);
@@ -568,10 +582,8 @@ asset database::calculate_market_fee( const asset_object& trade_asset, const ass
    if( trade_asset.options.market_fee_percent == 0 )
       return trade_asset.amount(0);
 
-   fc::uint128 a(trade_amount.amount.value);
-   a *= trade_asset.options.market_fee_percent;
-   a /= GRAPHENE_100_PERCENT;
-   asset percent_fee = trade_asset.amount(a.to_uint64());
+   auto value = detail::calculate_percent(trade_amount.amount, trade_asset.options.market_fee_percent);
+   asset percent_fee = trade_asset.amount(value);
 
    if( percent_fee.amount > trade_asset.options.max_market_fee )
       percent_fee.amount = trade_asset.options.max_market_fee;

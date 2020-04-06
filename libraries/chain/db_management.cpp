@@ -25,7 +25,7 @@
 #include <graphene/chain/database.hpp>
 
 #include <graphene/chain/operation_history_object.hpp>
-#include <graphene/chain/protocol/fee_schedule.hpp>
+#include <graphene/protocol/fee_schedule.hpp>
 
 #include <fc/io/fstream.hpp>
 
@@ -48,6 +48,8 @@ database::~database()
 
 void database::reindex(fc::path data_dir, const genesis_state_type& initial_allocation)
 { try {
+   enable_referrer_mode();
+
    ilog( "reindexing blockchain" );
    wipe(data_dir, false);
    open(data_dir, [&initial_allocation]{return initial_allocation;});
@@ -157,19 +159,16 @@ void database::close(bool rewind)
       {
          uint32_t cutoff = get_dynamic_global_properties().last_irreversible_block_num;
 
+         //ilog( "Rewinding from ${head} to ${cutoff}", ("head",head_block_num())("cutoff",cutoff) );
          while( head_block_num() > cutoff )
          {
-         //   elog("pop");
             block_id_type popped_block_id = head_block_id();
             pop_block();
             _fork_db.remove(popped_block_id); // doesn't throw on missing
-            try
-            {
+            try {
                _block_id_to_block.remove(popped_block_id);
             }
-            catch (const fc::key_not_found_exception&)
-            {
-            }
+            catch (const fc::key_not_found_exception&) {}
          }
       }
       catch (...) { }

@@ -26,7 +26,6 @@
 #include <graphene/utilities/tempdir.hpp>
 
 #include <fc/crypto/digest.hpp>
-#include <fc/smart_ref_impl.hpp>
 
 #include <boost/test/auto_unit_test.hpp>
 
@@ -57,7 +56,7 @@ genesis_state_type make_genesis()
       genesis_state.initial_committee_candidates.push_back({name});
       genesis_state.initial_witness_candidates.push_back({name, init_account_priv_key.get_public_key()});
    }
-   genesis_state.initial_parameters.current_fees->zero_all_fees();
+   genesis_state.initial_parameters.get_mutable_fees().zero_all_fees();
    return genesis_state;
 }
 
@@ -90,10 +89,10 @@ BOOST_AUTO_TEST_CASE( genesis_and_persistence_bench )
 #ifdef NDEBUG
       ilog("Running in release mode.");
 
-      const int account_count = 20000;
-      //const int account_count = 100;
-      const int blocks_to_produce = 100000;
-      //const int blocks_to_produce = 100;
+      //const int account_count = 20000;
+      const int account_count = 200;
+      //const int blocks_to_produce = 100000;
+      const int blocks_to_produce = 100;
 #else
       ilog("Running in debug mode.");
       const int account_count = 30000;

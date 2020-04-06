@@ -1,4 +1,6 @@
+
 #include <graphene/chain/tree.hpp>
+
 namespace graphene { namespace chain {
 
   void leaf_info::add_child_balance_old(chain::account_id_type account_id, int64_t balance, uint32_t level) {

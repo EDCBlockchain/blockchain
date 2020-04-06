@@ -158,8 +158,8 @@ namespace fc {
 
    serial_valve::ticket_guard::ticket_guard( boost::atomic<future<void>*>& latch )
    {
-      my_promise = new promise<void>();
-      future<void>* my_future = new future<void>( promise<void>::ptr( my_promise, true ) );
+      my_promise = promise<void>::create();
+      future<void>* my_future = new future<void>( my_promise );
       try
       {
           do
@@ -171,7 +171,7 @@ namespace fc {
       }
       catch (...)
       {
-         delete my_future; // this takes care of my_promise as well
+         delete my_future;
          throw;
       }
    }
@@ -190,7 +190,7 @@ namespace fc {
 
    serial_valve::serial_valve()
    {
-      latch.store( new future<void>( promise<void>::ptr( new promise<void>( true ), true ) ) );
+      latch.store( new future<void>( promise<void>::create( true ) ) );
    }
 
    serial_valve::~serial_valve()

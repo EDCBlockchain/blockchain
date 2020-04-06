@@ -28,7 +28,7 @@
 #include <graphene/chain/vesting_balance_object.hpp>
 #include <graphene/chain/worker_object.hpp>
 
-#include <graphene/chain/protocol/vote.hpp>
+#include <graphene/protocol/vote.hpp>
 
 namespace graphene { namespace chain {
 
@@ -75,17 +75,15 @@ struct worker_init_visitor
    }
 };
 
-
-
-
-
 object_id_type worker_create_evaluator::do_apply(const worker_create_evaluator::operation_type& o)
 { try {
    database& d = db();
    vote_id_type for_id, against_id;
    d.modify(d.get_global_properties(), [&for_id, &against_id](global_property_object& p) {
-      for_id = get_next_vote_id(p, vote_id_type::worker);
-      against_id = get_next_vote_id(p, vote_id_type::worker);
+//      for_id = get_next_vote_id(p, vote_id_type::worker);
+//      against_id = get_next_vote_id(p, vote_id_type::worker);
+      for_id = vote_id_type(vote_id_type::worker, p.next_available_vote_id++);
+      against_id = vote_id_type(vote_id_type::worker, p.next_available_vote_id++);
    });
 
    return d.create<worker_object>([&](worker_object& w) {
@@ -106,8 +104,10 @@ object_id_type worker_create_evaluator::do_apply(const worker_create_evaluator::
 void refund_worker_type::pay_worker(share_type pay, database& db)
 {
    total_burned += pay;
-   db.modify(db.get(asset_id_type()).dynamic_data(db), [pay](asset_dynamic_data_object& d) {
+   db.modify(db.get(asset_id_type()).dynamic_data(db), [pay](asset_dynamic_data_object& d)
+   {
       d.current_supply -= pay;
+      d.fee_burnt += pay;
    });
 }
 

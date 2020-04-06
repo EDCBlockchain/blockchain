@@ -31,10 +31,9 @@
 #include <graphene/chain/evaluator.hpp>
 #include <graphene/chain/operation_history_object.hpp>
 #include <graphene/chain/transaction_evaluation_state.hpp>
-#include <graphene/chain/protocol/fee_schedule.hpp>
+#include <graphene/protocol/fee_schedule.hpp>
 
 #include <fc/thread/thread.hpp>
-#include <fc/smart_ref_impl.hpp>
 
 namespace graphene { namespace market_history {
 

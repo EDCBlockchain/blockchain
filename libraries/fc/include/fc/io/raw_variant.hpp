@@ -26,7 +26,7 @@ namespace fc { namespace raw {
          }
          virtual void handle( const double& v )const
          {
-            fc::raw::pack( s, v, max_depth );
+            FC_THROW_EXCEPTION( invalid_arg_exception, "Can't pack double!" );
          }
          virtual void handle( const bool& v )const
          {
@@ -86,10 +86,7 @@ namespace fc { namespace raw {
          }
          case variant::double_type:
          {
-            double val;
-            raw::unpack( s, val, _max_depth );
-            v = val;
-            return;
+            FC_THROW_EXCEPTION( invalid_arg_exception, "Can't unpack double!" );
          }
          case variant::bool_type:
          {
@@ -100,23 +97,23 @@ namespace fc { namespace raw {
          }
          case variant::string_type:
          {
-            fc::string val;
+            std::string val;
             raw::unpack( s, val, _max_depth );
-            v = fc::move(val);
+            v = std::move(val);
             return;
          }
          case variant::array_type:
          {
             variants val;
             raw::unpack( s, val, _max_depth );
-            v = fc::move(val);
+            v = std::move(val);
             return;
          }
          case variant::object_type:
          {
             variant_object val;
             raw::unpack( s, val, _max_depth );
-            v = fc::move(val);
+            v = std::move(val);
             return;
          }
          default:
@@ -148,13 +145,13 @@ namespace fc { namespace raw {
        mvo.reserve( std::min( vs.value, static_cast<uint64_t>(FC_MAX_PREALLOC_SIZE) ) );
        for( uint32_t i = 0; i < vs.value; ++i )
        {
-          fc::string key;
+          std::string key;
           fc::variant value;
           fc::raw::unpack( s, key, _max_depth );
           fc::raw::unpack( s, value, _max_depth );
-          mvo.set( fc::move(key), fc::move(value) );
+          mvo.set( std::move(key), std::move(value) );
        }
-       v = fc::move(mvo);
+       v = std::move(mvo);
     }
 
 } } // fc::raw

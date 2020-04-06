@@ -22,7 +22,7 @@
  * THE SOFTWARE.
  */
 
-#include <graphene/chain/protocol/authority.hpp>
+#include <graphene/protocol/authority.hpp>
 #include <graphene/app/impacted.hpp>
 #include <graphene/chain/database.hpp>
 #include <graphene/chain/fund_object.hpp>

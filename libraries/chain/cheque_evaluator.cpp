@@ -1,4 +1,3 @@
-#include <fc/smart_ref_impl.hpp>
 #include <graphene/chain/cheque_evaluator.hpp>
 #include <graphene/chain/cheque_object.hpp>
 #include <graphene/chain/account_object.hpp>

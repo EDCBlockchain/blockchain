@@ -1,6 +1,5 @@
 #include <graphene/chain/cheque_object.hpp>
 #include <graphene/chain/asset_object.hpp>
-#include <fc/smart_ref_impl.hpp>
 #include <fc/uint128.hpp>
 #include <boost/range.hpp>
 
@@ -49,3 +48,18 @@ namespace graphene { namespace chain {
    }
 
 } } // graphene::chain
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::cheque_object, (graphene::db::object),
+                    (code)
+                    (datetime_creation)
+                    (datetime_expiration)
+                    (datetime_used)
+                    (drawer)
+                    (amount_payee)
+                    (amount_remaining)
+                    (asset_id)
+                    (status)
+                    (payees) )
+
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::cheque_object::payee_item)
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::cheque_object )

@@ -21,7 +21,6 @@
 
 #include "editline.h"
 #include <string.h>
-#include <regex.h>
 
 #define HISTORY "/tmp/.cli-history"
 
@@ -61,7 +60,7 @@ static int my_rl_list_possib(char *token, char ***av)
 {
     int i, num, total = 0;
     char **copy;
-   
+
     for (num = 0; list[num]; num++)
 	;
 
@@ -99,59 +98,61 @@ el_status_t list_possible(void)
     return el_ring_bell();
 }
 
-el_status_t do_break(void)
-{
-    puts("Breakout!");
-    return CSeof;
-}
-
-el_status_t do_exit(void)
-{
-    puts("Bye bye!");
-    return CSeof;
-}
-
 el_status_t do_suspend(void)
 {
     puts("Abort!");
     return CSstay;
 }
 
-static int my_rl_check_secret(const char *line)
+static void breakit(int signo)
 {
-    const char *pattern = (char *)"^unlock\\s";
-    regex_t regex;
-    int rc = 0;
-
-    if (!line || regcomp(&regex, pattern, 0))
-        return 0;
-
-    if (!regexec(&regex, line, 0, NULL, 0))
-        rc = 1;
-
-    regfree(&regex);
-
-    return rc;
+    puts("Got SIGINT");
 }
 
 int main(void)
 {
     char *line;
     char *prompt = "cli> ";
+    char *passwd = "Enter password: ";
+
+    signal(SIGINT, breakit);
 
     /* Setup callbacks */
     rl_set_complete_func(&my_rl_complete);
     rl_set_list_possib_func(&my_rl_list_possib);
-    rl_set_check_secret_func(&my_rl_check_secret);
+
     el_bind_key('?', list_possible);
-    el_bind_key(CTL('C'), do_break);
-    el_bind_key(CTL('D'), do_exit);
     el_bind_key(CTL('Z'), do_suspend);
     read_history(HISTORY);
 
-    while ((line = readline(prompt)) != NULL) {
-	printf("\t\t\t|%s|\n", line);
-	free(line);
+    while ((line = readline(prompt))) {
+	int next = 0;
+
+	/* Use el_no_echo when reading passwords and similar */
+	if (!strncmp(line, "unlock", 6)) {
+	    el_no_echo = 1;
+	    while ((line = readline(passwd))) {
+		if (strncmp(line, "secret", 6)) {
+		    printf("\nWrong password, please try again, it's secret.\n");
+		    free(line);
+		    continue;
+		}
+
+		el_no_echo = 0;
+
+		printf("\nAchievement unlocked!\n");
+		free(line);
+		next = 1;
+		break;
+	    }
+	}
+
+	if (next)
+	    continue;
+
+	if (*line != '\0')
+	    printf("\t\t\t|%s|\n", line);
+ 	free(line);
     }
 
     write_history(HISTORY);

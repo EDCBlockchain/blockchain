@@ -55,8 +55,8 @@ namespace fc {
          ~ticket_guard();
          void wait_for_my_turn();
       private:
-         promise<void>* my_promise;
-         future<void>*  ticket;
+         promise<void>::ptr my_promise;
+         future<void>*      ticket;
       };
 
       friend class ticket_guard;
@@ -96,11 +96,12 @@ namespace fc {
    template<typename Functor>
    auto do_parallel( Functor&& f, const char* desc FC_TASK_NAME_DEFAULT_ARG ) -> fc::future<decltype(f())> {
       typedef decltype(f()) Result;
-      typedef typename fc::deduce<Functor>::type FunctorType;
-      fc::task<Result,sizeof(FunctorType)>* tsk =
-         new fc::task<Result,sizeof(FunctorType)>( fc::forward<Functor>(f), desc );
-      fc::future<Result> r(fc::shared_ptr< fc::promise<Result> >(tsk,true) );
-      detail::get_worker_pool().post( tsk );
+      typedef typename std::remove_const_t< std::remove_reference_t<Functor> > FunctorType;
+      typename task<Result,sizeof(FunctorType)>::ptr tsk =
+         task<Result,sizeof(FunctorType)>::create( std::forward<Functor>(f), desc );
+      tsk->retain(); // HERE BE DRAGONS
+      fc::future<Result> r( std::dynamic_pointer_cast< promise<Result> >(tsk) );
+      detail::get_worker_pool().post( tsk.get() );
       return r;
    }
 }

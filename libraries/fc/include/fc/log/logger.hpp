@@ -1,15 +1,13 @@
 #pragma once
 #include <fc/config.hpp>
-#include <fc/string.hpp>
 #include <fc/time.hpp>
-#include <fc/shared_ptr.hpp>
+#include <fc/log/appender.hpp>
 #include <fc/log/log_message.hpp>
+#include <cstddef>
+#include <memory>
 
 namespace fc
 {
-
-   class appender;
-
    /**
     *
     *
@@ -23,7 +21,7 @@ namespace fc
    class logger
    {
       public:
-         static logger get( const fc::string& name = "default");
+         static logger get( const std::string& name = "default");
 
          logger();
          logger( const string& name, const logger& parent = nullptr );
@@ -33,27 +31,27 @@ namespace fc
          ~logger();
          logger& operator=(const logger&);
          logger& operator=(logger&&);
-         friend bool operator==( const logger&, nullptr_t );
-         friend bool operator!=( const logger&, nullptr_t );
+         friend bool operator==( const logger&, std::nullptr_t );
+         friend bool operator!=( const logger&, std::nullptr_t );
 
          logger&    set_log_level( log_level e );
          log_level  get_log_level()const;
          logger&    set_parent( const logger& l );
          logger     get_parent()const;
 
-         void  set_name( const fc::string& n );
-         const fc::string& name()const;
+         void  set_name( const std::string& n );
+         const std::string& name()const;
 
-         void add_appender( const fc::shared_ptr<appender>& a );
-         std::vector<fc::shared_ptr<appender> > get_appenders()const;
-         void remove_appender( const fc::shared_ptr<appender>& a );
+         void add_appender( const appender::ptr& a );
+         std::vector<appender::ptr> get_appenders()const;
+         void remove_appender( const appender::ptr& a );
 
          bool is_enabled( log_level e )const;
          void log( log_message m );
 
       private:
          class impl;
-         fc::shared_ptr<impl> my;
+         std::shared_ptr<impl> my;
    };
 
 } // namespace fc

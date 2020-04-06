@@ -1,5 +1,5 @@
 #pragma once
-#include <graphene/chain/protocol/operations.hpp>
+#include <graphene/protocol/operations.hpp>
 #include <graphene/db/generic_index.hpp>
 #include <boost/multi_index/composite_key.hpp>
 #include <fc/uint128.hpp>
@@ -100,22 +100,14 @@ namespace graphene { namespace chain {
 
 }}
 
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::cheque_object)
+
 FC_REFLECT( graphene::chain::cheque_object::payee_item,
             (payee)
             (datetime_used)
             (status));
 
-FC_REFLECT_DERIVED( graphene::chain::cheque_object,
-                    (graphene::db::object),
-                    (code)
-                    (datetime_creation)
-                    (datetime_expiration)
-                    (datetime_used)
-                    (drawer)
-                    (amount_payee)
-                    (amount_remaining)
-                    (asset_id)
-                    (status)
-                    (payees)
-                  );
+FC_REFLECT_TYPENAME( graphene::chain::cheque_object )
 
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::cheque_object::payee_item )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::cheque_object )

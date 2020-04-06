@@ -1,11 +1,11 @@
 #include <graphene/chain/fund_object.hpp>
 #include <graphene/chain/asset_object.hpp>
-#include <fc/smart_ref_impl.hpp>
+#include <graphene/chain/hardfork.hpp>
 #include <fc/uint128.hpp>
 #include <boost/range.hpp>
 
 #include <iostream>
-#include <graphene/chain/settings_object.hpp>
+//#include <graphene/chain/settings_object.hpp>
 
 namespace graphene { namespace chain {
 
@@ -133,6 +133,7 @@ void fund_object::process(database& db) const
             else
             {
                share_type quantity = db.get_deposit_daily_payment(dep.percent, p_rate->period, dep.amount.amount);
+
                if (quantity.value > 0) {
                   asst_quantity = db.check_supply_overflow(asst.amount(quantity));
                }
@@ -174,6 +175,7 @@ void fund_object::process(database& db) const
                      op.account_id = dep.account_id;
                      op.deposit_id = dep.get_id();
                      op.percent = dep.percent;
+
                      // fund may already have new percents, updating...
                      if (p_rate.valid() && !dep.manual_percent_enabled) {
                         op.percent = p_rate->percent;
@@ -388,3 +390,64 @@ void fund_object::finish(database& db) const
 }
 
 } } // graphene::chain
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::fund_history_object,
+                    (graphene::chain::object),
+                    (owner)(items) )
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::fund_statistics_object,
+                    (graphene::chain::object),
+                    (owner)
+                    (most_recent_op)
+                    (total_ops)
+                    (deposit_count) )
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::fund_transaction_history_object,
+                    (graphene::chain::object),
+                    (fund)
+                    (operation_id)
+                    (sequence)
+                    (next)
+                    (block_time) )
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::fund_deposit_object,
+                    (graphene::db::object),
+                    (fund_id)
+                    (account_id)
+                    (amount)
+                    (enabled)
+                    (datetime_begin)
+                    (datetime_end)
+                    (prev_maintenance_time_on_creation)
+                    (period)
+                    (percent)
+                    (daily_payment)
+                    (manual_percent_enabled)
+                    (can_use_percent) )
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::fund_object,
+                    (graphene::db::object),
+                    (name)
+                    (description)
+                    (owner)
+                    (asset_id)
+                    (balance)
+                    (owner_balance)
+                    (enabled)
+                    (datetime_begin)
+                    (datetime_end)
+                    (prev_maintenance_time_on_creation)
+                    (rates_reduction_per_month)
+                    (period)
+                    (min_deposit)
+                    (statistics_id)
+                    (history_id)
+                    (payment_scheme)
+                    (payment_rates)
+                    (fund_rates) )
+
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::fund_history_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::fund_statistics_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::fund_transaction_history_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::fund_deposit_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::fund_object )

@@ -22,7 +22,6 @@
  * THE SOFTWARE.
  */
 
-#include <fc/smart_ref_impl.hpp>
 #include <graphene/chain/asset_evaluator.hpp>
 #include <graphene/chain/asset_object.hpp>
 #include <graphene/chain/account_object.hpp>
@@ -32,7 +31,6 @@
 #include <graphene/chain/hardfork.hpp>
 #include <graphene/chain/is_authorized_asset.hpp>
 #include <iostream>
-#include <fc/smart_ref_impl.hpp>
 #include <graphene/chain/tree.hpp>
 
 namespace graphene { namespace chain {
@@ -297,8 +295,10 @@ void_result asset_reserve_evaluator::do_apply( const asset_reserve_operation& o 
 { try {
    db().adjust_balance( o.payer, -o.amount_to_reserve );
 
-   db().modify( *asset_dyn_data, [&]( asset_dynamic_data_object& data ){
-        data.current_supply -= o.amount_to_reserve.amount;
+   db().modify( *asset_dyn_data, [&]( asset_dynamic_data_object& data )
+   {
+      data.current_supply -= o.amount_to_reserve.amount;
+      data.fee_burnt += o.amount_to_reserve.amount;
    });
 
    return void_result();
@@ -704,9 +704,11 @@ operation_result asset_settle_evaluator::do_apply(const asset_settle_evaluator::
 
       const auto& mia_dyn = asset_to_settle->dynamic_asset_data_id(d);
 
-      d.modify( mia_dyn, [&]( asset_dynamic_data_object& obj ){
-                   obj.current_supply -= op.amount.amount;
-                });
+      d.modify( mia_dyn, [&]( asset_dynamic_data_object& obj )
+         {
+            obj.current_supply -= op.amount.amount;
+            obj.fee_burnt += op.amount.amount;
+         });
 
       return settled_amount;
    }

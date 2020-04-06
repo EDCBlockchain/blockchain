@@ -13,7 +13,7 @@
 
 namespace fc {
 
-   class file_appender::impl : public fc::retainable
+   class file_appender::impl
    {
       public:
          config                     cfg;
@@ -172,7 +172,7 @@ namespace fc {
       }
 
       line << "] ";
-      fc::string message = fc::format_string( m.get_format(), m.get_data(), my->cfg.max_object_depth );
+      std::string message = fc::format_string( m.get_format(), m.get_data(), my->cfg.max_object_depth );
       line << message.c_str();
 
       {

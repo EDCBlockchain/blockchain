@@ -1,9 +1,10 @@
 #pragma once
-#include <fc/io/raw_fwd.hpp>
+
 #include <fc/crypto/sha512.hpp>
 #include <fc/crypto/sha256.hpp>
-#include <fc/uint128.hpp>
 #include <fc/fwd.hpp>
+#include <fc/uint128.hpp>
+
 #include <vector>
 
 namespace fc {
@@ -15,9 +16,8 @@ namespace fc {
          aes_encoder();
          ~aes_encoder();
      
-         void init( const fc::sha256& key, const fc::uint128& init_value );
+         void init( const fc::sha256& key, const uint128_t& init_value );
          uint32_t encode( const char* plaintxt, uint32_t len, char* ciphertxt );
- //        uint32_t final_encode( char* ciphertxt );
 
        private:
          struct      impl;
@@ -29,9 +29,8 @@ namespace fc {
          aes_decoder();
          ~aes_decoder();
      
-         void     init( const fc::sha256& key, const fc::uint128& init_value );
+         void     init( const fc::sha256& key, const uint128_t& init_value );
          uint32_t decode( const char* ciphertxt, uint32_t len, char* plaintext );
-//         uint32_t final_decode( char* plaintext );
 
        private:
          struct      impl;

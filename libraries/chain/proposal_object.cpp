@@ -93,3 +93,10 @@ void required_approval_index::object_removed( const object& obj )
 }
 
 } } // graphene::chain
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::proposal_object, (graphene::chain::object),
+                    (expiration_time)(review_period_time)(proposed_transaction)(required_active_approvals)
+                    (available_active_approvals)(required_owner_approvals)(available_owner_approvals)
+                    (available_key_approvals) )
+
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::proposal_object )

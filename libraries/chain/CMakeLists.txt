@@ -33,37 +33,9 @@ add_library( graphene_chain
              # As database takes the longest to compile, start it first
              ${GRAPHENE_DB_FILES}
              fork_database.cpp
-
-             protocol/types.cpp
-             protocol/address.cpp
-             protocol/authority.cpp
-             protocol/asset.cpp
-             protocol/assert.cpp
-             protocol/account.cpp
-             protocol/transfer.cpp
-             protocol/committee_member.cpp
-             protocol/witness.cpp
-             protocol/market.cpp
-             protocol/proposal.cpp
-             protocol/withdraw_permission.cpp
-             protocol/asset_ops.cpp
-             protocol/fund_ops.cpp
-             protocol/cheque_ops.cpp
-             protocol/memo.cpp
-             protocol/worker.cpp
-             protocol/custom.cpp
-             protocol/operations.cpp
-             protocol/transaction.cpp
-             protocol/block.cpp
-             protocol/fee_schedule.cpp
-             protocol/confidential.cpp
-             protocol/vote.cpp
-
              genesis_state.cpp
              get_config.cpp
-
-             pts_address.cpp
-
+             exceptions.cpp
              evaluator.cpp
              balance_evaluator.cpp
              account_evaluator.cpp
@@ -81,19 +53,19 @@ add_library( graphene_chain
              withdraw_permission_evaluator.cpp
              worker_evaluator.cpp
              confidential_evaluator.cpp
-             special_authority.cpp
+             special_authority_evaluation.cpp
              buyback.cpp
-
              tree.cpp
              account_object.cpp
              asset_object.cpp
              fba_object.cpp
+             market_object.cpp
              proposal_object.cpp
              vesting_balance_object.cpp
+             small_objects.cpp
              fund_object.cpp
              cheque_object.cpp
              block_database.cpp
-
              is_authorized_asset.cpp
 
              ${HEADERS}
@@ -101,7 +73,7 @@ add_library( graphene_chain
            )
 
 add_dependencies( graphene_chain build_hardfork_hpp )
-target_link_libraries( graphene_chain fc graphene_db )
+target_link_libraries( graphene_chain fc graphene_db graphene_protocol)
 target_include_directories( graphene_chain
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/include" )
 

@@ -6,7 +6,7 @@
  *
  */
 
-#include <fc/utility.hpp>
+#include <fc/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/seq/enum.hpp>
@@ -15,6 +15,7 @@
 #include <boost/preprocessor/stringize.hpp>
 #include <stdint.h>
 #include <string.h>
+#include <type_traits>
 
 #include <fc/reflect/typename.hpp>
 
@@ -32,8 +33,7 @@ namespace fc {
 template<typename T>
 struct reflector{
     typedef T type;
-    typedef fc::false_type is_defined;
-    typedef fc::false_type is_enum;
+    typedef std::false_type is_defined;
 
     /**
      *  @tparam Visitor a function object of the form:
@@ -126,7 +126,7 @@ void fc::reflector<TYPE>::visit( const Visitor& v ) { \
 #define FC_REFLECT_ENUM_TO_STRING( r, enum_type, elem ) \
    case enum_type::elem: return BOOST_PP_STRINGIZE(elem);
 #define FC_REFLECT_ENUM_TO_FC_STRING( r, enum_type, elem ) \
-   case enum_type::elem: return fc::string(BOOST_PP_STRINGIZE(elem));
+   case enum_type::elem: return std::string(BOOST_PP_STRINGIZE(elem));
 
 #define FC_REFLECT_ENUM_FROM_STRING( r, enum_type, elem ) \
   if( strcmp( s, BOOST_PP_STRINGIZE(elem)  ) == 0 ) return enum_type::elem;
@@ -136,8 +136,7 @@ void fc::reflector<TYPE>::visit( const Visitor& v ) { \
 #define FC_REFLECT_ENUM( ENUM, FIELDS ) \
 namespace fc { \
 template<> struct reflector<ENUM> { \
-    typedef fc::true_type is_defined; \
-    typedef fc::true_type is_enum; \
+    typedef std::true_type is_defined; \
     static const char* to_string(ENUM elem) { \
       switch( elem ) { \
         BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_ENUM_TO_STRING, ENUM, FIELDS ) \
@@ -149,13 +148,13 @@ template<> struct reflector<ENUM> { \
     static const char* to_string(int64_t i) { \
       return to_string(ENUM(i)); \
     } \
-    static fc::string to_fc_string(ENUM elem) { \
+    static std::string to_fc_string(ENUM elem) { \
       switch( elem ) { \
         BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_ENUM_TO_FC_STRING, ENUM, FIELDS ) \
       } \
       return fc::to_string(int64_t(elem)); \
     } \
-    static fc::string to_fc_string(int64_t i) { \
+    static std::string to_fc_string(int64_t i) { \
       return to_fc_string(ENUM(i)); \
     } \
     static ENUM from_int(int64_t i) { \
@@ -176,7 +175,7 @@ template<> struct reflector<ENUM> { \
         { \
            i = boost::lexical_cast<int64_t>(s); \
         } \
-        catch( const boost::bad_lexical_cast& e ) \
+        catch( const boost::bad_lexical_cast& ) \
         { \
            fc::throw_bad_enum_cast( s, BOOST_PP_STRINGIZE(ENUM) ); \
         } \
@@ -214,8 +213,7 @@ namespace fc {  \
   template<> struct get_typename<TYPE>  { static const char* name()  { return BOOST_PP_STRINGIZE(TYPE);  } }; \
 template<> struct reflector<TYPE> {\
     typedef TYPE type; \
-    typedef fc::true_type  is_defined; \
-    typedef fc::false_type is_enum; \
+    typedef std::true_type  is_defined; \
     enum  member_count_enum {  \
       local_member_count = 0  BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_MEMBER_COUNT, +, MEMBERS ),\
       total_member_count = local_member_count BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_BASE_MEMBER_COUNT, +, INHERITS )\
@@ -227,8 +225,7 @@ namespace fc {  \
   template<BOOST_PP_SEQ_ENUM(TEMPLATE_ARGS)> struct get_typename<TYPE>  { static const char* name()  { return BOOST_PP_STRINGIZE(TYPE);  } }; \
 template<BOOST_PP_SEQ_ENUM(TEMPLATE_ARGS)> struct reflector<TYPE> {\
     typedef TYPE type; \
-    typedef fc::true_type  is_defined; \
-    typedef fc::false_type is_enum; \
+    typedef std::true_type  is_defined; \
     enum  member_count_enum {  \
       local_member_count = 0  BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_MEMBER_COUNT, +, MEMBERS ),\
       total_member_count = local_member_count BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_BASE_MEMBER_COUNT, +, INHERITS )\
@@ -265,7 +262,7 @@ namespace fc { \
   template<> struct get_typename<TYPE>  { static const char* name()  { return BOOST_PP_STRINGIZE(TYPE);  } }; \
 template<> struct reflector<TYPE> {\
     typedef TYPE type; \
-    typedef fc::true_type is_defined; \
+    typedef std::true_type is_defined; \
     enum  member_count_enum {  \
       local_member_count = BOOST_PP_SEQ_SIZE(MEMBERS), \
       total_member_count = local_member_count BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_BASE_MEMBER_COUNT, +, INHERITS )\

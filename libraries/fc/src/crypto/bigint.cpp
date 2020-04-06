@@ -1,11 +1,11 @@
 #include <fc/crypto/bigint.hpp>
-#include <fc/utility.hpp>
 #include <openssl/bn.h>
 #include <fc/variant.hpp>
 #include <fc/crypto/base64.hpp>
 
 #include <fc/exception/exception.hpp>
-#include "../byteswap.hpp"
+
+#include <boost/endian/buffers.hpp>
 
 namespace fc {
       bigint::bigint( const char* bige, uint32_t l ) {
@@ -31,7 +31,8 @@ namespace fc {
 
       bigint::bigint(uint64_t value)
       {
-        uint64_t big_endian_value = bswap_64(value);
+        boost::endian::big_uint64_buf_t big_endian_value;
+        big_endian_value = value;
         n = BN_bin2bn((const unsigned char*)&big_endian_value, sizeof(big_endian_value), NULL);
       }
 
@@ -54,9 +55,10 @@ namespace fc {
       {
         FC_ASSERT(BN_num_bits(n) <= 63);
         size_t size = BN_num_bytes(n);
-        uint64_t abs_value = 0;
-        BN_bn2bin(n, (unsigned char*)&abs_value + (sizeof(uint64_t) - size));
-        return BN_is_negative(n) ? -(int64_t)bswap_64(abs_value) : bswap_64(abs_value);
+        boost::endian::big_int64_buf_t abs_value;
+        abs_value = 0;
+        BN_bn2bin(n, (unsigned char*)&abs_value + (sizeof(abs_value) - size));
+        return BN_is_negative(n) ? -abs_value.value() : abs_value.value();
       }
 
       int64_t bigint::log2()const { return BN_num_bits(n); }
@@ -145,7 +147,7 @@ namespace fc {
         BN_CTX* ctx = BN_CTX_new();
         bigint tmp;
         BN_div( tmp.n, NULL, n, a.n, ctx );
-        fc_swap( tmp.n, n );
+        std::swap( tmp.n, n );
         BN_CTX_free(ctx);
         return tmp;
       }
@@ -190,7 +192,7 @@ namespace fc {
       bigint& bigint::operator = ( bigint&& a ) {
         if( &a == this )
           return *this;
-        fc_swap( a.n, n );
+        std::swap( a.n, n );
         return *this;
       }
       bigint& bigint::operator = ( const bigint& a ) {
@@ -199,7 +201,7 @@ namespace fc {
         BN_copy( n, a.n );
         return *this;
       }
-      bigint::operator fc::string()const {
+      bigint::operator std::string()const {
         return BN_bn2dec(n);
       }
 

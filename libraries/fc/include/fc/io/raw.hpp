@@ -1,16 +1,14 @@
 #pragma once
+#include <boost/endian/buffers.hpp>
+
 #include <fc/io/raw_variant.hpp>
 #include <fc/reflect/reflect.hpp>
 #include <fc/io/datastream.hpp>
-#include <fc/io/varint.hpp>
 #include <fc/optional.hpp>
 #include <fc/fwd.hpp>
-#include <fc/smart_ref_fwd.hpp>
-#include <fc/array.hpp>
 #include <fc/time.hpp>
 #include <fc/filesystem.hpp>
 #include <fc/exception/exception.hpp>
-#include <fc/safe.hpp>
 #include <fc/io/raw_fwd.hpp>
 #include <algorithm>
 #include <map>
@@ -25,6 +23,22 @@ namespace fc {
        --_max_depth;
        pack( s, a0, _max_depth );
        pack( s, args..., _max_depth );
+    }
+
+    template<typename Stream>
+    inline void pack( Stream& s, const uint128_t& v, uint32_t _max_depth )
+    {
+        boost::endian::little_uint64_buf_at hilo[2];
+        hilo[0] = uint128_hi64( v );
+        hilo[1] = uint128_lo64( v );
+        s.write( hilo[0].data(), sizeof(hilo) );
+    }
+    template<typename Stream>
+    inline void unpack( Stream& s, uint128_t& v, uint32_t _max_depth )
+    {
+        boost::endian::little_uint64_buf_at hilo[2];
+        s.read( (char*) hilo, sizeof(hilo) );
+        v = uint128( hilo[0].value(), hilo[1].value() );
     }
 
     template<typename Stream>
@@ -51,7 +65,7 @@ namespace fc {
        fc::raw::unpack( s, what, _max_depth );
        fc::raw::unpack( s, msgs, _max_depth );
 
-       e = fc::exception( fc::move(msgs), code, name, what );
+       e = fc::exception( std::move(msgs), code, name, what );
     }
 
     template<typename Stream>
@@ -90,52 +104,62 @@ namespace fc {
     template<typename Stream>
     inline void pack( Stream& s, const fc::time_point_sec& tp, uint32_t _max_depth )
     {
-       uint32_t usec = tp.sec_since_epoch();
-       s.write( (const char*)&usec, sizeof(usec) );
+       pack( s, tp.sec_since_epoch(), _max_depth );
     }
 
     template<typename Stream>
     inline void unpack( Stream& s, fc::time_point_sec& tp, uint32_t _max_depth )
     { try {
        uint32_t sec;
-       s.read( (char*)&sec, sizeof(sec) );
+       unpack( s, sec, _max_depth );
        tp = fc::time_point() + fc::seconds(sec);
     } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
     template<typename Stream>
     inline void pack( Stream& s, const fc::time_point& tp, uint32_t _max_depth )
     {
-       uint64_t usec = tp.time_since_epoch().count();
-       s.write( (const char*)&usec, sizeof(usec) );
+       pack( s, tp.time_since_epoch().count(), _max_depth );
     }
 
     template<typename Stream>
     inline void unpack( Stream& s, fc::time_point& tp, uint32_t _max_depth )
     { try {
        uint64_t usec;
-       s.read( (char*)&usec, sizeof(usec) );
+       unpack( s, usec, _max_depth );
        tp = fc::time_point() + fc::microseconds(usec);
     } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
     template<typename Stream>
     inline void pack( Stream& s, const fc::microseconds& usec, uint32_t _max_depth )
     {
-       uint64_t usec_as_int64 = usec.count();
-       s.write( (const char*)&usec_as_int64, sizeof(usec_as_int64) );
+       pack( s, usec.count(), _max_depth );
     }
 
     template<typename Stream>
     inline void unpack( Stream& s, fc::microseconds& usec, uint32_t _max_depth )
     { try {
        uint64_t usec_as_int64;
-       s.read( (char*)&usec_as_int64, sizeof(usec_as_int64) );
+       unpack( s, usec_as_int64, _max_depth );
        usec = fc::microseconds(usec_as_int64);
     } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
-    template<typename Stream, typename T, size_t N>
-    inline void pack( Stream& s, const fc::array<T,N>& v, uint32_t _max_depth ) {
-      s.write((const char*)&v.data[0],N*sizeof(T));
+    template<typename Stream, size_t N>
+    inline void pack( Stream& s, const std::array<char,N>& v, uint32_t _max_depth ) {
+       s.write( v.data(), N );
     }
+    template<typename Stream, size_t N>
+    inline void pack( Stream& s, const std::array<unsigned char,N>& v, uint32_t _max_depth ) {
+       s.write( (char*)v.data(), N );
+    }
+
+    template<typename Stream, size_t N>
+    inline void unpack( Stream& s, std::array<char,N>& v, uint32_t _max_depth ) { try {
+       s.read( v.data(), N );
+    } FC_RETHROW_EXCEPTIONS( warn, "std::array<char,${length}>", ("length",N) ) }
+    template<typename Stream, size_t N>
+    inline void unpack( Stream& s, std::array<unsigned char,N>& v, uint32_t _max_depth ) { try {
+       s.read( (char*)v.data(), N );
+    } FC_RETHROW_EXCEPTIONS( warn, "std::array<unsigned char,${length}>", ("length",N) ) }
 
     template<typename Stream, typename T>
     inline void pack( Stream& s, const std::shared_ptr<T>& v, uint32_t _max_depth )
@@ -144,19 +168,29 @@ namespace fc {
        fc::raw::pack( s, *v, _max_depth - 1 );
     }
 
-    template<typename Stream, typename T, size_t N>
-    inline void unpack( Stream& s, fc::array<T,N>& v, uint32_t _max_depth )
-    { try {
-      s.read((char*)&v.data[0],N*sizeof(T));
-    } FC_RETHROW_EXCEPTIONS( warn, "fc::array<type,length>", ("type",fc::get_typename<T>::name())("length",N) ) }
-
     template<typename Stream, typename T>
     inline void unpack( Stream& s, std::shared_ptr<T>& v, uint32_t _max_depth )
     { try {
        FC_ASSERT( _max_depth > 0 );
        v = std::make_shared<T>();
        fc::raw::unpack( s, *v, _max_depth - 1 );
-    } FC_RETHROW_EXCEPTIONS( warn, "std::shared_ptr<T>", ("type",fc::get_typename<T>::name()) ) }
+    } FC_RETHROW_EXCEPTIONS( warn, "std::shared_ptr<${type}>", ("type",fc::get_typename<T>::name()) ) }
+
+    template<typename Stream, typename T>
+    inline void pack( Stream& s, const std::shared_ptr<const T>& v, uint32_t _max_depth )
+    {
+       FC_ASSERT( _max_depth > 0 );
+       fc::raw::pack( s, *v, _max_depth - 1 );
+    }
+
+    template<typename Stream, typename T>
+    inline void unpack( Stream& s, std::shared_ptr<const T>& v, uint32_t _max_depth )
+    { try {
+       FC_ASSERT( _max_depth > 0 );
+       T tmp;
+       fc::raw::unpack( s, tmp, _max_depth - 1 );
+       v = std::make_shared<const T>(std::move(tmp));
+    } FC_RETHROW_EXCEPTIONS( warn, "std::shared_ptr<const T>", ("type",fc::get_typename<T>::name()) ) }
 
     template<typename Stream> inline void pack( Stream& s, const unsigned_int& v, uint32_t _max_depth ) {
       uint64_t val = v.value;
@@ -191,7 +225,7 @@ namespace fc {
     template<typename Stream> inline void pack( Stream& s, const char* v, uint32_t _max_depth )
     {
        FC_ASSERT( _max_depth > 0 );
-       fc::raw::pack( s, fc::string(v), _max_depth - 1 );
+       fc::raw::pack( s, std::string(v), _max_depth - 1 );
     }
 
     template<typename Stream, typename T>
@@ -218,19 +252,6 @@ namespace fc {
     void unpack( Stream& s, fc::fwd<T,S,Align>& v, uint32_t _max_depth ) {
        FC_ASSERT( _max_depth > 0 );
        fc::raw::unpack( *v, _max_depth - 1 ); // TODO not sure about this
-    }
-    template<typename Stream, typename T>
-    void pack( Stream& s, const fc::smart_ref<T>& v, uint32_t _max_depth )
-    {
-       FC_ASSERT( _max_depth > 0 );
-       fc::raw::pack( s, *v, _max_depth - 1 );
-    }
-
-    template<typename Stream, typename T>
-    void unpack( Stream& s, fc::smart_ref<T>& v, uint32_t _max_depth )
-    {
-       FC_ASSERT( _max_depth > 0 );
-       fc::raw::unpack( s, *v, _max_depth - 1 );
     }
 
     // optional
@@ -268,18 +289,18 @@ namespace fc {
     }
 
     // fc::string
-    template<typename Stream> inline void pack( Stream& s, const fc::string& v, uint32_t _max_depth )  {
+    template<typename Stream> inline void pack( Stream& s, const std::string& v, uint32_t _max_depth )  {
        FC_ASSERT( _max_depth > 0 );
        fc::raw::pack( s, unsigned_int(v.size()), _max_depth - 1 );
        if( v.size() ) s.write( v.c_str(), v.size() );
     }
 
-    template<typename Stream> inline void unpack( Stream& s, fc::string& v, uint32_t _max_depth )  {
+    template<typename Stream> inline void unpack( Stream& s, std::string& v, uint32_t _max_depth )  {
        FC_ASSERT( _max_depth > 0 );
        std::vector<char> tmp; fc::raw::unpack( s, tmp, _max_depth - 1 );
        if( tmp.size() )
-          v = fc::string( tmp.data(), tmp.data()+tmp.size() );
-       else v = fc::string();
+          v = std::string( tmp.data(), tmp.data()+tmp.size() );
+       else v = std::string();
     }
 
     // bool
@@ -335,44 +356,162 @@ namespace fc {
           const uint32_t max_depth;
       };
 
-      // Default pack/unpack functions for classes (if_class<fc::true_type>) are removed due to recursion issue.
+      // Default pack/unpack functions for classes are removed due to recursion issue.
       // Classes should implement pack/unpack functions explicitly.
-      template<typename IsClass=fc::true_type>
+      template<typename T, typename Dummy = void>
       struct if_class;
 
+      template<typename T>
+      struct if_class<T, std::enable_if_t<!std::is_class<T>::value>> {
+        template<typename Stream>
+        static inline void pack( Stream& s, const T v, uint32_t _max_depth ) = delete;
+        template<typename Stream>
+        static inline void unpack( Stream& s, T& v, uint32_t _max_depth ) = delete;
+      };
+
       template<>
-      struct if_class<fc::false_type> {
-        template<typename Stream, typename T>
-        static inline void pack( Stream& s, const T& v, uint32_t _max_depth ) {
-          s.write( (char*)&v, sizeof(v) );
+      struct if_class<int64_t, void> {
+        template<typename Stream>
+        static inline void pack( Stream& s, const int64_t v, uint32_t _max_depth ) {
+           boost::endian::little_int64_buf_t tmp;
+           tmp = v;
+           s.write( (char*)&tmp, sizeof(tmp) );
         }
-        template<typename Stream, typename T>
-        static inline void unpack( Stream& s, T& v, uint32_t _max_depth ) {
-          s.read( (char*)&v, sizeof(v) );
+        template<typename Stream>
+        static inline void unpack( Stream& s, int64_t& v, uint32_t _max_depth ) {
+           boost::endian::little_int64_buf_t tmp;
+           s.read( (char*)&tmp, sizeof(tmp) );
+           v = tmp.value();
         }
       };
 
-      template<typename IsEnum=fc::false_type>
-      struct if_enum {
-        template<typename Stream, typename T>
+      template<>
+      struct if_class<uint64_t, void> {
+        template<typename Stream>
+        static inline void pack( Stream& s, const uint64_t v, uint32_t _max_depth ) {
+           boost::endian::little_uint64_buf_t tmp;
+           tmp = v;
+           s.write( (char*)&tmp, sizeof(tmp) );
+        }
+        template<typename Stream>
+        static inline void unpack( Stream& s, uint64_t& v, uint32_t _max_depth ) {
+           boost::endian::little_uint64_buf_t tmp;
+           s.read( (char*)&tmp, sizeof(tmp) );
+           v = tmp.value();
+        }
+      };
+
+      template<>
+      struct if_class<int32_t, void> {
+        template<typename Stream>
+        static inline void pack( Stream& s, const int32_t v, uint32_t _max_depth ) {
+           boost::endian::little_int32_buf_t tmp;
+           tmp = v;
+           s.write( (char*)&tmp, sizeof(tmp) );
+        }
+        template<typename Stream>
+        static inline void unpack( Stream& s, int32_t& v, uint32_t _max_depth ) {
+           boost::endian::little_int32_buf_t tmp;
+           s.read( (char*)&tmp, sizeof(tmp) );
+           v = tmp.value();
+        }
+      };
+
+      template<>
+      struct if_class<uint32_t, void> {
+        template<typename Stream>
+        static inline void pack( Stream& s, const uint32_t v, uint32_t _max_depth ) {
+           boost::endian::little_uint32_buf_t tmp;
+           tmp = v;
+           s.write( (char*)&tmp, sizeof(tmp) );
+        }
+        template<typename Stream>
+        static inline void unpack( Stream& s, uint32_t& v, uint32_t _max_depth ) {
+           boost::endian::little_uint32_buf_t tmp;
+           s.read( (char*)&tmp, sizeof(tmp) );
+           v = tmp.value();
+        }
+      };
+
+      template<>
+      struct if_class<int16_t, void> {
+        template<typename Stream>
+        static inline void pack( Stream& s, const int16_t v, uint32_t _max_depth ) {
+           boost::endian::little_int16_buf_t tmp;
+           tmp = v;
+           s.write( (char*)&tmp, sizeof(tmp) );
+        }
+        template<typename Stream>
+        static inline void unpack( Stream& s, int16_t& v, uint32_t _max_depth ) {
+           boost::endian::little_int16_buf_t tmp;
+           s.read( (char*)&tmp, sizeof(tmp) );
+           v = tmp.value();
+        }
+      };
+
+      template<>
+      struct if_class<uint16_t, void> {
+        template<typename Stream>
+        static inline void pack( Stream& s, const uint16_t v, uint32_t _max_depth ) {
+           boost::endian::little_uint16_buf_t tmp;
+           tmp = v;
+           s.write( (char*)&tmp, sizeof(tmp) );
+        }
+        template<typename Stream>
+        static inline void unpack( Stream& s, uint16_t& v, uint32_t _max_depth ) {
+           boost::endian::little_uint16_buf_t tmp;
+           s.read( (char*)&tmp, sizeof(tmp) );
+           v = tmp.value();
+        }
+      };
+
+      template<>
+      struct if_class<int8_t, void> {
+        template<typename Stream>
+        static inline void pack( Stream& s, const int8_t v, uint32_t _max_depth ) {
+           s.write( (char*)&v, 1 );
+        }
+        template<typename Stream>
+        static inline void unpack( Stream& s, int8_t& v, uint32_t _max_depth ) {
+           s.read( (char*)&v, 1 );
+        }
+      };
+
+      template<>
+      struct if_class<uint8_t, void> {
+        template<typename Stream>
+        static inline void pack( Stream& s, const uint8_t v, uint32_t _max_depth ) {
+           s.write( (char*)&v, 1 );
+        }
+        template<typename Stream>
+        static inline void unpack( Stream& s, uint8_t& v, uint32_t _max_depth ) {
+           s.read( (char*)&v, 1 );
+        }
+      };
+
+      template<typename T, typename Dummy=void>
+      struct if_enum;
+      template<typename T>
+      struct if_enum<T, std::enable_if_t<!std::is_enum<T>::value>> {
+        template<typename Stream>
         static inline void pack( Stream& s, const T& v, uint32_t _max_depth ) {
           FC_ASSERT( _max_depth > 0 );
           fc::reflector<T>::visit( pack_object_visitor<Stream,T>( v, s, _max_depth - 1 ) );
         }
-        template<typename Stream, typename T>
+        template<typename Stream>
         static inline void unpack( Stream& s, T& v, uint32_t _max_depth ) {
           FC_ASSERT( _max_depth > 0 );
           fc::reflector<T>::visit( unpack_object_visitor<Stream,T>( v, s, _max_depth - 1 ) );
         }
       };
-      template<>
-      struct if_enum<fc::true_type> {
-        template<typename Stream, typename T>
+      template<typename T>
+      struct if_enum<T, std::enable_if_t<std::is_enum<T>::value>> {
+        template<typename Stream>
         static inline void pack( Stream& s, const T& v, uint32_t _max_depth ) {
           FC_ASSERT( _max_depth > 0 );
           fc::raw::pack( s, (int64_t)v, _max_depth - 1 );
         }
-        template<typename Stream, typename T>
+        template<typename Stream>
         static inline void unpack( Stream& s, T& v, uint32_t _max_depth ) {
           FC_ASSERT( _max_depth > 0 );
           int64_t temp;
@@ -381,30 +520,30 @@ namespace fc {
         }
       };
 
-      template<typename IsReflected=fc::false_type>
+      template<typename IsReflected=std::false_type>
       struct if_reflected {
         template<typename Stream, typename T>
         static inline void pack( Stream& s, const T& v, uint32_t _max_depth ) {
           FC_ASSERT( _max_depth > 0 );
-          if_class<typename fc::is_class<T>::type>::pack( s, v, _max_depth - 1 );
+          if_class<T>::pack( s, v, _max_depth - 1 );
         }
         template<typename Stream, typename T>
         static inline void unpack( Stream& s, T& v, uint32_t _max_depth ) {
           FC_ASSERT( _max_depth > 0 );
-          if_class<typename fc::is_class<T>::type>::unpack( s, v, _max_depth - 1 );
+          if_class<T>::unpack( s, v, _max_depth - 1 );
         }
       };
       template<>
-      struct if_reflected<fc::true_type> {
+      struct if_reflected<std::true_type> {
         template<typename Stream, typename T>
         static inline void pack( Stream& s, const T& v, uint32_t _max_depth ) {
           FC_ASSERT( _max_depth > 0 );
-          if_enum< typename fc::reflector<T>::is_enum >::pack( s, v, _max_depth - 1 );
+          if_enum<T>::pack( s, v, _max_depth - 1 );
         }
         template<typename Stream, typename T>
         static inline void unpack( Stream& s, T& v, uint32_t _max_depth ) {
           FC_ASSERT( _max_depth > 0 );
-          if_enum< typename fc::reflector<T>::is_enum >::unpack( s, v, _max_depth - 1 );
+          if_enum<T>::unpack( s, v, _max_depth - 1 );
         }
       };
 
@@ -588,15 +727,27 @@ namespace fc {
        }
     }
 
+    template<typename Stream, boost::endian::order O, class T, std::size_t N, boost::endian::align A>
+    void pack( Stream& s, const boost::endian::endian_buffer<O,T,N,A>& v, uint32_t _max_depth )
+    {
+       FC_ASSERT( _max_depth > 0 );
+       s.write( v.data(), sizeof(v) );
+    }
+    template<typename Stream, boost::endian::order O, class T, std::size_t N, boost::endian::align A>
+    void unpack( Stream& s, boost::endian::endian_buffer<O,T,N,A>& v, uint32_t _max_depth )
+    {
+       FC_ASSERT( _max_depth > 0 );
+       s.read( (char*)&v, sizeof(v) );
+    }
 
 
     template<typename Stream, typename T>
-    inline void pack( Stream& s, const T& v, uint32_t _max_depth ) {
+    void pack( Stream& s, const T& v, uint32_t _max_depth ) {
        FC_ASSERT( _max_depth > 0 );
        fc::raw::detail::if_reflected< typename fc::reflector<T>::is_defined >::pack( s, v, _max_depth - 1 );
     }
     template<typename Stream, typename T>
-    inline void unpack( Stream& s, T& v, uint32_t _max_depth )
+    void unpack( Stream& s, T& v, uint32_t _max_depth )
     { try {
        FC_ASSERT( _max_depth > 0 );
        fc::raw::detail::if_reflected< typename fc::reflector<T>::is_defined >::unpack( s, v, _max_depth - 1 );
@@ -686,7 +837,6 @@ namespace fc {
        FC_ASSERT( _max_depth > 0 );
        datastream<const char*>  ds( d, s );
        fc::raw::unpack( ds, v, _max_depth - 1 );
-       return v;
     } FC_RETHROW_EXCEPTIONS( warn, "error unpacking ${type}", ("type",fc::get_typename<T>::name() ) ) }
 
    template<typename Stream>

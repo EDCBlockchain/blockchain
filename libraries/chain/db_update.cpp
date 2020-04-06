@@ -30,11 +30,11 @@
 #include <graphene/chain/hardfork.hpp>
 #include <graphene/chain/market_object.hpp>
 #include <graphene/chain/proposal_object.hpp>
-#include <graphene/chain/transaction_object.hpp>
+#include <graphene/chain/transaction_history_object.hpp>
 #include <graphene/chain/withdraw_permission_object.hpp>
 #include <graphene/chain/witness_object.hpp>
 
-#include <graphene/chain/protocol/fee_schedule.hpp>
+#include <graphene/protocol/fee_schedule.hpp>
 
 #include <fc/uint128.hpp>
 
@@ -160,7 +160,7 @@ void database::clear_expired_transactions()
 { try {
    //Look for expired transactions in the deduplication list, and remove them.
    //Transactions must have expired by at least two forking windows in order to be removed.
-   auto& transaction_idx = static_cast<transaction_index&>(get_mutable_index(implementation_ids, impl_transaction_object_type));
+   auto& transaction_idx = static_cast<transaction_index&>(get_mutable_index(implementation_ids, impl_transaction_history_object_type));
    const auto& dedupe_index = transaction_idx.indices().get<by_expiration>();
    while( (!dedupe_index.empty()) && (head_block_time() > dedupe_index.rbegin()->trx.expiration) )
       transaction_idx.remove(*dedupe_index.rbegin());
@@ -264,7 +264,7 @@ void database::clear_expired_orders()
          auto& limit_index = get_index_type<limit_order_index>().indices().get<by_expiration>();
          while( !limit_index.empty() && limit_index.begin()->expiration <= head_block_time() )
          {
-            limit_order_cancel_operation canceler;
+            protocol::limit_order_cancel_operation canceler;
             const limit_order_object& order = *limit_index.begin();
             canceler.fee_paying_account = order.seller;
             canceler.order = order.id;
@@ -382,8 +382,10 @@ void database::clear_expired_orders()
 
          auto& pays = order.balance;
          auto receives = (order.balance * mia.current_feed.settlement_price);
-         receives.amount = (fc::uint128_t(receives.amount.value) *
-                            (GRAPHENE_100_PERCENT - mia.options.force_settlement_offset_percent) / GRAPHENE_100_PERCENT).to_uint64();
+
+         receives.amount = static_cast<uint64_t>( fc::uint128_t(receives.amount.value) *
+                                                  (GRAPHENE_100_PERCENT - mia.options.force_settlement_offset_percent) /
+                                                  GRAPHENE_100_PERCENT );
          assert(receives <= order.balance * mia.current_feed.settlement_price);
 
          price settlement_price = pays / receives;

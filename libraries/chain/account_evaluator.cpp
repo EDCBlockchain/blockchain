@@ -22,8 +22,6 @@
  * THE SOFTWARE.
  */
 
-#include <fc/smart_ref_impl.hpp>
-
 #include <graphene/chain/account_evaluator.hpp>
 #include <graphene/chain/buyback.hpp>
 #include <graphene/chain/buyback_object.hpp>
@@ -140,6 +138,10 @@ void verify_account_votes( const database& db, const account_options& options )
 
 void_result account_create_evaluator::do_evaluate( const account_create_operation& op )
 { try {
+
+   //UNIT-TESTS: std::cout << "!!!" << std::endl;
+   //FC_ASSERT(false);
+
    database& d = db();
    if( d.head_block_time() < HARDFORK_516_TIME )
    {
@@ -205,8 +207,8 @@ void_result account_create_evaluator::do_evaluate( const account_create_operatio
    if( op.name.size() )
    {
       auto current_account_itr = acnt_indx.indices().get<by_name>().find( op.name );
-
-      FC_ASSERT( current_account_itr == acnt_indx.indices().get<by_name>().end() );
+      FC_ASSERT( current_account_itr == acnt_indx.indices().get<by_name>().end(),
+                 "Account '${a}' already exists.", ("a",op.name) );
    }
 
    return void_result();
@@ -280,7 +282,7 @@ object_id_type account_create_evaluator::do_apply( const account_create_operatio
    if( dynamic_properties.accounts_registered_this_interval %
        global_properties.parameters.accounts_per_fee_scale == 0 )
       db().modify(global_properties, [&dynamic_properties](global_property_object& p) {
-         p.parameters.current_fees->get<account_create_operation>().basic_fee <<= p.parameters.account_fee_scale_bitshifts;
+         p.parameters.get_mutable_fees().get<account_create_operation>().basic_fee <<= p.parameters.account_fee_scale_bitshifts;
       });
 
    if(    o.extensions.value.owner_special_authority.valid()
@@ -960,8 +962,10 @@ market_address create_market_address_evaluator::do_apply(const create_market_add
       d.adjust_balance(op.market_account_id, -asset(settings_ptr->create_market_address_fee_edc, EDC_ASSET));
 
       // current supply
-      d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
+      d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data)
+      {
          data.current_supply -= settings_ptr->create_market_address_fee_edc;
+         data.fee_burnt += settings_ptr->create_market_address_fee_edc;
       });
    }
 

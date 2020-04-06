@@ -12,7 +12,7 @@ class file_appender : public appender {
          struct config {
             config( const fc::path& p = "log.txt" );
 
-            fc::string                         format;
+            std::string                         format;
             fc::path                           filename;
             bool                               flush = true;
             bool                               rotate = false;
@@ -26,7 +26,7 @@ class file_appender : public appender {
 
       private:
          class impl;
-         fc::shared_ptr<impl> my;
+         std::unique_ptr<impl> my;
    };
 } // namespace fc
 

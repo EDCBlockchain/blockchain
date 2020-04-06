@@ -59,15 +59,7 @@ BOOST_AUTO_TEST_CASE(bloom_test_1)
             ++count;
          }
       }
-//      wdump((filter));
-      auto packed_filter = fc::raw::pack(filter);
-//      wdump((packed_filter.size()));
-//      wdump((packed_filter));
-      std::stringstream out;
-//      std::string str = fc::json::to_string(packed_filter);
-      auto b64 = fc::base64_encode( packed_filter.data(), packed_filter.size() );
-      for( uint32_t i = 0; i < b64.size(); i += 1024 )
-         out << '"' <<  b64.substr( i, 1024 ) << "\",\n";
+      // FIXME: this doesn't really test anything.
    }
    catch ( const fc::exception& e )
    {

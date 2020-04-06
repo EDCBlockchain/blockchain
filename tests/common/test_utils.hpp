@@ -10,7 +10,7 @@
 
 #include <graphene/chain/account_object.hpp>
 #include <graphene/chain/asset_object.hpp>
-#include <graphene/chain/protocol/referral_classes.hpp>
+#include <graphene/protocol/referral_classes.hpp>
 
 #include <fc/crypto/digest.hpp>
 

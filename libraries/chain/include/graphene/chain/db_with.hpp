@@ -24,6 +24,7 @@
 #pragma once
 
 #include <graphene/chain/database.hpp>
+#include <graphene/protocol/transaction.hpp>
 
 /*
  * This file provides with() functions which modify the database

@@ -20,11 +20,11 @@
 namespace fc 
 {
 
-  class gelf_appender::impl : public retainable
+  class gelf_appender::impl
   {
   public:
     config                     cfg;
-    fc::optional<ip::endpoint>     gelf_endpoint;
+    optional<ip::endpoint>     gelf_endpoint;
     udp_socket                 gelf_socket;
 
     impl(const config& c) : 

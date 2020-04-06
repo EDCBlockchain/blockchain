@@ -11,11 +11,11 @@
 
 namespace fc {
 
-    class logger::impl : public fc::retainable {
+    class logger::impl {
       public:
          impl()
          :_parent(nullptr),_enabled(true),_additivity(false),_level(log_level::warn){}
-         fc::string       _name;
+         std::string       _name;
          logger           _parent;
          bool             _enabled;
          bool             _additivity;
@@ -28,7 +28,7 @@ namespace fc {
     logger::logger()
     :my( new impl() ){}
 
-    logger::logger(nullptr_t){}
+    logger::logger(std::nullptr_t){}
 
     logger::logger( const string& name, const logger& parent )
     :my( new impl() )
@@ -42,7 +42,7 @@ namespace fc {
     :my(l.my){}
 
     logger::logger( logger&& l )
-    :my(fc::move(l.my)){}
+    :my(std::move(l.my)){}
 
     logger::~logger(){}
 
@@ -51,11 +51,11 @@ namespace fc {
        return *this;
     }
     logger& logger::operator=( logger&& l ){
-       fc_swap(my,l.my);
+       std::swap(my,l.my);
        return *this;
     }
-    bool operator==( const logger& l, std::nullptr_t ) { return !l.my; }
-    bool operator!=( const logger& l, std::nullptr_t ) { return l.my;  }
+    bool operator==( const logger& l, std::nullptr_t ) { return !(bool)l.my; }
+    bool operator!=( const logger& l, std::nullptr_t ) { return (bool)l.my;  }
 
     bool logger::is_enabled( log_level e )const {
        return e >= my->_level;
@@ -71,8 +71,8 @@ namespace fc {
           my->_parent.log(m);
        }
     }
-    void logger::set_name( const fc::string& n ) { my->_name = n; }
-    const fc::string& logger::name()const { return my->_name; }
+    void logger::set_name( const std::string& n ) { my->_name = n; }
+    const std::string& logger::name()const { return my->_name; }
 
     extern bool do_default_config;
 
@@ -84,7 +84,7 @@ namespace fc {
       return *lm;
     }
 
-    logger logger::get( const fc::string& s ) {
+    logger logger::get( const std::string& s ) {
        static fc::spin_lock logger_spinlock;
        scoped_lock<spin_lock> lock(logger_spinlock);
        return get_logger_map()[s];
@@ -96,13 +96,10 @@ namespace fc {
     log_level logger::get_log_level()const { return my->_level; }
     logger& logger::set_log_level(log_level ll) { my->_level = ll; return *this; }
 
-    void logger::add_appender( const fc::shared_ptr<appender>& a )
+    void logger::add_appender( const appender::ptr& a )
     { my->_appenders.push_back(a); }
     
-//    void logger::remove_appender( const fc::shared_ptr<appender>& a )
- //   { my->_appenders.erase(a); }
-
-    std::vector<fc::shared_ptr<appender> > logger::get_appenders()const
+    std::vector<appender::ptr> logger::get_appenders()const
     {
         return my->_appenders;
     }

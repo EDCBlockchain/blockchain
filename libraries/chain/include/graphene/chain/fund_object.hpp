@@ -1,5 +1,5 @@
 #pragma once
-#include <graphene/chain/protocol/operations.hpp>
+#include <graphene/protocol/operations.hpp>
 #include <graphene/db/generic_index.hpp>
 #include <boost/multi_index/composite_key.hpp>
 #include <fc/uint128.hpp>
@@ -66,9 +66,6 @@ namespace graphene { namespace chain {
       fund_transaction_history_id_type most_recent_op;
       uint32_t total_ops = 0;
 
-      // second of pair: sum of all user's deposits owned by this fund
-      flat_map<account_id_type, share_type> users_deposits;
-
       // count of all deposits
       int64_t deposit_count = 0;
 
@@ -97,7 +94,6 @@ namespace graphene { namespace chain {
 
    }; // fund_transaction_history_object
 
-   struct by_id;
    struct by_time;
    struct by_seq;
    struct by_op;
@@ -289,60 +285,20 @@ FC_REFLECT( graphene::chain::fund_history_object::history_item,
             (daily_payments_total)
             (daily_payments_owner) )
 
-FC_REFLECT_DERIVED( graphene::chain::fund_history_object,
-                    (graphene::chain::object),
-                    (owner)
-                    (items) )
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::fund_history_object)
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::fund_statistics_object)
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::fund_transaction_history_object)
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::fund_deposit_object)
+MAP_OBJECT_ID_TO_TYPE(graphene::chain::fund_object)
 
-FC_REFLECT_DERIVED( graphene::chain::fund_statistics_object,
-                    (graphene::chain::object),
-                    (owner)
-                    (most_recent_op)
-                    (total_ops)
-                    (users_deposits)
-                    (deposit_count) )
+FC_REFLECT_TYPENAME( graphene::chain::fund_history_object )
+FC_REFLECT_TYPENAME( graphene::chain::fund_statistics_object )
+FC_REFLECT_TYPENAME( graphene::chain::fund_transaction_history_object )
+FC_REFLECT_TYPENAME( graphene::chain::fund_deposit_object )
+FC_REFLECT_TYPENAME( graphene::chain::fund_object )
 
-FC_REFLECT_DERIVED( graphene::chain::fund_transaction_history_object,
-                    (graphene::chain::object),
-                    (fund)
-                    (operation_id)
-                    (sequence)
-                    (next)
-                    (block_time) )
-
-FC_REFLECT_DERIVED( graphene::chain::fund_deposit_object,
-                    (graphene::db::object),
-                    (fund_id)
-                    (account_id)
-                    (amount)
-                    (enabled)
-                    (datetime_begin)
-                    (datetime_end)
-                    (prev_maintenance_time_on_creation)
-                    (period)
-                    (percent)
-                    (daily_payment)
-                    (manual_percent_enabled)
-                    (can_use_percent) )
-
-FC_REFLECT_DERIVED( graphene::chain::fund_object,
-                    (graphene::db::object),
-                    (name)
-                    (description)
-                    (owner)
-                    (asset_id)
-                    (balance)
-                    (owner_balance)
-                    (enabled)
-                    (datetime_begin)
-                    (datetime_end)
-                    (prev_maintenance_time_on_creation)
-                    (rates_reduction_per_month)
-                    (period)
-                    (min_deposit)
-                    (statistics_id)
-                    (history_id)
-                    (payment_scheme)
-                    (payment_rates)
-                    (fund_rates) )
-
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::fund_history_object )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::fund_statistics_object )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::fund_transaction_history_object )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::fund_deposit_object )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::chain::fund_object )

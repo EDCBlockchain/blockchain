@@ -26,7 +26,7 @@
 #include <graphene/chain/committee_member_object.hpp>
 #include <graphene/chain/account_object.hpp>
 #include <graphene/chain/database.hpp>
-#include <graphene/chain/protocol/vote.hpp>
+#include <graphene/protocol/vote.hpp>
 
 namespace graphene { namespace chain {
 
@@ -40,7 +40,8 @@ object_id_type witness_create_evaluator::do_apply( const witness_create_operatio
 { try {
    vote_id_type vote_id;
    db().modify(db().get_global_properties(), [&vote_id](global_property_object& p) {
-      vote_id = get_next_vote_id(p, vote_id_type::witness);
+      //vote_id = get_next_vote_id(p, vote_id_type::witness);
+      vote_id = vote_id_type(vote_id_type::witness, p.next_available_vote_id++);
    });
 
    const auto& new_witness_object = db().create<witness_object>( [&]( witness_object& obj ){

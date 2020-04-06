@@ -11,8 +11,7 @@ namespace fc {
     *  integer overflow and default initialization. It will
     *  throw an exception on overflow conditions.
     *
-    *  It can only be used on built-in types.  In particular,
-    *  safe<uint128_t> is buggy and should not be used.
+    *  It can only be used on built-in types.
     *
     *  Implemented using spec from:
     *  https://www.securecoding.cert.org/confluence/display/c/INT32-C.+Ensure+that+operations+on+signed+integers+do+not+result+in+overflow
@@ -27,11 +26,11 @@ namespace fc {
       safe(){}
       safe( const safe& o ):value(o.value){}
 
-      static safe min()
+      static constexpr safe min()
       {
           return std::numeric_limits<T>::min();
       }
-      static safe max()
+      static constexpr safe max()
       {
           return std::numeric_limits<T>::max();
       }
@@ -92,7 +91,7 @@ namespace fc {
 
       safe operator - ()const
       {
-          if( value == std::numeric_limits<T>::min() ) FC_CAPTURE_AND_THROW( overflow_exception, (*this) );
+          if( value == min() ) FC_CAPTURE_AND_THROW( overflow_exception, (*this) );
           return safe( -value );
       }
 

@@ -1,4 +1,3 @@
-#include <fc/smart_ref_impl.hpp>
 #include <graphene/chain/fund_evaluator.hpp>
 #include <graphene/chain/fund_object.hpp>
 #include <graphene/chain/account_object.hpp>
@@ -296,7 +295,6 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
 
    d.modify(fund.statistics_id(d), [&](fund_statistics_object& obj)
    {
-      obj.users_deposits[op.from_account] += op.amount;
       // fund: increasing deposit count
       ++obj.deposit_count;
    });
@@ -306,6 +304,21 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
          obj.edc_in_deposits = d.get_user_deposits_sum(op.from_account, EDC_ASSET);
       });
    }
+
+   d.modify(from_acc, [&](account_object& obj)
+   {
+      auto itr = obj.deposit_sums.find(fund.get_id());
+      if (itr != obj.deposit_sums.end()) {
+         itr->second += asset(op.amount, fund.asset_id);
+      }
+      else {
+         obj.deposit_sums[fund.get_id()] = asset(op.amount, fund.asset_id);
+      }
+
+      if (fund.asset_id == EDC_ASSET) {
+         obj.edc_in_deposits = d.get_user_deposits_sum(op.from_account, EDC_ASSET);
+      }
+   });
 
    // ====================
 
@@ -375,24 +388,20 @@ void_result fund_withdrawal_evaluator::do_apply( const fund_withdrawal_operation
    const chain::fund_object& fund = *fund_obj_ptr;
 
    // update stats
-   const auto& stats_obj = op.fund_id(d).statistics_id(d);
-   auto iter = stats_obj.users_deposits.find(op.issue_to_account);
-   if (iter != stats_obj.users_deposits.end())
+   d.modify(*account_ptr, [&](account_object& obj)
    {
-      d.modify(stats_obj, [&](fund_statistics_object& obj) {
-         obj.users_deposits[op.issue_to_account] -= op.asset_to_issue.amount;
-      });
-   }
-
-   if (fund.asset_id == EDC_ASSET)
-   {
-      d.modify(*account_ptr, [&](account_object& obj) {
-         obj.edc_in_deposits = d.get_user_deposits_sum(op.issue_to_account, EDC_ASSET);
-      });
-
-      if (d.head_block_time() > HARDFORK_627_TIME) {
-         d.rebuild_user_edc_deposit_availability(op.issue_to_account);
+      auto itr = obj.deposit_sums.find(fund.get_id());
+      if (itr != obj.deposit_sums.end()) {
+         itr->second -= asset(op.asset_to_issue.amount, fund.asset_id);
       }
+
+      if (fund.asset_id == EDC_ASSET) {
+         obj.edc_in_deposits = d.get_user_deposits_sum(op.issue_to_account, EDC_ASSET);
+      }
+   });
+
+   if ( (fund.asset_id == EDC_ASSET) && (d.head_block_time() > HARDFORK_627_TIME) ) {
+      d.rebuild_user_edc_deposit_availability(op.issue_to_account);
    }
 
    return void_result();
@@ -482,7 +491,7 @@ void_result fund_deposit_set_enable_evaluator::do_evaluate( const fund_deposit_s
 
    const auto& idx = d.get_index_type<fund_deposit_index>().indices().get<by_id>();
    auto itr = idx.find(op.deposit_id);
-   FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.deposit_id) );
+   FC_ASSERT( itr != idx.end(), "There is no deposit with id '${id}'!", ("id", op.deposit_id) );
 
    fund_dep_obj_ptr = &(*itr);
 
@@ -742,11 +751,24 @@ dep_update_info fund_deposit_update_evaluator::do_apply( const fund_deposit_upda
 
       // ========= statistics
 
-      d.modify(fund.statistics_id(d), [&](fund_statistics_object& obj)
+      d.modify(old_account_id(d), [&](account_object& obj)
       {
-         obj.users_deposits[old_account_id] -= fund_deposit.amount.amount;
-         obj.users_deposits[new_account_id] += fund_deposit.amount.amount;
+         auto itr = obj.deposit_sums.find(fund.get_id());
+         if (itr != obj.deposit_sums.end()) {
+            itr->second -= asset(fund_deposit.amount.amount, fund.asset_id);
+         }
       });
+      d.modify(new_account_id(d), [&](account_object& obj)
+      {
+         auto itr = obj.deposit_sums.find(fund.get_id());
+         if (itr != obj.deposit_sums.end()) {
+            itr->second += asset(fund_deposit.amount.amount, fund.asset_id);
+         }
+         else {
+            obj.deposit_sums[fund.get_id()] = asset(fund_deposit.amount.amount, fund.asset_id);
+         }
+      });
+
       if (fund.asset_id == EDC_ASSET)
       {
          d.modify(old_account_id(d), [&](account_object& obj) {
@@ -851,14 +873,20 @@ asset fund_deposit_reduce_evaluator::do_apply( const fund_deposit_reduce_operati
       obj.balance -= o.amount;
    });
    // current supply of the fund's asset
-   d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
+   d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data)
+   {
       data.current_supply -= o.amount;
+      data.fee_burnt += o.amount;
    });
 
    // ========= statistics
 
-   d.modify(fund.statistics_id(d), [&](fund_statistics_object& obj) {
-      obj.users_deposits[fund_deposit.account_id] -= o.amount;
+   d.modify(fund_deposit.account_id(d), [&](account_object& obj)
+   {
+      auto itr = obj.deposit_sums.find(fund.get_id());
+      if (itr != obj.deposit_sums.end()) {
+         itr->second -= asset(o.amount, fund.asset_id);
+      }
    });
    if (fund.asset_id == EDC_ASSET)
    {
