@@ -754,12 +754,12 @@ BOOST_AUTO_TEST_CASE( funds_deposits_limit )
    {
       BOOST_TEST_MESSAGE( "=== funds_deposits_limit ===" );
 
-      ACTOR(abcde1); // for needed IDs
-      ACTOR(alice);
-      ACTOR(bob);
-      ACTOR(eve);
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(bob)
+      ACTOR(eve)
 
-      SET_ACTOR_CAN_CREATE_ASSET(alice_id);
+      SET_ACTOR_CAN_CREATE_ASSET(alice_id)
 
       create_edc(100000000000);
 

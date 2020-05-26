@@ -207,10 +207,10 @@ BOOST_AUTO_TEST_CASE(hf_627_transfers_limit_max_sum_test)
 
       // cancel the limit flag
       {
-         account_limit_daily_volume_operation op;
+         account_edc_limit_daily_volume_operation op;
          op.fee = asset(0, edc_id);
          op.account_id = bob_id;
-         op.enabled = false;
+         op.limit_transfers_enabled = false;
          set_expiration(db, trx);
          trx.operations.push_back(std::move(op));
          trx.validate();
@@ -224,7 +224,7 @@ BOOST_AUTO_TEST_CASE(hf_627_transfers_limit_max_sum_test)
       }
 
       auto acc_bob = get_account("bob");
-      BOOST_CHECK(acc_bob.edc_limit_daily_volume_enabled == false);
+      BOOST_CHECK(acc_bob.edc_limit_transfers_enabled == false);
 
       for (int i = 0; i < 2; ++i)
       {
@@ -593,6 +593,242 @@ BOOST_AUTO_TEST_CASE(fund_deposit_reduce_operation_test)
       BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 990600);
 
       //std::cout << get_balance(bob_id, EDC_ASSET) << std::endl;
+
+   } FC_LOG_AND_RETHROW()
+}
+
+BOOST_AUTO_TEST_CASE( max_limit_deposits_amount_test )
+{
+
+   try {
+
+      BOOST_TEST_MESSAGE( "=== max_limit_deposits_amount_test ===" );
+
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(bob)
+
+      // assign privileges for creating_asset_operation
+      SET_ACTOR_CAN_CREATE_ASSET(alice_id)
+
+      create_edc(1000000, asset(100, CORE_ASSET), asset(1, EDC_ASSET));
+
+      issue_uia(alice_id, asset(100000, EDC_ASSET));
+      issue_uia(bob_id, asset(100000, EDC_ASSET));
+
+      fc::time_point_sec h_time = HARDFORK_630_TIME;
+      generate_blocks(h_time);
+
+      // payments to fund
+      fund_options::fund_rate fr;
+      fr.amount = 100;
+      fr.day_percent = 5000;
+      // payments to users
+      fund_options::payment_rate pr;
+      pr.period = 5;
+      pr.percent = 20000;
+
+      fund_options options;
+      options.description = "FUND DESCRIPTION";
+      options.period = 10; // fund lifetime, days
+      options.min_deposit = 100;
+      options.rates_reduction_per_month = 300;
+      options.fund_rates.push_back(std::move(fr));
+      options.payment_rates.push_back(std::move(pr));
+      make_fund("TESTFUND", options, alice_id);
+
+      auto fund_iter = db.get_index_type<fund_index>().indices().get<by_name>().find("TESTFUND");
+      const fund_object& fund = *fund_iter;
+
+      // 1st deposit to fund
+      {
+         fund_deposit_operation op;
+         op.amount = 500;
+         op.from_account = bob_id;
+         op.period = 5;
+         op.fund_id = fund.id;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      // 2st deposit to fund
+      {
+         fund_deposit_operation op;
+         op.amount = 500; // << should be fund limit excess
+         op.from_account = bob_id;
+         op.period = 5;
+         op.fund_id = fund.id;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      // now, emulate an excess of fund deposits limit
+      {
+         fund_update_operation op;
+         op.fee = asset();
+         op.id = fund.get_id();
+         op.options = options;
+         fund_ext ext;
+         ext.max_limit_deposits_amount = 900;
+         op.extensions.insert(ext); // <-- fund deposits limit
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      // 3rd deposit to fund
+      {
+         fund_deposit_operation op;
+         op.amount = 500; // << should be fund limit excess
+         op.from_account = bob_id;
+         op.period = 5;
+         op.fund_id = fund.id;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         BOOST_REQUIRE_THROW(db.push_transaction(trx, ~0), fc::assert_exception);
+         trx.clear();
+      }
+
+
+   } FC_LOG_AND_RETHROW()
+}
+
+BOOST_AUTO_TEST_CASE( owner_monthly_payments_test )
+{
+
+   try {
+
+      BOOST_TEST_MESSAGE( "=== owner_monthly_payments_test ===" );
+
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(bob)
+
+      // assign privileges for creating_asset_operation
+      SET_ACTOR_CAN_CREATE_ASSET(alice_id)
+
+      create_edc(1000000000, asset(100, CORE_ASSET), asset(1, EDC_ASSET));
+
+      issue_uia(alice_id, asset(1000000, EDC_ASSET));
+      issue_uia(bob_id, asset(1000000, EDC_ASSET));
+
+      fc::time_point_sec h_time = HARDFORK_627_TIME;
+      generate_blocks(h_time);
+
+      // payments to fund
+      fund_options::fund_rate fr;
+      fr.amount = 1000000;
+      fr.day_percent = 650;
+      // payments to users
+      fund_options::payment_rate pr;
+      pr.period = 90;
+      pr.percent = 24000;
+
+      fund_options options;
+      options.description = "FUND DESCRIPTION";
+      options.period = 540; // fund lifetime, days
+      options.min_deposit = 1000000;
+      options.rates_reduction_per_month = 0;
+      options.fund_rates.push_back(std::move(fr));
+      options.payment_rates.push_back(std::move(pr));
+      make_fund("TESTFUND", options, alice_id);
+
+      auto fund_iter = db.get_index_type<fund_index>().indices().get<by_name>().find("TESTFUND");
+      const fund_object& fund = *fund_iter;
+
+      //std::cout << get_balance(alice_id, EDC_ASSET) << std::endl;
+
+      // bob makes 1st deposit
+      {
+         fund_deposit_operation op;
+         op.amount = 1000000;
+         op.from_account = bob_id;
+         op.period = 90;
+         op.fund_id = fund.id;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 1003833);
+
+      h_time = HARDFORK_630_TIME;
+      generate_blocks(h_time + fc::days(1));
+
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 1007666); // +3833
+
+      // emulate monthly payments
+      {
+         fund_update_operation op;
+         op.fee = asset();
+         op.id = fund.get_id();
+         op.options = options;
+         fund_ext ext;
+         ext.owner_monthly_payments_enabled = true; // <-- monthly payments to owner is turned on
+         op.extensions.insert(ext);
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block(); // save payment of 3833
+      }
+
+      // alice's balance must be the same as previous
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 1007666);
+
+      h_time = db.head_block_time() + fc::days(30);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 1126489); // 1007666 + (3833 * 30 days) + 3833(saved)
+
+      // emulate daily payments back
+      {
+         fund_update_operation op;
+         op.fee = asset();
+         op.id = fund.get_id();
+         op.options = options;
+         fund_ext ext;
+         ext.owner_monthly_payments_enabled = false; // <-- monthly payments to owner is turned on
+         op.extensions.insert(ext);
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 1130322); // 1126489 + 3833
 
    } FC_LOG_AND_RETHROW()
 }

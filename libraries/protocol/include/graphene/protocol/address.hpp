@@ -45,7 +45,7 @@ namespace graphene { namespace protocol {
    {
       public:
        address(); ///< constructs empty / null address
-       address( uint32_t blocknum, uint32_t tr_num);
+       address( uint32_t blocknum, uint32_t tr_num, uint32_t num = 0);
        explicit address( const std::string& base58str );   ///< converts to binary, validates checksum
        address( const fc::ecc::public_key& pub ); ///< converts to binary
        explicit address( const fc::ecc::public_key_data& pub ); ///< converts to binary

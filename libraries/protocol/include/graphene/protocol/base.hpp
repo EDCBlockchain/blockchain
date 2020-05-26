@@ -90,7 +90,7 @@ namespace graphene { namespace protocol {
       fc::time_point datetime_end;
       std::uint32_t  percent = 0; // current deposit percent
 
-   }; // eval_fund_dep_apply_object
+   };
 
    struct eval_fund_dep_apply_object_fixed
    {
@@ -99,14 +99,19 @@ namespace graphene { namespace protocol {
       fc::time_point datetime_end;
       asset daily_payment;
 
-   }; // eval_fund_dep_apply_object_fixed
+   };
 
    struct market_address
    {
       object_id_type id;
       std::string addr;
 
-   }; // market_address
+   };
+
+   struct market_addresses {
+      // market_object_id_type : address
+      flat_map<object_id_type, std::string> addresses;
+   };
 
    struct dep_update_info
    {
@@ -121,7 +126,8 @@ namespace graphene { namespace protocol {
             eval_fund_dep_apply_object,
             market_address,
             eval_fund_dep_apply_object_fixed,
-            dep_update_info
+            dep_update_info,
+            market_addresses
            > operation_result;
 
    struct base_operation
@@ -177,3 +183,4 @@ FC_REFLECT( graphene::protocol::eval_fund_dep_apply_object_fixed,
           )
 FC_REFLECT( graphene::protocol::market_address, (id)(addr) )
 FC_REFLECT( graphene::protocol::dep_update_info, (percent)(daily_payment) )
+FC_REFLECT( graphene::protocol::market_addresses, (addresses) )

@@ -337,10 +337,24 @@ struct get_impacted_items_visitor
    }
 
    void operator()( const create_market_address_operation& op) { }
-   void operator()( const account_limit_daily_volume_operation& op) {
+   void operator()( const account_edc_limit_daily_volume_operation& op) {
       _impacted_accounts.insert( op.account_id );
    }
    void operator()( const fund_deposit_update_operation& op )
+   {
+      if (db_ptr)
+      {
+         auto dep_itr = db_ptr->find(op.deposit_id);
+         if (dep_itr)
+         {
+            auto fund_itr = db_ptr->find(dep_itr->fund_id);
+            if (fund_itr) {
+               _impacted_accounts.insert(fund_itr->owner);
+            }
+         }
+      }
+   }
+   void operator()( const fund_deposit_update2_operation& op )
    {
       if (db_ptr)
       {

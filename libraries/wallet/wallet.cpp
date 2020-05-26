@@ -108,6 +108,7 @@ public:
    std::string operator()(const eval_fund_dep_apply_object_fixed& x) const;
    std::string operator()(const market_address& x) const;
    std::string operator()(const dep_update_info& x) const;
+   std::string operator()(const market_addresses& x) const;
 };
 
 // BLOCK  TRX  OP  VOP
@@ -2627,9 +2628,9 @@ public:
 
       const account_object& acc = get_account(name_or_id);
 
-      account_limit_daily_volume_operation op;
+      account_edc_limit_daily_volume_operation op;
       op.account_id = acc.get_id();
-      op.enabled = enabled;
+      op.limit_transfers_enabled = enabled;
       signed_transaction tx;
       tx.operations.push_back(op);
       set_operation_fees( tx, _remote_db->get_global_properties().parameters.get_current_fees(), fee_asset_obj->options.core_exchange_rate );
@@ -3472,6 +3473,21 @@ std::string operation_result_printer::operator()(const dep_update_info& obj) con
    std::ostringstream os;
    os << "{\"percent\":\"" << obj.percent << "\""
       << ",\"daily_payment\":\"" << _wallet.get_asset(obj.daily_payment.asset_id).amount_to_pretty_string(obj.daily_payment) << "\"}";
+
+   return os.str();
+}
+
+std::string operation_result_printer::operator()(const market_addresses& obj) const
+{
+   std::ostringstream os;
+
+   os << "[";
+   for (const std::pair<object_id_type, std::string>& item: obj.addresses)
+   {
+      os << "{\"id\":" << std::string(item.first) << "\""
+         << ",\"address\":\"" << item.second << "\"";
+   }
+   os << "]";
 
    return os.str();
 }

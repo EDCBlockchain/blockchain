@@ -49,7 +49,7 @@ namespace graphene { namespace protocol {
       uint64_t precision = 0;
    };
 
-   typedef flat_set<static_variant<void_t, string, asset_info>> transfer_extensions;
+   typedef flat_set<static_variant<void_t, /* address */ string, asset_info>> transfer_extensions;
 
    struct transfer_operation: public base_operation
    {

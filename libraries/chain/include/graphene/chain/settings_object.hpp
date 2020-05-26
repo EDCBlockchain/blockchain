@@ -32,8 +32,10 @@ namespace graphene { namespace chain {
       asset blind_transfer_default_fee;
       // max sum of deposits for each user for EDC
       share_type edc_deposit_max_sum = 30000000000;
-      // maximum EDC per account/day
+      // maximum EDC per account/day for transfers
       share_type edc_transfers_daily_limit = 3000000000;
+      // maximum EDC per account/day for blind cheques
+      share_type edc_cheques_daily_limit = 3000000000;
       // fee for creating of market address
       share_type create_market_address_fee_edc = 1;
 

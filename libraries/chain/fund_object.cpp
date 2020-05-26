@@ -92,6 +92,8 @@ void fund_object::process(database& db) const
 
    // all payments to users
    share_type daily_payments_without_owner;
+   // all user deposits
+   share_type all_deposits = balance - owner_balance;
 
    /**
     * create tmp object, because below will be reducing of fund's balance if deposit is
@@ -247,32 +249,164 @@ void fund_object::process(database& db) const
       }
    });
 
-   // make payment to fund owner, case 1
+   /***************** make payment to fund owner *****************/
+
+   asset mlm_profit;
+
+   // case 1
    if (payment_scheme == fund_payment_scheme::residual)
    {
+      // MLM payment. In current scheme we're using percent from entire fund balance
+      mlm_profit = asset(std::roundl((long double)old_balance.value * db.get_percent(mlm_daily_percent)), asset_id);
+
       const optional<fund_options::fund_rate>& p_rate = get_max_fund_rate(old_balance);
       if (p_rate.valid())
       {
          share_type fund_day_profit = std::roundl((long double)old_balance.value * get_rate_percent(*p_rate, db));
          if (fund_day_profit > 0)
          {
+            share_type owner_profit = fund_day_profit - daily_payments_without_owner;
+
             h_item.daily_payments_total = fund_day_profit;
-            h_item.daily_payments_owner = fund_day_profit - daily_payments_without_owner;
+            h_item.daily_payments_owner = 0;
             h_item.daily_payments_without_owner = daily_payments_without_owner;
 
-            share_type owner_profit = fund_day_profit - daily_payments_without_owner;
-            const asset& asst_owner_quantity = db.check_supply_overflow(asst.amount(owner_profit));
+            const asset& owner_quantity = db.check_supply_overflow(asst.amount(owner_profit));
 
-            // std::cout << "old_balance: " << old_balance.value
-            //           << ", fund_deposits_sum: " << fund_deposits_sum.value
-            //           << ", owner profit: " << owner_profit.value << std::endl;
+//             std::cout << "old_balance: " << old_balance.value
+//                       << ", fund_day_profit: " << fund_day_profit.value
+//                       << ", daily_payments_without_owner: " << daily_payments_without_owner.value
+//                       << ", owner profit: " << owner_profit.value << std::endl;
 
-            if (asst_owner_quantity.amount.value > 0)
+            if (owner_quantity.amount.value > 0)
             {
+               // monthly payment
+               if ((db.head_block_time() >= HARDFORK_630_TIME) && owner_monthly_payments_enabled)
+               {
+                  // payment datetime has already reached
+                  if (db.head_block_time() >= owner_monthly_payments_next_datetime)
+                  {
+                     const share_type& p = owner_monthly_payments_amount + owner_quantity.amount;
+                     h_item.daily_payments_owner = p;
+
+                     chain::fund_payment_operation op;
+                     op.issuer = asst.issuer;
+                     op.fund_id = id;
+                     op.asset_to_issue = asset(p, asset_id);
+                     op.issue_to_account = owner;
+
+                     try
+                     {
+                        op.validate();
+                        db.apply_operation(eval, op);
+                     } catch (fc::assert_exception& e) { }
+
+                     db.modify(*this, [&](chain::fund_object& obj)
+                     {
+                        obj.owner_monthly_payments_amount = 0;
+                        obj.owner_monthly_payments_next_datetime = db.head_block_time() + fc::days(30);
+                     });
+                  }
+                  // payment datetime has not reached yet
+                  else
+                  {
+                     db.modify(*this, [&](chain::fund_object& obj) {
+                        obj.owner_monthly_payments_amount += owner_quantity.amount;
+                     });
+                  }
+               }
+               // daily payment
+               else if ((db.head_block_time() < HARDFORK_630_TIME) || !owner_monthly_payments_enabled)
+               {
+                  h_item.daily_payments_owner = owner_profit;
+
+                  chain::fund_payment_operation op;
+                  op.issuer = asst.issuer;
+                  op.fund_id = id;
+                  op.asset_to_issue = owner_quantity;
+                  op.issue_to_account = owner;
+
+                  try
+                  {
+                     op.validate();
+                     db.apply_operation(eval, op);
+                  } catch (fc::assert_exception& e) { }
+               }
+            }
+         }
+      }
+   }
+   // case 2
+   else if (payment_scheme == fund_payment_scheme::fixed)
+   {
+      // MLM payment. In current scheme we're using percent from only user deposits
+      mlm_profit = asset(std::roundl((long double)all_deposits.value * db.get_percent(mlm_daily_percent)), asset_id);
+
+      const optional<fund_options::fund_rate>& p_rate = get_max_fund_rate(owner_balance);
+      if (p_rate)
+      {
+         share_type quantity;
+         if (db.head_block_time() >= HARDFORK_630_TIME) {
+            quantity = std::roundl(db.get_percent(p_rate->day_percent) * (long double)all_deposits.value);
+         }
+         else {
+            quantity = std::roundl(db.get_percent(p_rate->day_percent) * (long double)daily_payments_without_owner.value);
+         }
+
+         const asset& owner_quantity = db.check_supply_overflow(asst.amount(quantity));
+
+         if (owner_quantity.amount.value > 0)
+         {
+            h_item.daily_payments_total = 0;
+            h_item.daily_payments_owner = 0;
+            h_item.daily_payments_without_owner = daily_payments_without_owner;
+
+            // monthly payment
+            if ((db.head_block_time() >= HARDFORK_630_TIME) && owner_monthly_payments_enabled)
+            {
+               // payment datetime has already reached
+               if (db.head_block_time() >= owner_monthly_payments_next_datetime)
+               {
+                  const share_type& p = owner_monthly_payments_amount + owner_quantity.amount;
+                  h_item.daily_payments_total = p + daily_payments_without_owner;
+                  h_item.daily_payments_owner = p;
+
+                  chain::fund_payment_operation op;
+                  op.issuer = asst.issuer;
+                  op.fund_id = id;
+                  op.asset_to_issue = asset(p, asset_id);
+                  op.issue_to_account = owner;
+
+                  try
+                  {
+                     op.validate();
+                     db.apply_operation(eval, op);
+                  } catch (fc::assert_exception& e) { }
+
+                  db.modify(*this, [&](chain::fund_object& obj)
+                  {
+                     obj.owner_monthly_payments_amount = 0;
+                     obj.owner_monthly_payments_next_datetime = db.head_block_time() + fc::days(30);
+                  });
+               }
+               // payment datetime has not reached yet
+               else
+               {
+                  db.modify(*this, [&](chain::fund_object& obj) {
+                     obj.owner_monthly_payments_amount += owner_quantity.amount;
+                  });
+               }
+            }
+            // daily payment
+            else if ((db.head_block_time() < HARDFORK_630_TIME) || !owner_monthly_payments_enabled)
+            {
+               h_item.daily_payments_total = owner_quantity.amount + daily_payments_without_owner;
+               h_item.daily_payments_owner = owner_quantity.amount;
+
                chain::fund_payment_operation op;
                op.issuer = asst.issuer;
                op.fund_id = id;
-               op.asset_to_issue = asst_owner_quantity;
+               op.asset_to_issue = owner_quantity;
                op.issue_to_account = owner;
 
                try
@@ -283,51 +417,69 @@ void fund_object::process(database& db) const
             }
          }
       }
+      else {
+         wlog("Not enough owner balance to make payment to owner. Owner: ${o}, balance: ${b}", ("o", owner)("b", owner_balance));
+      }
    }
-   // case 2
-   else if (payment_scheme == fund_payment_scheme::fixed)
-   {
-      const optional<fund_options::fund_rate>& p_rate = get_max_fund_rate(owner_balance);
-      if (p_rate)
-      {
-         share_type quantity = std::roundl(db.get_percent(p_rate->day_percent) * (long double)daily_payments_without_owner.value);
-         const asset& asst_owner_quantity = db.check_supply_overflow(asst.amount(quantity));
 
-         if (asst_owner_quantity.amount.value > 0)
+   /************ additionally make payment to MLM-account ************/
+
+   mlm_profit = db.check_supply_overflow(mlm_profit);
+
+   if ( (db.head_block_time() >= HARDFORK_630_TIME)
+        && (mlm_account != account_id_type() )
+        && (mlm_profit.amount.value > 0) )
+   {
+      // monthly payment
+      if (mlm_monthly_payments_enabled)
+      {
+         // payment datetime has already reached
+         if (db.head_block_time() >= mlm_monthly_payments_next_datetime)
          {
-            h_item.daily_payments_total = quantity + daily_payments_without_owner;
-            h_item.daily_payments_owner = quantity;
-            h_item.daily_payments_without_owner = daily_payments_without_owner;
+            const share_type& p = mlm_monthly_payments_amount + mlm_profit.amount;
 
             chain::fund_payment_operation op;
             op.issuer = asst.issuer;
             op.fund_id = id;
-            op.asset_to_issue = asst_owner_quantity;
-            op.issue_to_account = owner;
+            op.asset_to_issue = asset(p, asset_id);
+            op.issue_to_account = mlm_account;
 
             try
             {
                op.validate();
                db.apply_operation(eval, op);
             } catch (fc::assert_exception& e) { }
+
+            db.modify(*this, [&](chain::fund_object& obj)
+            {
+               obj.mlm_monthly_payments_amount = 0;
+               obj.mlm_monthly_payments_next_datetime = db.head_block_time() + fc::days(30);
+            });
+         }
+         // payment datetime has not reached yet
+         else
+         {
+            db.modify(*this, [&](chain::fund_object& obj) {
+               obj.mlm_monthly_payments_amount += mlm_profit.amount;
+            });
          }
       }
-      else {
-         wlog("Not enough owner balance to make payment to owner. Owner: ${o}, balance: ${b}", ("o", owner)("b", owner_balance));
+      // daily payment
+      else
+      {
+         chain::fund_payment_operation op;
+         op.issuer = asst.issuer;
+         op.fund_id = id;
+         op.asset_to_issue = mlm_profit;
+         op.issue_to_account = mlm_account;
+
+         try
+         {
+            op.validate();
+            db.apply_operation(eval, op);
+         } catch (fc::assert_exception& e) { }
       }
    }
-
-//   // erase overdued deposits if no full-node
-//   if (db.get_history_size() > 0)
-//   {
-//      for (const fund_deposit_id_type& dep_id: deps_to_remove)
-//      {
-//         auto itr = db.get_index_type<fund_deposit_index>().indices().get<by_id>().find(dep_id);
-//         if (itr != db.get_index_type<fund_deposit_index>().indices().get<by_id>().end()) {
-//            db.remove(*itr);
-//         }
-//      }
-//   }
 
    // erase old history items
    const auto& hist_obj = history_id(db);
@@ -433,6 +585,15 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::fund_object,
                     (asset_id)
                     (balance)
                     (owner_balance)
+                    (max_limit_deposits_amount)
+                    (owner_monthly_payments_enabled)
+                    (owner_monthly_payments_next_datetime)
+                    (owner_monthly_payments_amount)
+                    (mlm_account)
+                    (mlm_monthly_payments_enabled)
+                    (mlm_monthly_payments_next_datetime)
+                    (mlm_daily_percent)
+                    (mlm_monthly_payments_amount)
                     (enabled)
                     (datetime_begin)
                     (datetime_end)

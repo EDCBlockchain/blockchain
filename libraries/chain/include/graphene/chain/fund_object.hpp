@@ -216,6 +216,15 @@ namespace graphene { namespace chain {
       asset_id_type      asset_id;       // fund asset id
       share_type         balance;        // sum of all refill operations and user deposits;
       share_type         owner_balance;  // sum of all owner's refills
+      share_type         max_limit_deposits_amount; // maximum amount of deposits sum
+      bool               owner_monthly_payments_enabled = false; // if enabled then make payments to fund owner once per 30 days
+      fc::time_point_sec owner_monthly_payments_next_datetime;
+      share_type         owner_monthly_payments_amount;
+      account_id_type    mlm_account; // account for making mlm-payment
+      bool               mlm_monthly_payments_enabled = false; // if enabled then make payments to mlm-account once per 30 days
+      fc::time_point_sec mlm_monthly_payments_next_datetime;
+      uint32_t           mlm_daily_percent = 0; // daily percent for MLM-payments
+      share_type         mlm_monthly_payments_amount;
       bool               enabled = true; // don't calculate fund's profit if 'false'
       fc::time_point_sec datetime_begin; // datetime of creation & start
       fc::time_point_sec datetime_end;   // datetime of fund's finishing

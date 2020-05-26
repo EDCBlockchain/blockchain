@@ -10,7 +10,7 @@ namespace graphene { namespace protocol {
    {
       struct payment_rate
       {
-         // deposit period
+         // deposit period, days
          uint32_t period = 0;
          // percent for whole period
          uint32_t percent = 0;
@@ -34,12 +34,23 @@ namespace graphene { namespace protocol {
 
    }; // fund_options
 
+   struct fund_ext
+   {
+      share_type      max_limit_deposits_amount;
+      bool            owner_monthly_payments_enabled = false;
+      account_id_type mlm_account;
+      bool            mlm_monthly_payments_enabled = false;
+      uint32_t        mlm_daily_percent = 0;
+   };
+   typedef flat_set<static_variant<void_t, fund_ext>> fund_extensions_type;
+
    /**
     * @ingroup operations
     */
    struct fund_create_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
+
       asset           fee;
 
       std::string     name;
@@ -47,7 +58,8 @@ namespace graphene { namespace protocol {
       asset_id_type   asset_id;
       fund_options    options;
 
-      extensions_type extensions;
+      fund_extensions_type extensions;
+
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
       void            validate() const;
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
@@ -67,7 +79,8 @@ namespace graphene { namespace protocol {
       fund_id_type    id; // fund id
       fund_options    options;
 
-      extensions_type extensions;
+      fund_extensions_type extensions;
+
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
       void            validate() const;
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
@@ -265,6 +278,7 @@ namespace graphene { namespace protocol {
 
    }; // deposit_renewal_operation
 
+   // deprecated
    struct fund_deposit_update_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
@@ -281,8 +295,8 @@ namespace graphene { namespace protocol {
 
       graphene::chain::fund_deposit_id_type deposit_id;
 
-      uint32_t             percent = 0;
-      bool                 reset = false;
+      uint32_t percent = 0;
+      bool     reset = false;
 
       extension<ext> extensions;
 
@@ -292,20 +306,43 @@ namespace graphene { namespace protocol {
 
    }; // fund_deposit_update_operation
 
-   struct fund_deposit_reduce_operation: public base_operation
+   struct fund_dep_upd_ext
+   {
+      bool               apply_extension_flags_only = false;
+      account_id_type    account_id;
+      fc::time_point_sec datetime_end;
+   };
+   typedef flat_set<static_variant<void_t, fund_dep_upd_ext>> fund_dep_upd_extensions_type;
+
+   struct fund_deposit_update2_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
 
-      struct ext {
-         optional<void_t> null_ext;
-      };
+      asset fee;
+
+      graphene::chain::fund_deposit_id_type deposit_id;
+
+      uint32_t percent = 0;
+      bool     reset = false;
+
+      fund_dep_upd_extensions_type extensions;
+
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+      share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
+
+   }; // fund_deposit_update2_operation
+
+   struct fund_deposit_reduce_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
 
       asset fee;
 
       graphene::chain::fund_deposit_id_type deposit_id;
       share_type amount;
 
-      extension<ext> extensions;
+      extensions_type extensions;
 
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
       void            validate() const { };
@@ -324,6 +361,20 @@ FC_REFLECT( graphene::protocol::fund_options::fund_rate,
 FC_REFLECT( graphene::protocol::fund_options,
             (description)(period)(min_deposit)(rates_reduction_per_month)(fund_rates)(payment_rates) )
 
+FC_REFLECT( graphene::protocol::fund_ext,
+            (max_limit_deposits_amount)
+            (owner_monthly_payments_enabled)
+            (mlm_account)
+            (mlm_monthly_payments_enabled)
+            (mlm_daily_percent) )
+FC_REFLECT_TYPENAME( graphene::protocol::fund_extensions_type )
+
+FC_REFLECT( graphene::protocol::fund_dep_upd_ext,
+            (apply_extension_flags_only)
+            (account_id)
+            (datetime_end) )
+FC_REFLECT_TYPENAME( graphene::protocol::fund_dep_upd_extensions_type )
+
 FC_REFLECT( graphene::protocol::fund_create_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::fund_update_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::fund_refill_operation::fee_parameters_type, (fee) )
@@ -337,12 +388,9 @@ FC_REFLECT( graphene::protocol::fund_change_payment_scheme_operation::fee_parame
 FC_REFLECT( graphene::protocol::enable_autorenewal_deposits_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::deposit_renewal_operation::fee_parameters_type, (fee)(price_per_kbyte) )
 FC_REFLECT( graphene::protocol::fund_deposit_update_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::protocol::fund_deposit_update2_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::fund_deposit_reduce_operation::fee_parameters_type, (fee) )
 
-FC_REFLECT( graphene::protocol::fund_create_operation,
-            (fee)(name)(owner)(asset_id)(options)(extensions) )
-FC_REFLECT( graphene::protocol::fund_update_operation,
-            (fee)(from_account)(id)(options)(extensions) )
 FC_REFLECT( graphene::protocol::fund_refill_operation,
             (fee)(from_account)(id)(amount)(extensions) )
 FC_REFLECT( graphene::protocol::fund_deposit_operation,
@@ -362,12 +410,15 @@ FC_REFLECT( graphene::protocol::fund_change_payment_scheme_operation,
 FC_REFLECT( graphene::protocol::enable_autorenewal_deposits_operation,
             (fee)(account_id)(enabled)(extensions) )
 FC_REFLECT( graphene::protocol::deposit_renewal_operation, (fee)(account_id)(deposit_id)(percent)(datetime_end) )
+FC_REFLECT( graphene::protocol::fund_deposit_reduce_operation, (deposit_id)(amount)(extensions) )
+
+FC_REFLECT( graphene::protocol::fund_create_operation, (fee)(name)(owner)(asset_id)(options)(extensions) )
+FC_REFLECT( graphene::protocol::fund_update_operation, (fee)(from_account)(id)(options)(extensions) )
+
 FC_REFLECT( graphene::protocol::fund_deposit_update_operation::ext, (null_ext)(apply_extension_flags_only)(account_id)(datetime_end) )
 FC_REFLECT_TYPENAME(graphene::protocol::extension<graphene::protocol::fund_deposit_update_operation::ext>)
 FC_REFLECT( graphene::protocol::fund_deposit_update_operation, (fee)(deposit_id)(percent)(reset)(extensions) )
-FC_REFLECT( graphene::protocol::fund_deposit_reduce_operation::ext, (null_ext) )
-FC_REFLECT_TYPENAME(graphene::protocol::extension<graphene::protocol::fund_deposit_reduce_operation::ext>)
-FC_REFLECT( graphene::protocol::fund_deposit_reduce_operation, (deposit_id)(amount)(extensions) )
+FC_REFLECT( graphene::protocol::fund_deposit_update2_operation, (fee)(deposit_id)(percent)(reset)(extensions) )
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_create_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_update_operation::fee_parameters_type )
@@ -382,6 +433,8 @@ GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_change_payment
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::enable_autorenewal_deposits_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::deposit_renewal_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update_operation::fee_parameters_type )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update2_operation::fee_parameters_type )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_reduce_operation::fee_parameters_type )
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_create_operation)
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_update_operation)
@@ -396,4 +449,5 @@ GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_change_payment
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::enable_autorenewal_deposits_operation)
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::deposit_renewal_operation)
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update_operation)
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update2_operation)
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_reduce_operation)

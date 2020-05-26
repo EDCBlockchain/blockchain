@@ -214,6 +214,7 @@ void database::initialize_evaluators()
    register_evaluator<settings_evaluator>();
    register_evaluator<account_limit_daily_volume_evaluator>();
    register_evaluator<fund_deposit_update_evaluator>();
+   register_evaluator<fund_deposit_update2_evaluator>();
    register_evaluator<fund_deposit_reduce_evaluator>();
 }
 

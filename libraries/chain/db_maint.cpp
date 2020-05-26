@@ -982,10 +982,12 @@ void database::process_accounts()
    const auto& idx = get_index_type<account_index>().indices().get<by_id>();
    for (const account_object& acc_obj: idx)
    {
-      if (acc_obj.edc_transfers_daily_amount_counter > 0)
+      if (acc_obj.edc_transfers_amount_counter > 0)
       {
-         modify(acc_obj, [&](account_object& obj) {
-            obj.edc_transfers_daily_amount_counter = 0;
+         modify(acc_obj, [&](account_object& obj)
+         {
+            obj.edc_transfers_amount_counter = 0;
+            obj.edc_cheques_amount_counter = 0;
          });
       }
    }

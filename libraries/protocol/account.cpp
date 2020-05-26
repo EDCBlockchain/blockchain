@@ -318,7 +318,7 @@ GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::assets_update_fee
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::asset_update_exchange_rate_operation::fee_parameters_type )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::set_market_operation::fee_parameters_type )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::create_market_address_operation::fee_parameters_type )
-GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::account_limit_daily_volume_operation::fee_parameters_type )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::account_edc_limit_daily_volume_operation::fee_parameters_type )
 
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::account_create_operation )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::account_update_operation )
@@ -337,4 +337,4 @@ GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::assets_update_fee
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::asset_update_exchange_rate_operation )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::set_market_operation )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::create_market_address_operation )
-GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::account_limit_daily_volume_operation )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::account_edc_limit_daily_volume_operation )

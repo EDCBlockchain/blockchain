@@ -65,6 +65,18 @@ namespace graphene { namespace chain {
                    op.payee_amount))("pc", op.payee_count));
       }
 
+      // daily limit
+      if ( (d.head_block_time() > HARDFORK_631_TIME)
+           && (op.payee_amount.asset_id == EDC_ASSET)
+           && from_account.edc_limit_cheques_enabled )
+      {
+         share_type max_amount = (from_account.edc_cheques_max_amount > 0) ? from_account.edc_cheques_max_amount : settings.edc_cheques_daily_limit;
+
+         FC_ASSERT(max_amount >= (from_account.edc_cheques_amount_counter + cheque_amount)
+                   , "Daily cheques limit exceeded. Current counter value: ${a} (+cheque_amount)"
+                   , ("a", from_account.edc_cheques_amount_counter.value));
+      }
+
       return void_result();
 
    } FC_CAPTURE_AND_RETHROW( (op) ) }
@@ -89,9 +101,17 @@ namespace graphene { namespace chain {
          o.code   = op.code;
          o.status = cheque_status::cheque_new;
          o.amount_payee = op.payee_amount.amount;
-         o.amount_remaining = o.amount_payee * op.payee_count;
+         o.amount_remaining = cheque_amount;
          o.allocate_payees(op.payee_count);
       });
+
+      // edc daily limit counter
+      if ((d.head_block_time() > HARDFORK_631_TIME) && (op.payee_amount.asset_id == EDC_ASSET))
+      {
+         d.modify(op.account_id(d), [&](account_object& obj) {
+            obj.edc_cheques_amount_counter += cheque_amount;
+         });
+      }
 
       FC_ASSERT(new_cheque.id == next_cheque_id);
 

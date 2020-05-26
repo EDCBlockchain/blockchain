@@ -136,9 +136,10 @@ namespace graphene { namespace protocol {
             create_market_address_operation,
             account_update_authorities_operation, // [idx: 79]
             update_settings_operation,
-            account_limit_daily_volume_operation,
+            account_edc_limit_daily_volume_operation,
             fund_deposit_update_operation,         // [idx: 82]
-            fund_deposit_reduce_operation
+            fund_deposit_reduce_operation,
+            fund_deposit_update2_operation
          > operation;
 
    /// @} // operations group

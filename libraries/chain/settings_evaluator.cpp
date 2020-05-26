@@ -43,6 +43,9 @@ void_result settings_evaluator::do_apply( const update_settings_operation& op )
       if (op.extensions.value.create_market_address_fee_edc) {
          obj.create_market_address_fee_edc = *op.extensions.value.create_market_address_fee_edc;
       }
+      if (op.extensions.value.edc_cheques_daily_limit) {
+         obj.edc_cheques_daily_limit = *op.extensions.value.edc_cheques_daily_limit;
+      }
    });
 
    return void_result{};

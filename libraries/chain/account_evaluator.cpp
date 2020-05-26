@@ -138,10 +138,6 @@ void verify_account_votes( const database& db, const account_options& options )
 
 void_result account_create_evaluator::do_evaluate( const account_create_operation& op )
 { try {
-
-   //UNIT-TESTS: std::cout << "!!!" << std::endl;
-   //FC_ASSERT(false);
-
    database& d = db();
    if( d.head_block_time() < HARDFORK_516_TIME )
    {
@@ -218,6 +214,7 @@ object_id_type account_create_evaluator::do_apply( const account_create_operatio
 { try {
 
    database& d = db();
+
    uint16_t referrer_percent = o.referrer_percent;
    bool has_small_percent = (
          (db().head_block_time() <= HARDFORK_453_TIME)
@@ -236,32 +233,42 @@ object_id_type account_create_evaluator::do_apply( const account_create_operatio
          referrer_percent = GRAPHENE_100_PERCENT;
    }
 
-   const auto& new_acnt_object = db().create<account_object>( [&]( account_object& obj ){
-         obj.registrar = o.registrar;
-         obj.referrer = o.referrer;
-         obj.lifetime_referrer = o.referrer(db()).lifetime_referrer;
+   const auto& new_acnt_object = db().create<account_object>( [&]( account_object& obj )
+   {
+      obj.registrar = o.registrar;
+      obj.referrer = o.referrer;
+      obj.lifetime_referrer = o.referrer(db()).lifetime_referrer;
 
-         auto& params = db().get_global_properties().parameters;
-         obj.network_fee_percentage = params.network_percent_of_fee;
-         obj.lifetime_referrer_fee_percentage = params.lifetime_referrer_percent_of_fee;
-         obj.referrer_rewards_percentage = referrer_percent;
+      auto& params = db().get_global_properties().parameters;
+      obj.network_fee_percentage = params.network_percent_of_fee;
+      obj.lifetime_referrer_fee_percentage = params.lifetime_referrer_percent_of_fee;
+      obj.referrer_rewards_percentage = referrer_percent;
 
-         obj.name              = o.name;
-         obj.register_datetime = d.head_block_time();
-         obj.owner             = o.owner;
-         obj.active            = o.active;
-         obj.options           = o.options;
-         obj.statistics = db().create<account_statistics_object>([&](account_statistics_object& s){s.owner = obj.id;}).id;
-
-         if( o.extensions.value.owner_special_authority.valid() )
-            obj.owner_special_authority = *(o.extensions.value.owner_special_authority);
-         if( o.extensions.value.active_special_authority.valid() )
-            obj.active_special_authority = *(o.extensions.value.active_special_authority);
-         if( o.extensions.value.buyback_options.valid() )
-         {
-            obj.allowed_assets = o.extensions.value.buyback_options->markets;
-            obj.allowed_assets->emplace( o.extensions.value.buyback_options->asset_to_buy );
+      // verification
+      if ( (d.head_block_time() >= HARDFORK_629_TIME) && (d.head_block_time() < HARDFORK_630_TIME) )
+      {
+         // if it is not a market address then should be verified
+         if (!std::regex_match(o.name, MARKET_ADDRESS_REGEX )) {
+            obj.verification_is_required = true;
          }
+      }
+
+      obj.name              = o.name;
+      obj.register_datetime = d.head_block_time();
+      obj.owner             = o.owner;
+      obj.active            = o.active;
+      obj.options           = o.options;
+      obj.statistics = db().create<account_statistics_object>([&](account_statistics_object& s){s.owner = obj.id;}).id;
+
+      if( o.extensions.value.owner_special_authority.valid() )
+         obj.owner_special_authority = *(o.extensions.value.owner_special_authority);
+      if( o.extensions.value.active_special_authority.valid() )
+         obj.active_special_authority = *(o.extensions.value.active_special_authority);
+      if( o.extensions.value.buyback_options.valid() )
+      {
+         obj.allowed_assets = o.extensions.value.buyback_options->markets;
+         obj.allowed_assets->emplace( o.extensions.value.buyback_options->asset_to_buy );
+      }
    });
 
    if( has_small_percent )
@@ -926,35 +933,73 @@ void_result create_market_address_evaluator::do_evaluate(const create_market_add
                    ("fee", d.to_pretty_string(settings_ptr->create_market_address_fee_edc)));
    }
 
-   addr = d.get_address();
+   if (d.get_index_type<market_address_index>().indices().size() > 0)
+   {
+      auto idx_addr = --d.get_index_type<market_address_index>().indices().get<by_id>().end();
+      const market_address_object& last_address = *idx_addr;
 
-   auto addr_itr = d.get_index_type<market_address_index>().indices().get<by_address>().find(*addr);
-   FC_ASSERT(addr_itr == d.get_index_type<market_address_index>().indices().get<by_address>().end()
-             , "The same address ('${a}') is already exists!", ("a", addr));
+      bool time_is_valid = (last_address.block_num != d.head_block_num())
+                           || ((last_address.block_num == d.head_block_num()) && (last_address.transaction_num != d.current_transaction_num()));
+
+      FC_ASSERT( time_is_valid, "Wrong time for address generating");
+   }
+
+   if (op.extensions.size() > 0)
+   {
+      uint32_t count = op.extensions.begin()->get<uint32_t>();
+      FC_ASSERT( ((count > 0) && (count <= 100)), "Wrong count of addresses (${c}), limit 1-100", ("c", count));
+
+      addresses = d.get_address_batch(count);
+   }
+   else {
+      addresses = { d.get_address() };
+   }
+
+   FC_ASSERT(addresses.size() > 0, "Generating addresses error");
+
+   for (const address& addr: addresses)
+   {
+      auto addr_itr = d.get_index_type<market_address_index>().indices().get<by_address>().find(addr);
+      FC_ASSERT(addr_itr == d.get_index_type<market_address_index>().indices().get<by_address>().end()
+                , "The same address ('${a}') is already exists!", ("a", addr));
+   }
 
    return void_result();
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
-market_address create_market_address_evaluator::do_apply(const create_market_address_operation& op)
+operation_result create_market_address_evaluator::do_apply(const create_market_address_operation& op)
 { try {
 
-   FC_ASSERT(addr);
-
    database& d = db();
+
    market_address result;
+   market_addresses result2;
 
-   auto next_id = d.get_index_type<market_address_index>().get_next_id();
+   for (const address& addr: addresses)
+   {
+      auto next_id = d.get_index_type<market_address_index>().get_next_id();
 
-   const market_address_object& obj = d.create<market_address_object>([&](market_address_object& obj) {
-      obj.market_account_id = op.market_account_id;
-      obj.addr = *addr;
-      obj.create_datetime = d.head_block_time();
-   });
-   FC_ASSERT(obj.id == next_id);
+      const market_address_object& obj = d.create<market_address_object>([&](market_address_object& obj)
+      {
+         obj.market_account_id = op.market_account_id;
+         obj.addr = addr;
+         obj.create_datetime = d.head_block_time();
+         obj.block_num = d.head_block_num();
+         obj.transaction_num = d.current_transaction_num();
+      });
 
-   result.id = next_id;
-   result.addr = std::string(*addr);
+      FC_ASSERT(obj.id == next_id);
+
+      if (d.head_block_time() > HARDFORK_632_TIME) {
+         result2.addresses.insert(std::move(std::make_pair(next_id, std::string(addr))));
+      }
+      else // <--- must be only one address
+      {
+         result.id = next_id;
+         result.addr = std::string(addr);
+      }
+   }
 
    // fee
    if ((d.head_block_time() > HARDFORK_627_TIME) && (settings_ptr->create_market_address_fee_edc > 0))
@@ -969,13 +1014,18 @@ market_address create_market_address_evaluator::do_apply(const create_market_add
       });
    }
 
-   return result;
+   if (d.head_block_time() > HARDFORK_632_TIME) {
+      return result2;
+   }
+   else {
+      return result;
+   }
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
 //////////////////////////////////////////////////////////////////////////////////////
 
-void_result account_limit_daily_volume_evaluator::do_evaluate(const account_limit_daily_volume_operation& op)
+void_result account_limit_daily_volume_evaluator::do_evaluate(const account_edc_limit_daily_volume_operation& op)
 { try {
    database& d = db();
 
@@ -990,15 +1040,25 @@ void_result account_limit_daily_volume_evaluator::do_evaluate(const account_limi
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
-void_result account_limit_daily_volume_evaluator::do_apply(const account_limit_daily_volume_operation& op)
+void_result account_limit_daily_volume_evaluator::do_apply(const account_edc_limit_daily_volume_operation& op)
 { try {
 
    database& d = db();
 
    if (account_ptr)
    {
-      d.modify<account_object>(*account_ptr, [&](account_object& acc) {
-         acc.edc_limit_daily_volume_enabled = op.enabled;
+      d.modify<account_object>(*account_ptr, [&](account_object& acc)
+      {
+         acc.edc_limit_transfers_enabled = op.limit_transfers_enabled;
+
+         if (op.extensions.size() > 0)
+         {
+            const protocol::limit_daily_ext& ext = op.extensions.begin()->get<protocol::limit_daily_ext>();
+
+            acc.edc_transfers_max_amount  = ext.transfers_max_amount;
+            acc.edc_limit_cheques_enabled = ext.limit_cheques_enabled;
+            acc.edc_cheques_max_amount    = ext.cheques_max_amount;
+         }
       });
    }
 

@@ -266,7 +266,10 @@ namespace graphene { namespace chain {
          time_point_sec   head_block_time()const;
          uint32_t         head_block_num()const;
          block_id_type    head_block_id()const;
-         witness_id_type  head_block_witness()const;
+
+         uint16_t         current_transaction_num() const {
+            return _current_trx_in_block;
+         };
 
          decltype( chain_parameters::block_interval ) block_interval( )const;
 
@@ -296,14 +299,15 @@ namespace graphene { namespace chain {
           * @param asset_id ID of the asset to get balance in
           * @return owner's balance in asset
           */
-         asset get_balance(account_id_type owner, asset_id_type asset_id)const;
+         asset get_balance(account_id_type owner, asset_id_type asset_id) const;
 
-         asset get_mature_balance(account_id_type owner, asset_id_type asset_id)const;
+         asset get_mature_balance(account_id_type owner, asset_id_type asset_id) const;
 
-         asset get_balance_for_bonus(account_id_type owner, asset_id_type asset_id)const;
+         asset get_balance_for_bonus(account_id_type owner, asset_id_type asset_id) const;
          /// This is an overloaded method.
-         asset get_balance(const account_object& owner, const asset_object& asset_obj)const;
+         asset get_balance(const account_object& owner, const asset_object& asset_obj) const;
          address get_address();
+         std::vector<address> get_address_batch(int count) const;
          void consider_mining_old();
          /**
           * @brief Adjust a particular account's balance in a given asset by a delta
@@ -582,7 +586,8 @@ namespace graphene { namespace chain {
           * or assertion fail during database::open() method.
           */
          bool                              _opened = false;
-   };
+
+   }; // database
 
    namespace detail
    {

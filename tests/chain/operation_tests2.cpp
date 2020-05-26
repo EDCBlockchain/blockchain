@@ -1689,4 +1689,83 @@ BOOST_AUTO_TEST_CASE( buyback )
    } FC_LOG_AND_RETHROW()
 }
 
+BOOST_AUTO_TEST_CASE( hf629_test )
+{ try {
+
+   BOOST_TEST_MESSAGE( "=== hf629_test ===" );
+
+   ACTOR(abcde1) // for needed IDs
+   ACTOR(alice)
+   ACTOR(bob)
+
+   // assign privileges for creating_asset_operation
+   SET_ACTOR_CAN_CREATE_ASSET(alice_id)
+
+   create_edc(1000000, asset(100, CORE_ASSET), asset(1, EDC_ASSET));
+
+   issue_uia(bob_id, asset(100000, EDC_ASSET));
+   asset_id_type edc_id = EDC_ASSET(db).get_id();
+   const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
+
+   fc::time_point_sec h_time = HARDFORK_629_TIME;
+   generate_blocks(h_time - fc::days(1));
+
+   // transfer operation (before hf_629), bob no needs verification
+   {
+      transfer_operation op;
+      op.fee = asset(0, edc_id);
+      op.from = bob_id;
+      op.to   = alice_id;
+      op.amount = asset(1000, edc_id);
+      set_expiration(db, trx);
+      trx.operations.push_back(std::move(op));
+      db.current_fee_schedule().set_fee(trx.operations[0], edc_asset.options.core_exchange_rate);
+      trx.validate();
+      PUSH_TX(db, trx, ~0);
+      trx.clear();
+   }
+   BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 1000);
+
+   h_time = db.head_block_time() + fc::days(1);
+   while (db.head_block_time() < h_time) {
+      generate_block();
+   }
+
+   db.enable_referrer_mode();
+
+   ACTOR(eva)
+
+   // bob -> eva, 1000 EDC
+   {
+      transfer_operation op;
+      op.fee = asset(0, edc_id);
+      op.from = bob_id;
+      op.to   = eva_id;
+      op.amount = asset(1000, edc_id);
+      set_expiration(db, trx);
+      trx.operations.push_back(std::move(op));
+      db.current_fee_schedule().set_fee(trx.operations[0], edc_asset.options.core_exchange_rate);
+      trx.validate();
+      PUSH_TX(db, trx, ~0);
+      trx.clear();
+   }
+
+   BOOST_CHECK(get_balance(eva_id, EDC_ASSET) == 1000);
+
+   // must throw exception, because eva must be under verification
+   {
+      transfer_operation op;
+      op.fee = asset(0, edc_id);
+      op.from = eva_id;
+      op.to   = bob_id;
+      op.amount = asset(1000, edc_id);;
+      set_expiration(db, trx);
+      trx.operations.push_back(std::move(op));
+      trx.validate();
+      BOOST_REQUIRE_THROW(db.push_transaction(trx, ~0), fc::assert_exception);
+      trx.clear();
+   }
+
+} FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_SUITE_END()

@@ -91,13 +91,21 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
 
       if (d.head_block_time() > HARDFORK_627_TIME)
       {
-         if ((op.amount.asset_id == EDC_ASSET) && (from_account.edc_limit_daily_volume_enabled))
+         // EDC daily limit
+         if ((op.amount.asset_id == EDC_ASSET) && from_account.edc_limit_transfers_enabled)
          {
-            FC_ASSERT(
-               settings.edc_transfers_daily_limit.value > (from_account.edc_transfers_daily_amount_counter + op.amount.amount)
-               , "Daily transfers limit exceeded. Current transfers counter value: ${a} (+op.amount)"
-               , ("a", from_account.edc_transfers_daily_amount_counter.value)
-            );
+            bool limit_is_valid = true;
+            share_type max_amount = (from_account.edc_transfers_max_amount > 0) ? from_account.edc_transfers_max_amount : settings.edc_transfers_daily_limit;
+
+            if (d.head_block_time() > HARDFORK_631_TIME) {
+               limit_is_valid = max_amount >= (from_account.edc_transfers_amount_counter + op.amount.amount);
+            }
+            else {
+               limit_is_valid = max_amount > (from_account.edc_transfers_amount_counter + op.amount.amount);
+            }
+            FC_ASSERT(limit_is_valid
+                      , "Daily transfers limit exceeded. Current transfers counter value: ${a} (+op.amount)"
+                      , ("a", from_account.edc_transfers_amount_counter.value) );
          }
 
          optional<chain::settings_fee> fee;
@@ -172,7 +180,7 @@ void_result transfer_evaluator::do_apply( const transfer_operation& o )
       if ((d.head_block_time() > HARDFORK_627_TIME) && (o.amount.asset_id == EDC_ASSET))
       {
          d.modify(o.from(d), [&](account_object& obj) {
-            obj.edc_transfers_daily_amount_counter += o.amount.amount;
+            obj.edc_transfers_amount_counter += o.amount.amount;
          });
       }
    }
@@ -231,6 +239,17 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
             "Asset ${asset} has transfer_restricted flag enabled",
             ("asset", op.amount.asset_id)
          );
+      }
+
+      if ( (d.head_block_time() > HARDFORK_631_TIME)
+            && (op.amount.asset_id == EDC_ASSET)
+            && from_account.edc_limit_transfers_enabled )
+      {
+         share_type max_amount = (from_account.edc_transfers_max_amount > 0) ? from_account.edc_transfers_max_amount : settings.edc_transfers_daily_limit;
+
+         FC_ASSERT(max_amount >= (from_account.edc_transfers_amount_counter + op.amount.amount)
+                   , "Daily transfers limit exceeded. Current transfers counter value: ${a} (+op.amount)"
+                   , ("a", from_account.edc_transfers_amount_counter.value));
       }
 
       //FC_ASSERT(op.amount.asset_id == s.blind_fee.asset_id, "assets are different('${a}','${b}')!", ("a",op.amount.asset_id)("b",s.blind_fee.asset_id));
@@ -347,7 +366,7 @@ asset blind_transfer2_evaluator::do_apply( const blind_transfer2_operation& o )
    if ((d.head_block_time() > HARDFORK_627_TIME) && (o.amount.asset_id == EDC_ASSET))
    {
       d.modify(o.from(d), [&](account_object& obj) {
-         obj.edc_transfers_daily_amount_counter += o.amount.amount;
+         obj.edc_transfers_amount_counter += o.amount.amount;
       });
    }
 

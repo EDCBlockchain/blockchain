@@ -277,6 +277,17 @@ address database::get_address() {
     return address(_current_block_num, _current_trx_in_block);
 }
 
+std::vector<address> database::get_address_batch(int count) const
+{
+   std::vector<address> result;
+
+   for (int i = 1; i <= count; ++i) {
+      result.push_back(std::move(address(_current_block_num, _current_trx_in_block, i)));
+   }
+
+   return result;
+}
+
 void database::consider_mining_in_mature_balances()
 {
    if (!find(accounts_online_id_type())) { return; }

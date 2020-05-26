@@ -226,6 +226,8 @@ namespace graphene { namespace chain {
       address addr;
       std::string notes;
       fc::time_point_sec create_datetime;
+      uint32_t block_num = 0;
+      uint16_t transaction_num = 0;
 
       market_address_id_type get_id() { return id; }
    };
@@ -288,9 +290,16 @@ namespace graphene { namespace chain {
       bool deposits_autorenewal_enabled = true;
       // deposits sum amount from all funds (only EDC)
       share_type edc_in_deposits = 0;
-      bool edc_limit_daily_volume_enabled = true;
-      // counter of EDC-transfers
-      share_type edc_transfers_daily_amount_counter = 0;
+
+      // EDC transfers limit
+      bool edc_limit_transfers_enabled = true;
+      share_type edc_transfers_max_amount;
+      share_type edc_transfers_amount_counter = 0;
+
+      // EDC cheques limit
+      bool edc_limit_cheques_enabled = true;
+      share_type edc_cheques_max_amount;
+      share_type edc_cheques_amount_counter = 0;
 
       /**
        * The owner authority represents absolute control over the account. Usually the keys in this authority will

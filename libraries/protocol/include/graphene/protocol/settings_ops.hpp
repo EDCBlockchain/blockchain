@@ -18,10 +18,12 @@ namespace graphene { namespace protocol {
    {
       struct fee_parameters_type { uint64_t fee = 0; };
 
-      struct ext {
+      struct ext
+      {
          optional<void_t> null_ext;
          optional<std::vector<settings_fee>> cheque_fees;
          optional<share_type> create_market_address_fee_edc;
+         optional<share_type> edc_cheques_daily_limit;
       };
 
       asset fee;
@@ -43,7 +45,11 @@ namespace graphene { namespace protocol {
 } } // graphene::protocol
 
 FC_REFLECT( graphene::protocol::settings_fee, (asset_id)(percent) )
-FC_REFLECT( graphene::protocol::update_settings_operation::ext, (null_ext)(cheque_fees)(create_market_address_fee_edc) )
+FC_REFLECT( graphene::protocol::update_settings_operation::ext,
+            (null_ext)
+            (cheque_fees)
+            (create_market_address_fee_edc)
+            (edc_cheques_daily_limit) )
 FC_REFLECT( graphene::protocol::update_settings_operation::fee_parameters_type, (fee) )
 
 FC_REFLECT( graphene::protocol::update_settings_operation,

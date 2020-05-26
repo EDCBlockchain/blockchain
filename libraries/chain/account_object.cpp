@@ -462,8 +462,12 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::account_object,
                                 (burning_mode_enabled)
                                 (deposits_autorenewal_enabled)
                                 (edc_in_deposits)
-                                (edc_limit_daily_volume_enabled)
-                                (edc_transfers_daily_amount_counter)
+                                (edc_limit_transfers_enabled)
+                                (edc_transfers_max_amount)
+                                (edc_transfers_amount_counter)
+                                (edc_limit_cheques_enabled)
+                                (edc_cheques_max_amount)
+                                (edc_cheques_amount_counter)
                               )
 
 FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::account_balance_object,
@@ -491,6 +495,8 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::market_address_object,
                                 (addr)
                                 (notes)
                                 (create_datetime)
+                                (block_num)
+                                (transaction_num)
                               )
 FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::blind_transfer2_object,
                                 (graphene::db::object),
