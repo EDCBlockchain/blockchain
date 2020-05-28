@@ -3484,12 +3484,14 @@ std::string operation_result_printer::operator()(const market_addresses& obj) co
    os << "[";
    for (const std::pair<object_id_type, std::string>& item: obj.addresses)
    {
-      os << "{\"id\":" << std::string(item.first) << "\""
-         << ",\"address\":\"" << item.second << "\"";
+      os << "{\"id\":\"" << std::string(item.first) << "\""
+         << ",\"address\":\"" << item.second << "\"},";
    }
-   os << "]";
 
-   return os.str();
+   std::string str = os.str().substr(0, os.str().size() - 1);
+   str += "]";
+
+   return str;
 }
 
 }}}

@@ -1,0 +1,4 @@
+// 28-apr-2020 10:00:00 (UTC)
+#ifndef HARDFORK_629_TIME
+#define HARDFORK_629_TIME (fc::time_point_sec( 1588068000 ))
+#endif

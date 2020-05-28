@@ -8,7 +8,7 @@
 
 namespace graphene { namespace chain {
 
-   inline void check_fund_options(const fund_options& opts, const database& db)
+   inline void check_fund_options(const fund_options& opts, const database& db, fund_payment_scheme p_scheme)
    { try {
       // maximum payment to users (per day) must be less than minimum payment to fund
       auto iter_payment_rate_max = std::max_element(opts.payment_rates.begin(), opts.payment_rates.end(),
@@ -25,8 +25,12 @@ namespace graphene { namespace chain {
          });
       FC_ASSERT( ((iter_payment_rate_max != opts.payment_rates.end())
                   && (iter_fund_rate_min != opts.fund_rates.end())), "wrong 'options.fund_rates/options.payment_rates' parameters [0]!" );
-      bool percent_valid = (iter_payment_rate_max->percent / iter_payment_rate_max->period) <= iter_fund_rate_min->day_percent;
-      FC_ASSERT(percent_valid, "wrong 'options.fund_rates/options.payment_rates' parameters [1]!");
+
+      if ( (db.head_block_time() < HARDFORK_632_TIME) || (p_scheme != fund_payment_scheme::fixed) )
+      {
+         bool percent_valid = (iter_payment_rate_max->percent / iter_payment_rate_max->period) <= iter_fund_rate_min->day_percent;
+         FC_ASSERT(percent_valid, "wrong 'options.fund_rates/options.payment_rates' parameters [1]!");
+      }
 
       // minimum payment to fund must be greater or equal than reduction for whole period
       bool rates_reduction_valid = true;

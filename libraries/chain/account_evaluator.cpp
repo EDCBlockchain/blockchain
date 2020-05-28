@@ -994,7 +994,7 @@ operation_result create_market_address_evaluator::do_apply(const create_market_a
       if (d.head_block_time() > HARDFORK_632_TIME) {
          result2.addresses.insert(std::move(std::make_pair(next_id, std::string(addr))));
       }
-      else // <--- must be only one address
+      else // <--- before hardfork that must be always only one address
       {
          result.id = next_id;
          result.addr = std::string(addr);

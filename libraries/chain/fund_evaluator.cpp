@@ -18,7 +18,7 @@ void_result fund_create_evaluator::do_evaluate( const fund_create_operation& op 
    FC_ASSERT(d.find_object(op.asset_id), "Asset ${a} doesn't exist", ("a", op.asset_id));
    FC_ASSERT(op.name.length() > 0, "Fund name is too short!");
 
-   check_fund_options(op.options, d);
+   check_fund_options(op.options, d, fund_payment_scheme::residual);
 
    const auto& idx = d.get_index_type<fund_index>().indices().get<by_name>();
    auto itr = idx.find(op.name);
@@ -90,13 +90,12 @@ void_result fund_update_evaluator::do_evaluate( const fund_update_operation& op 
 
    database& d = db();
 
-   check_fund_options(op.options, d);
-
    const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
    auto itr = idx.find(op.id);
    FC_ASSERT( itr != idx.end(), "There is no fund with id '${id}'!", ("id", op.id) );
 
    fund_obj_ptr = &(*itr);
+   check_fund_options(op.options, d, fund_obj_ptr->payment_scheme);
 
    const fund_object& fund_obj = *fund_obj_ptr;
    bool period_valid = (fund_obj.prev_maintenance_time_on_creation + (86400 * op.options.period)) >= d.get_dynamic_global_properties().next_maintenance_time;
