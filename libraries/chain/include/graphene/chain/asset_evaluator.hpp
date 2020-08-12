@@ -210,4 +210,13 @@ namespace graphene { namespace chain {
          void_result do_apply( const asset_claim_fees_operation& o );
    };
 
+   class denominate_evaluator : public evaluator<denominate_evaluator>
+   {
+   public:
+      typedef denominate_operation operation_type;
+
+      void_result do_evaluate( const denominate_operation& o );
+      void_result do_apply( const denominate_operation& o );
+   };
+
 } } // graphene::chain

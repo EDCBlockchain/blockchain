@@ -6,7 +6,6 @@ namespace graphene { namespace protocol {
 
 void fund_options::validate() const
 {
-   FC_ASSERT( rates_reduction_per_month > -1, "fund.options.rates_reduction_per_month must be greater than -1");
    FC_ASSERT( period > 0, "fund.options.period can't be NULL");
 
    FC_ASSERT( fund_rates.size(), "fund.options.fund_rates can't be empty!" );

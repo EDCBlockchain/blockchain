@@ -30,7 +30,7 @@
 
 namespace graphene {
 
-namespace chain { struct database; }
+namespace chain { class database; }
 
 namespace app {
 

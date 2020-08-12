@@ -126,7 +126,7 @@ void database::pay_workers( share_type& budget )
 
    // worker with more votes is preferred
    // if two workers exactly tie for votes, worker with lower ID is preferred
-   std::sort(active_workers.begin(), active_workers.end(), [this](const worker_object& wa, const worker_object& wb) {
+   std::sort(active_workers.begin(), active_workers.end(), [](const worker_object& wa, const worker_object& wb) {
       share_type wa_vote = wa.approving_stake();
       share_type wb_vote = wb.approving_stake();
       if( wa_vote != wb_vote )
@@ -912,6 +912,22 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
       issue_bonuses_old();
    }
 
+   // make fee-payments to witnesses
+   if (head_block_time() > HARDFORK_633_TIME) {
+      make_witness_fee_payments();
+   }
+
+   const settings_object& settings = *find(settings_id_type(0));
+   if (settings.make_denominate)
+   {
+      // funds denomination
+      denominate_funds();
+
+      modify(settings, [&](settings_object& obj) {
+         obj.make_denominate = false;
+      });
+   }
+
    clear_old_entities();
 }
 
@@ -979,6 +995,9 @@ void database::clear_old_entities()
 
 void database::process_accounts()
 {
+   const settings_object& settings = *find(settings_id_type(0));
+   share_type supply_reducer = 0;
+
    const auto& idx = get_index_type<account_index>().indices().get<by_id>();
    for (const account_object& acc_obj: idx)
    {
@@ -990,6 +1009,29 @@ void database::process_accounts()
             obj.edc_cheques_amount_counter = 0;
          });
       }
+
+      // reduce balance according to denomination
+      if (settings.make_denominate)
+      {
+         const asset& b = get_balance(acc_obj.get_id(), settings.denominate_asset);
+         if (b.amount > 0)
+         {
+            asset delta(b.amount - (b.amount / settings.denominate_coef), settings.denominate_asset);
+            if (delta.amount > 0)
+            {
+               adjust_balance(acc_obj.get_id(), -delta);
+               supply_reducer += delta.amount;
+            }
+         }
+      }
+   }
+
+   if (supply_reducer > 0)
+   {
+      const asset_dynamic_data_object& asset_dyn_data_ptr = settings.denominate_asset(*this).dynamic_asset_data_id(*this);
+      modify(asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
+         data.current_supply -= supply_reducer;
+      });
    }
 }
 
@@ -1063,6 +1105,126 @@ void database::process_cheques()
          }
       }
    }
+}
+
+void database::denominate_funds()
+{
+   const settings_object& settings = *find(settings_id_type(0));
+   share_type cs_reducer = 0;
+
+   const auto& idx_users = get_index_type<account_index>().indices().get<by_id>();
+   const auto& idx_funds = get_index_type<fund_index>().indices().get<by_id>();
+
+   for (const fund_object& fund: idx_funds)
+   {
+      if (!fund.enabled || (fund.asset_id != settings.denominate_asset)) { continue; }
+
+      share_type reducer = 0;
+      auto range = get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(fund.get_id());
+      std::for_each(range.first, range.second, [&](const fund_deposit_object& dep)
+      {
+         auto user_ptr = idx_users.find(dep.account_id);
+         if (dep.enabled && (user_ptr != idx_users.end()))
+         {
+            share_type new_amount = dep.amount.amount / settings.denominate_coef;
+            share_type delta = dep.amount.amount - new_amount;
+
+            modify(dep, [&](chain::fund_deposit_object& obj)
+            {
+               obj.amount.amount = new_amount;
+               obj.daily_payment = get_deposit_daily_payment(obj.percent, obj.period, obj.amount.amount);
+
+               if (delta > 0)
+               {
+                  reducer    += delta;
+                  cs_reducer += delta;
+               }
+            });
+
+            // statistics
+            modify(*user_ptr, [&](account_object& obj)
+            {
+               auto itr = obj.deposit_sums.find(fund.get_id());
+               if (itr != obj.deposit_sums.end() && (itr->second.amount >= delta)) {
+                  itr->second.amount -= delta;
+               }
+
+               if (fund.asset_id == EDC_ASSET) {
+                  obj.edc_in_deposits = get_user_deposits_sum(user_ptr->get_id(), EDC_ASSET);
+               }
+            });
+            // ----------
+         }
+      });
+
+      // reduce fund balances
+      modify(fund, [&](chain::fund_object& obj)
+      {
+         share_type new_amount = obj.owner_balance / settings.denominate_coef;
+         share_type owner_delta = obj.owner_balance - new_amount;
+
+         obj.owner_balance = new_amount;
+         if (owner_delta > 0)
+         {
+            obj.balance -= owner_delta;
+            cs_reducer  += owner_delta;
+         }
+         if (reducer > 0) {
+            obj.balance -= reducer;
+         }
+      });
+   }
+
+   if (cs_reducer > 0)
+   {
+      const asset_dynamic_data_object& asset_dyn_data_ptr = settings.denominate_asset(*this).dynamic_asset_data_id(*this);
+      modify(asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
+         data.current_supply -= cs_reducer;
+      });
+   }
+}
+
+void database::make_witness_fee_payments()
+{
+   const global_property_object& gpo = get_global_properties();
+   const settings_object& settings = get(settings_id_type(0));
+
+   const auto& asset_idx = get_index_type<asset_index>();
+   asset_idx.inspect_all_objects([&](const db::object& obj)
+   {
+      const chain::asset_object& asset_obj = static_cast<const chain::asset_object&>(obj);
+      const asset_dynamic_data_object& d = asset_obj.dynamic_asset_data_id(*this);
+
+      share_type amount = std::round(d.fees_sum.value * get_percent(settings.witness_fees_percent));
+      if (amount > 0)
+      {
+         share_type amount_part = amount / gpo.active_witnesses.size();
+         if (amount_part > 0)
+         {
+            // accruals to witnesses
+            for (const witness_id_type& witness_id: gpo.active_witnesses)
+            {
+               const witness_object& witness_obj = witness_id(*this);
+               if (witness_obj.witness_account == asset_obj.issuer) { continue; }
+
+               asset_issue_operation op;
+               op.issuer           = asset_obj.issuer;
+               op.asset_to_issue   = asset(amount_part, asset_obj.get_id());
+               op.issue_to_account = witness_obj.witness_account;
+               transaction_evaluation_state eval(this);
+               apply_operation(eval, op);
+            }
+         }
+      }
+
+      // reset daily counter
+      if (d.fees_sum > 0)
+      {
+         modify(d, [&](asset_dynamic_data_object& data) {
+            data.fees_sum = 0;
+         });
+      }
+   });
 }
 
 void database::issue_bonuses()

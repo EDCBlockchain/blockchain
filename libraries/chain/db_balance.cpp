@@ -132,7 +132,7 @@ void database::adjust_balance(account_id_type account, asset delta )
             || ((delta.asset_id == EDC_ASSET) && (head_block_time() < HARDFORK_622_TIME))) )
       {
          create<account_mature_balance_object>(
-         [this, account, delta, &interval_part](account_mature_balance_object& b) {
+         [account, delta, &interval_part](account_mature_balance_object& b) {
             b.owner = account;
             b.asset_type = delta.asset_id;
             b.balance = delta.amount.value * interval_part;
@@ -281,8 +281,10 @@ std::vector<address> database::get_address_batch(int count) const
 {
    std::vector<address> result;
 
-   for (int i = 1; i <= count; ++i) {
-      result.push_back(std::move(address(_current_block_num, _current_trx_in_block, i)));
+   for (int i = 1; i <= count; ++i)
+   {
+      bool with_fix = (head_block_time() > HARDFORK_633_TIME);
+      result.push_back(address(_current_block_num, _current_trx_in_block, i, with_fix));
    }
 
    return result;

@@ -170,7 +170,7 @@ int main(int argc, char** argv) {
       }, SIGINT);
 
       fc::set_signal_handler([&exit_promise](int signal) {
-         elog( "Caught SIGINT attempting to exit cleanly (WAIT please until the process is finished)" );
+         elog( "Caught SIGINT attempting to exit cleanly (WAIT until the process is finished)" );
          exit_promise->set_value(signal);
       }, SIGINT);
 

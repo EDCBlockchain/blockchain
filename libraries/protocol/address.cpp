@@ -74,18 +74,30 @@ namespace graphene {  namespace protocol {
        addr = fc::ripemd160::hash( fc::sha512::hash( (char*) dat.data(), dat.size() ) );
    }
 
-   address::address( uint32_t blocknum, uint32_t tr_num, uint32_t num)
+   address::address( uint32_t blocknum, uint32_t tr_num, uint32_t num, bool with_fix)
    {
-      string mask = "000000000000000000000000000000000";
+      std::string mask = "000000000000000000000000000000000";
       int blocknum_length = 12;
-      string res = string(mask, 0, blocknum_length - std::to_string(blocknum).size())
-                   + std::to_string(blocknum) + "000" + std::to_string(tr_num);
-      if (num > 0) {
-         res += "000" + std::to_string(num);
+      int tr_length = 3;
+      int counter_length = 3;
+      std::string res = std::string(mask, 0, blocknum_length - std::to_string(blocknum).size()) + std::to_string(blocknum);
+
+      if (with_fix)
+      {
+         // transaction number
+         res += std::string(std::string(tr_length, '0'), 0, tr_length - std::to_string(tr_num).size()) + std::to_string(tr_num);
+         // counter number
+         res += std::string(std::string(counter_length, '0'), 0, counter_length - std::to_string(num).size()) + std::to_string(num);
+      }
+      else
+      {
+         res += "000" + std::to_string(tr_num);
+         if (num > 0) {
+            res += "000" + std::to_string(num);
+         }
       }
 
-      res += string(mask, res.size());
-
+      res += std::string(mask, res.size());
       addr = fc::ripemd160::hash( fc::sha512::hash( res.c_str(), sizeof( res ) ) );
    }
 

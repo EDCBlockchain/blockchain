@@ -340,16 +340,9 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
 
    d.modify(fund.statistics_id(d), [&](fund_statistics_object& obj)
    {
-      // fund: increasing deposit count
+      // fund: increasing deposits count
       ++obj.deposit_count;
    });
-   if (fund.asset_id == EDC_ASSET)
-   {
-      d.modify(from_acc, [&](account_object& obj) {
-         obj.edc_in_deposits = d.get_user_deposits_sum(op.from_account, EDC_ASSET);
-      });
-   }
-
    d.modify(from_acc, [&](account_object& obj)
    {
       auto itr = obj.deposit_sums.find(fund.get_id());

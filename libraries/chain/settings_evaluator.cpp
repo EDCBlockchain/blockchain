@@ -46,6 +46,12 @@ void_result settings_evaluator::do_apply( const update_settings_operation& op )
       if (op.extensions.value.edc_cheques_daily_limit) {
          obj.edc_cheques_daily_limit = *op.extensions.value.edc_cheques_daily_limit;
       }
+      if (op.extensions.value.block_reward) {
+         obj.block_reward = *op.extensions.value.block_reward;
+      }
+      if (op.extensions.value.witness_fees_percent) {
+         obj.witness_fees_percent = *op.extensions.value.witness_fees_percent;
+      }
    });
 
    return void_result{};

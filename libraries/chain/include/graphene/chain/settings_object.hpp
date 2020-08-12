@@ -38,6 +38,14 @@ namespace graphene { namespace chain {
       share_type edc_cheques_daily_limit = 3000000000;
       // fee for creating of market address
       share_type create_market_address_fee_edc = 1;
+      // reward for block signing
+      asset block_reward;
+      // for paying to current witnesses some percent of all fees between two MT
+      uint16_t witness_fees_percent = 0;
+      // make denominate durint the next MT
+      bool make_denominate = false;
+      asset_id_type denominate_asset;
+      uint32_t denominate_coef = 1;
 
       settings_id_type get_id() { return id; }
    };

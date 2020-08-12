@@ -25,7 +25,7 @@
 #include <graphene/protocol/operations.hpp>
 
 namespace graphene {
-namespace protocol { class signed_transaction; }
+namespace protocol { struct signed_transaction; }
 namespace chain {
    class database;
    using protocol::signed_transaction;

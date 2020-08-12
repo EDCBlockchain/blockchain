@@ -116,6 +116,7 @@ database& generic_evaluator::db()const { return trx_state->db(); }
                {
                   d.current_supply -= fee_from_account.amount;
                   d.fee_burnt += fee_from_account.amount;
+                  d.fees_sum += fee_from_account.amount;
                });
             }
             else

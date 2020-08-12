@@ -288,12 +288,12 @@ object_id_type account_create_evaluator::do_apply( const account_create_operatio
    const auto& global_properties = db().get_global_properties();
    if( dynamic_properties.accounts_registered_this_interval %
        global_properties.parameters.accounts_per_fee_scale == 0 )
-      db().modify(global_properties, [&dynamic_properties](global_property_object& p) {
+      db().modify(global_properties, [](global_property_object& p) {
          p.parameters.get_mutable_fees().get<account_create_operation>().basic_fee <<= p.parameters.account_fee_scale_bitshifts;
       });
 
-   if(    o.extensions.value.owner_special_authority.valid()
-       || o.extensions.value.active_special_authority.valid() )
+   if ( o.extensions.value.owner_special_authority.valid()
+        || o.extensions.value.active_special_authority.valid() )
    {
       db().create< special_authority_object >( [&]( special_authority_object& sa )
       {
@@ -927,10 +927,20 @@ void_result create_market_address_evaluator::do_evaluate(const create_market_add
 
    if (d.head_block_time() > HARDFORK_627_TIME)
    {
-       FC_ASSERT(d.get_balance(op.market_account_id, EDC_ASSET).amount > settings_ptr->create_market_address_fee_edc
-                 , "Insufficient Balance: ${balance}, fee ${fee}"
-                 , ("balance", d.to_pretty_string(d.get_balance(op.market_account_id, EDC_ASSET).amount))
-                   ("fee", d.to_pretty_string(settings_ptr->create_market_address_fee_edc)));
+      if (d.head_block_time() > HARDFORK_633_TIME)
+      {
+         FC_ASSERT(d.get_balance(op.market_account_id, EDC_ASSET).amount >= settings_ptr->create_market_address_fee_edc
+                   , "Insufficient Balance: ${balance}, fee ${fee}"
+                   , ("balance", d.to_pretty_string(d.get_balance(op.market_account_id, EDC_ASSET)))
+                     ("fee", d.to_pretty_string(settings_ptr->create_market_address_fee_edc)));
+      }
+      else
+      {
+         FC_ASSERT(d.get_balance(op.market_account_id, EDC_ASSET).amount > settings_ptr->create_market_address_fee_edc
+                  , "Insufficient Balance: ${balance}, fee ${fee}"
+                  , ("balance", d.to_pretty_string(d.get_balance(op.market_account_id, EDC_ASSET).amount))
+                    ("fee", d.to_pretty_string(settings_ptr->create_market_address_fee_edc)));
+      }
    }
 
    if (d.get_index_type<market_address_index>().indices().size() > 0)
@@ -991,10 +1001,15 @@ operation_result create_market_address_evaluator::do_apply(const create_market_a
 
       FC_ASSERT(obj.id == next_id);
 
-      if (d.head_block_time() > HARDFORK_632_TIME) {
-         result2.addresses.insert(std::move(std::make_pair(next_id, std::string(addr))));
+      if ( (d.head_block_time() > HARDFORK_632_TIME) && (d.head_block_time() < HARDFORK_633_TIME) )
+      {
+         /**
+          * DEPRECATED: not stable, because each witness can generate
+          * different addresses (blocknum can be different for each of them)
+          */
+         result2.addresses.insert(std::make_pair(next_id, std::string(addr)));
       }
-      else // <--- before hardfork that must be always only one address
+      else if (d.head_block_time() <= HARDFORK_632_TIME) // <--- before hardfork that must be always only one address
       {
          result.id = next_id;
          result.addr = std::string(addr);
@@ -1014,7 +1029,10 @@ operation_result create_market_address_evaluator::do_apply(const create_market_a
       });
    }
 
-   if (d.head_block_time() > HARDFORK_632_TIME) {
+   if (d.head_block_time() >= HARDFORK_633_TIME) {
+      return void_result();
+   }
+   else if (d.head_block_time() > HARDFORK_632_TIME) {
       return result2;
    }
    else {

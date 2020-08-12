@@ -173,7 +173,12 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::settings_object,
    (edc_deposit_max_sum)
    (edc_transfers_daily_limit)
    (edc_cheques_daily_limit)
-   (create_market_address_fee_edc) )
+   (create_market_address_fee_edc)
+   (block_reward)
+   (witness_fees_percent)
+   (make_denominate)
+   (denominate_asset)
+   (denominate_coef) )
 
 FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::refund_worker_type, BOOST_PP_SEQ_NIL, (total_burned) )
 FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::vesting_balance_worker_type, BOOST_PP_SEQ_NIL, (balance) )

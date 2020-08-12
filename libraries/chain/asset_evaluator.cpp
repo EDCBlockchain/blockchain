@@ -30,6 +30,7 @@
 #include <graphene/chain/exceptions.hpp>
 #include <graphene/chain/hardfork.hpp>
 #include <graphene/chain/is_authorized_asset.hpp>
+#include <graphene/chain/settings_object.hpp>
 #include <iostream>
 #include <graphene/chain/tree.hpp>
 
@@ -787,15 +788,12 @@ void_result asset_publish_feeds_evaluator::do_apply(const asset_publish_feed_ope
    return void_result();
 } FC_CAPTURE_AND_RETHROW((o)) }
 
-
-
 void_result asset_claim_fees_evaluator::do_evaluate( const asset_claim_fees_operation& o )
 { try {
    FC_ASSERT( db().head_block_time() > HARDFORK_413_TIME );
    FC_ASSERT( o.amount_to_claim.asset_id(db()).issuer == o.issuer, "Asset fees may only be claimed by the issuer" );
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
-
 
 void_result asset_claim_fees_evaluator::do_apply( const asset_claim_fees_operation& o )
 { try {
@@ -812,6 +810,32 @@ void_result asset_claim_fees_evaluator::do_apply( const asset_claim_fees_operati
    d.adjust_balance( o.issuer, o.amount_to_claim );
 
    return void_result();
+} FC_CAPTURE_AND_RETHROW( (o) ) }
+
+void_result denominate_evaluator::do_evaluate( const denominate_operation& o )
+{ try {
+
+   FC_ASSERT( o.coef > 1, "Coefficient must be greater than 1" );
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (o) ) }
+
+void_result denominate_evaluator::do_apply( const denominate_operation& o )
+{ try {
+
+   database& d = db();
+
+   const settings_object* settings_ptr = &(*d.find(settings_id_type(0)));
+
+   d.modify(*settings_ptr, [&](settings_object& obj)
+   {
+      obj.make_denominate = o.enabled;
+      obj.denominate_asset = o.asset_id;
+      obj.denominate_coef = o.coef;
+   });
+
+   return void_result();
+
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
 

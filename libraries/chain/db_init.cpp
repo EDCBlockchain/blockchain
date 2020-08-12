@@ -183,6 +183,7 @@ void database::initialize_evaluators()
    register_evaluator<transfer_from_blind_evaluator>();
    register_evaluator<blind_transfer_evaluator>();
    register_evaluator<asset_claim_fees_evaluator>();
+   register_evaluator<denominate_evaluator>();
    register_evaluator<account_restrict_evaluator>();
    register_evaluator<account_allow_referrals_evaluator>();
    register_evaluator<set_online_time_evaluator>();
@@ -614,7 +615,7 @@ void database::init_genesis(const genesis_state_type& genesis_state)
    {
       const auto asset_id = get_asset_id(handout.asset_symbol);
 
-      create<balance_object>([&handout,&get_asset_id,total_allocation,asset_id](balance_object& b) {
+      create<balance_object>([&handout,asset_id](balance_object& b) {
          b.balance = asset(handout.amount, asset_id);
          b.owner = handout.owner;
       });

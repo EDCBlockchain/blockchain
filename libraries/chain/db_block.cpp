@@ -498,7 +498,8 @@ const vector<optional< operation_history_object > >& database::get_applied_opera
 void database::apply_block( const signed_block& next_block, uint32_t skip )
 {
    auto block_num = next_block.block_num(); 
-  if (block_num == 1752250) {
+   if (block_num == 1752250)
+   {
       modify(get_global_properties(), [] (global_property_object& gpo) {
          gpo.parameters.committee_proposal_review_period = 300;
       }); 

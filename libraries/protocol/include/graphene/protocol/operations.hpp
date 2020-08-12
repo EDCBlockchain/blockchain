@@ -55,7 +55,7 @@ namespace graphene { namespace protocol {
             limit_order_create_operation,
             limit_order_cancel_operation,
             call_order_update_operation,   // [idx: 3]
-            fill_order_operation,           // VIRTUAL
+            fill_order_operation,          // VIRTUAL
             account_create_operation,
             account_update_operation,      // [idx: 6]
             account_whitelist_operation,
@@ -119,10 +119,10 @@ namespace graphene { namespace protocol {
             fund_payment_operation,   // [idx: 61]
             fund_set_enable_operation,
             fund_deposit_set_enable_operation,
-            fund_remove_operation,     // [idx: 64]
+            fund_remove_operation,                  // [idx: 64]
             allow_create_addresses_operation,
             set_burning_mode_operation,
-            assets_update_fee_payer_operation, // [idx: 67]
+            assets_update_fee_payer_operation,      // [idx: 67]
             asset_update_exchange_rate_operation,
             fund_change_payment_scheme_operation,
             enable_autorenewal_deposits_operation,  // [idx: 70]
@@ -131,15 +131,16 @@ namespace graphene { namespace protocol {
             deposit_renewal_operation,  // [idx: 73] extend the deposit's time
             set_market_operation,
             cheque_create_operation,
-            cheque_use_operation, // [idx: 76]
+            cheque_use_operation,       // [idx: 76]
             cheque_reverse_operation,
             create_market_address_operation,
-            account_update_authorities_operation, // [idx: 79]
+            account_update_authorities_operation,  // [idx: 79]
             update_settings_operation,
             account_edc_limit_daily_volume_operation,
             fund_deposit_update_operation,         // [idx: 82]
             fund_deposit_reduce_operation,
-            fund_deposit_update2_operation
+            fund_deposit_update2_operation,
+            denominate_operation                   // [idx: 85]
          > operation;
 
    /// @} // operations group

@@ -114,6 +114,22 @@ void database::update_signing_witness(const witness_object& signing_witness, con
 
    deposit_witness_pay( signing_witness, witness_pay );
 
+   // EDC reward for each block
+   if (head_block_time() >= HARDFORK_633_TIME)
+   {
+      const settings_object& settings = get(settings_id_type(0));
+      const asset& reward = settings.block_reward;
+      if (reward.amount > 0)
+      {
+         asset_issue_operation op;
+         op.issuer           = reward.asset_id(*this).issuer;
+         op.asset_to_issue   = reward;
+         op.issue_to_account = signing_witness.witness_account;
+         transaction_evaluation_state eval(this);
+         apply_operation(eval, op);
+      }
+   }
+
    modify( signing_witness, [&]( witness_object& _wit )
    {
       _wit.last_aslot = new_block_aslot;

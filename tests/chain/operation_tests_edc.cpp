@@ -496,4 +496,66 @@ BOOST_AUTO_TEST_CASE(operation_history_test)
    }
 }
 
+BOOST_AUTO_TEST_CASE(witness_fee_payments_test)
+{
+   BOOST_TEST_MESSAGE( "=== witness_fee_payments_test ===" );
+
+   try {
+
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(bob)
+
+      // assign privileges for creating_asset_operation
+      SET_ACTOR_CAN_CREATE_ASSET(alice_id)
+
+      create_edc(100000000000);
+
+      asset_id_type edc_id = EDC_ASSET(db).get_id();
+      issue_uia(bob_id, asset(30000, EDC_ASSET));
+
+      fc::time_point_sec h_time = HARDFORK_633_TIME;
+      generate_blocks(h_time);
+
+      {
+         update_settings_operation op;
+         op.fee = asset();
+         op.transfer_fees = {settings_fee{edc_id, 100}};
+         op.edc_transfers_daily_limit = 3000000000;
+         // 50% from all fees are paid to all witnesses
+         op.extensions.value.witness_fees_percent = 50000;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      {
+         transfer_operation op;
+         op.fee = asset(20, edc_id);
+         op.from = bob_id;
+         op.to   = alice_id;
+         op.amount = asset(20000, edc_id);
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         trx.validate();
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 9980);
+
+      generate_blocks(h_time + fc::days(1));
+      const account_object& acc_init0 = get_account("init0");
+
+      // 10 EDC (50% of full fee) / 10 (all witnesses)
+      BOOST_CHECK(get_balance(acc_init0.get_id(), EDC_ASSET) == 1);
+   }
+   catch (fc::exception& e)
+   {
+      edump((e.to_detail_string()))
+      throw;
+   }
+}
+
 BOOST_AUTO_TEST_SUITE_END()

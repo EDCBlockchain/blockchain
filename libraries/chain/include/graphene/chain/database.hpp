@@ -521,6 +521,7 @@ namespace graphene { namespace chain {
          void issue_bonuses_old();
          void issue_bonuses_before_620();
          void issue_bonuses();
+         void make_witness_fee_payments();
          bool bonus_allowed(account_id_type issue_to_account, asset asset_to_issue, account_id_type issuer);
          void clear_account_mature_balance_index();
          void update_active_witnesses();
@@ -532,8 +533,10 @@ namespace graphene { namespace chain {
          // funds, commission charges
          void process_funds();
 
-         // cheques (including removing of them)
+         // cheques (including their removal)
          void process_cheques();
+
+         void denominate_funds();
 
          template<class... Types>
          void perform_account_maintenance(std::tuple<Types...> helpers);

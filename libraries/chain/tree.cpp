@@ -260,8 +260,8 @@ namespace graphene { namespace chain {
            const auto &parent_node = tree_data.parent(current_node);
            if (parent_node == nullptr) break;
 
-           uint64_t current_balance = get_balance(current_node->account_id).amount.value;
-           (void)current_balance;
+//           uint64_t current_balance = get_balance(current_node->account_id).amount.value;
+//           (void)current_balance;
            parent_node->add_child_balance_old(account->id, account_balance, level);
            current_node = parent_node;
         }

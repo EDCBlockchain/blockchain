@@ -25,6 +25,7 @@
 #include <fc/exception/exception.hpp>
 #include <fc/io/varint.hpp>
 #include <memory>
+
 #define GRAPHENE_DB_MAX_INSTANCE_ID  (uint64_t(-1)>>16)
 
 namespace graphene { namespace db {
@@ -144,6 +145,13 @@ namespace graphene { namespace db {
       friend bool  operator > ( const object_id& a, const object_id& b ) { return a.instance.value > b.instance.value; }
 
       friend size_t hash_value( object_id v ) { return std::hash<uint64_t>()(v.instance.value); }
+
+      operator std::string() const
+      {
+         std::ostringstream os;
+         os << std::to_string(space_id) << "." << std::to_string(type_id) << "." << std::to_string(instance.value);
+         return os.str();
+      }
 
       unsigned_int instance;
    };

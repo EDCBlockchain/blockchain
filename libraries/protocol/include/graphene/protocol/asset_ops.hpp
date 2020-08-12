@@ -574,9 +574,30 @@ namespace graphene { namespace protocol {
       void            validate()const;
    };
 
+   typedef flat_set<static_variant<void_t>> denominate_extensions_type;
+   /**
+    * @brief makes asset denominate actions: reduce of user balances, deposits, etc. on MT
+    */
+   struct denominate_operation : public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset           fee;
+      bool            enabled = true;
+      asset_id_type   asset_id;
+      uint32_t        coef = 1;
+
+      denominate_extensions_type extensions;
+
+      account_id_type fee_payer()const { return GRAPHENE_COMMITTEE_ACCOUNT; }
+      void            validate()const { FC_ASSERT( coef > 1 ); };
+   };
+
 } } // graphene::protocol
 
 FC_REFLECT( graphene::protocol::asset_claim_fees_operation, (fee)(issuer)(amount_to_claim)(extensions) )
+
+FC_REFLECT_TYPENAME( graphene::protocol::denominate_extensions_type )
 
 FC_REFLECT( graphene::protocol::asset_options,
             (max_supply)
@@ -620,6 +641,7 @@ FC_REFLECT( graphene::protocol::bonus_operation::fee_parameters_type, (fee)(pric
 FC_REFLECT( graphene::protocol::daily_issue_operation::fee_parameters_type, (fee)(price_per_kbyte) )
 FC_REFLECT( graphene::protocol::referral_issue_operation::fee_parameters_type, (fee)(price_per_kbyte) )
 FC_REFLECT( graphene::protocol::asset_reserve_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::protocol::denominate_operation::fee_parameters_type, (fee) )
 
 FC_REFLECT( graphene::protocol::allow_create_asset_operation, (fee) (to_account) (value) (extensions) )
 FC_REFLECT( graphene::protocol::asset_create_operation,
@@ -680,6 +702,7 @@ FC_REFLECT( graphene::protocol::daily_issue_operation,
             (fee)(issuer)(asset_to_issue)(account_balance)(issue_to_account)(extensions) )   
 FC_REFLECT( graphene::protocol::referral_issue_operation,
             (fee)(issuer)(rank)(asset_to_issue)(account_balance)(issue_to_account)(history)(extensions) )
+FC_REFLECT( graphene::protocol::denominate_operation, (fee)(enabled)(asset_id)(coef)(extensions) )
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::asset_claim_fees_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::asset_create_operation::fee_parameters_type )
@@ -699,6 +722,7 @@ GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::bonus_operation::fe
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::daily_issue_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::referral_issue_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::asset_reserve_operation::fee_parameters_type )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::denominate_operation::fee_parameters_type )
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::asset_claim_fees_operation )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::asset_options )
@@ -721,3 +745,4 @@ GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::edc_asset_fund_fee_
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::bonus_operation )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::daily_issue_operation )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::referral_issue_operation)
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::denominate_operation)

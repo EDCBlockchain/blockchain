@@ -1213,7 +1213,7 @@ std::tuple<std::vector<account_object>, int> application::get_referrers(account_
     std::vector<account_object> result;
     int count = 0;
     auto asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
-    idx.inspect_all_objects( [&d,this,&account_id,&result,&asset,&count](const chain::object& obj){
+    idx.inspect_all_objects( [&d, &account_id,&result,&asset,&count](const chain::object& obj){
         const account_object& account = static_cast<const chain::account_object&>(obj);
         auto balance = d.get_balance(account.id, asset->id).amount.value;
         if (account.id != account_id &&

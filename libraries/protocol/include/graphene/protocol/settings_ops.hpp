@@ -24,6 +24,8 @@ namespace graphene { namespace protocol {
          optional<std::vector<settings_fee>> cheque_fees;
          optional<share_type> create_market_address_fee_edc;
          optional<share_type> edc_cheques_daily_limit;
+         optional<asset> block_reward;
+         optional<uint32_t> witness_fees_percent;
       };
 
       asset fee;
@@ -49,7 +51,9 @@ FC_REFLECT( graphene::protocol::update_settings_operation::ext,
             (null_ext)
             (cheque_fees)
             (create_market_address_fee_edc)
-            (edc_cheques_daily_limit) )
+            (edc_cheques_daily_limit)
+            (block_reward)
+            (witness_fees_percent) )
 FC_REFLECT( graphene::protocol::update_settings_operation::fee_parameters_type, (fee) )
 
 FC_REFLECT( graphene::protocol::update_settings_operation,

@@ -1,11 +1,12 @@
+#include <iostream>
+
 #include <graphene/chain/fund_object.hpp>
 #include <graphene/chain/asset_object.hpp>
 #include <graphene/chain/hardfork.hpp>
+//#include <graphene/chain/settings_object.hpp>
+
 #include <fc/uint128.hpp>
 #include <boost/range.hpp>
-
-#include <iostream>
-//#include <graphene/chain/settings_object.hpp>
 
 namespace graphene { namespace chain {
 

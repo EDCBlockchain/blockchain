@@ -321,8 +321,8 @@ block_production_condition::block_production_condition_enum witness_plugin::mayb
       scheduled_time,
       scheduled_witness,
       private_key_itr->second,
-      _production_skip_flags
-      );
+      _production_skip_flags);
+
    capture("n", block.block_num())("t", block.timestamp)("c", now)("x", block.transactions.size());
    fc::async( [this,block](){ p2p_node().broadcast(net::block_message(block)); } );
 
