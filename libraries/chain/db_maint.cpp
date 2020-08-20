@@ -894,12 +894,18 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
              << ", head_block_time: " << std::string(head_block_time()) << "]"
              << std::endl;
 
+   const settings_object& settings = *find(settings_id_type(0));
+
    if (head_block_time() > HARDFORK_627_TIME) {
       process_accounts();
    }
 
    if (head_block_time() > HARDFORK_622_TIME)
    {
+      if (settings.make_denominate) {
+         denominate_funds();
+      }
+
       process_funds();
       process_cheques();
    }
@@ -917,12 +923,8 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
       make_witness_fee_payments();
    }
 
-   const settings_object& settings = *find(settings_id_type(0));
    if (settings.make_denominate)
    {
-      // funds denomination
-      denominate_funds();
-
       modify(settings, [&](settings_object& obj) {
          obj.make_denominate = false;
       });

@@ -219,32 +219,42 @@ void fund_object::process(database& db) const
                deps_to_remove.emplace_back(dep.get_id());
 
                if ( (db.head_block_time() <= HARDFORK_628_TIME)
-                    || ((db.head_block_time() > HARDFORK_628_TIME) && (dep.amount.amount > 0)) )
+                    || ((db.head_block_time() > HARDFORK_628_TIME) && (dep.amount.amount > 0))
+                    || (db.head_block_time() > HARDFORK_634_TIME) )
                {
-                  // return deposit to user
-                  chain::fund_withdrawal_operation op;
-                  op.issuer = asst.issuer;
-                  op.fund_id = id;
-                  op.asset_to_issue = asst.amount(dep.amount.amount);
-                  op.issue_to_account = dep.account_id;
-                  op.datetime = db.head_block_time();
-
-                  try
+                  if ( ((db.head_block_time() > HARDFORK_634_TIME) && (dep.amount.amount > 0))
+                       || (db.head_block_time() <= HARDFORK_634_TIME) )
                   {
-                     op.validate();
-                     db.apply_operation(eval, op);
-                  } catch (fc::assert_exception& e) {}
+                     // return deposit to user
+                     chain::fund_withdrawal_operation op;
+                     op.issuer = asst.issuer;
+                     op.fund_id = id;
+                     op.asset_to_issue = asst.amount(dep.amount.amount);
+                     op.issue_to_account = dep.account_id;
+                     op.datetime = db.head_block_time();
 
-                  // reduce fund balance
-                  db.modify(*this, [&](chain::fund_object& f) {
-                     f.balance -= dep.amount.amount;
-                  });
+                     try
+                     {
+                        op.validate();
+                        db.apply_operation(eval, op);
+                     } catch (fc::assert_exception& e) { }
+
+                     // reduce fund balance
+                     db.modify(*this, [&](chain::fund_object& f) {
+                        f.balance -= dep.amount.amount;
+                     });
+                  }
 
                   // disable deposit
                   db.modify(dep, [&](chain::fund_deposit_object& f) {
                      f.enabled = false;
                   });
                }
+
+               // disable deposit
+               db.modify(dep, [&](chain::fund_deposit_object& f) {
+                  f.enabled = false;
+               });
             }
          }
       }
