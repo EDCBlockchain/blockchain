@@ -825,14 +825,19 @@ void_result denominate_evaluator::do_apply( const denominate_operation& o )
 
    database& d = db();
 
-   const settings_object* settings_ptr = &(*d.find(settings_id_type(0)));
-
-   d.modify(*settings_ptr, [&](settings_object& obj)
+   if (d.head_block_time() > HARDFORK_635_TIME)
    {
-      obj.make_denominate = o.enabled;
-      obj.denominate_asset = o.asset_id;
-      obj.denominate_coef = o.coef;
-   });
+      database& d = db();
+
+      const settings_object* settings_ptr = &(*d.find(settings_id_type(0)));
+
+      d.modify(*settings_ptr, [&](settings_object& obj)
+      {
+         obj.make_denominate = o.enabled;
+         obj.denominate_asset = o.asset_id;
+         obj.denominate_coef = o.coef;
+      });
+   }
 
    return void_result();
 

@@ -244,16 +244,13 @@ void fund_object::process(database& db) const
                         f.balance -= dep.amount.amount;
                      });
                   }
-
-                  // disable deposit
-                  db.modify(dep, [&](chain::fund_deposit_object& f) {
-                     f.enabled = false;
-                  });
                }
 
                // disable deposit
-               db.modify(dep, [&](chain::fund_deposit_object& f) {
+               db.modify(dep, [&](chain::fund_deposit_object& f)
+               {
                   f.enabled = false;
+                  f.finished = true;
                });
             }
          }
@@ -493,27 +490,32 @@ void fund_object::process(database& db) const
    }
 
    // erase old history items
-   const auto& hist_obj = history_id(db);
-   db.modify(hist_obj, [&](fund_history_object& o)
+   if ( (h_item.daily_payments_owner > 0)
+        || (h_item.daily_payments_total > 0)
+        || (h_item.daily_payments_without_owner > 0) )
    {
-      o.items.emplace_back(std::move(h_item));
-
-      if (db.get_history_size() > 0)
+      const auto& hist_obj = history_id(db);
+      db.modify(hist_obj, [&](fund_history_object& o)
       {
-         const time_point& tp = db.head_block_time() - fc::days(db.get_history_size());
+         o.items.emplace_back(std::move(h_item));
 
-         for (auto it = o.items.begin(); it != o.items.end();)
+         if (db.get_history_size() > 0)
          {
-            if (it->create_datetime < tp) {
-               it = o.items.erase(it);
-            }
-            else {
-               break;
-               //++it;
+            const time_point& tp = db.head_block_time() - fc::days(db.get_history_size());
+
+            for (auto it = o.items.begin(); it != o.items.end();)
+            {
+               if (it->create_datetime < tp) {
+                  it = o.items.erase(it);
+               }
+               else {
+                  break;
+                  //++it;
+               }
             }
          }
-      }
-   });
+      });
+   }
 }
 
 void fund_object::finish(database& db) const
@@ -579,6 +581,7 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::fund_deposit_object,
                     (account_id)
                     (amount)
                     (enabled)
+                    (finished)
                     (datetime_begin)
                     (datetime_end)
                     (prev_maintenance_time_on_creation)

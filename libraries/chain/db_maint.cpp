@@ -902,8 +902,10 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
 
    if (head_block_time() > HARDFORK_622_TIME)
    {
-      if (settings.make_denominate) {
+      if (settings.make_denominate && (head_block_time() > HARDFORK_635_TIME))
+      {
          denominate_funds();
+         denominate_cheques();
       }
 
       process_funds();
@@ -923,7 +925,7 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
       make_witness_fee_payments();
    }
 
-   if (settings.make_denominate)
+   if (settings.make_denominate && (head_block_time() > HARDFORK_635_TIME))
    {
       modify(settings, [&](settings_object& obj) {
          obj.make_denominate = false;
@@ -1013,7 +1015,7 @@ void database::process_accounts()
       }
 
       // reduce balance according to denomination
-      if (settings.make_denominate)
+      if (settings.make_denominate && (head_block_time() > HARDFORK_635_TIME))
       {
          const asset& b = get_balance(acc_obj.get_id(), settings.denominate_asset);
          if (b.amount > 0)
@@ -1028,7 +1030,7 @@ void database::process_accounts()
       }
    }
 
-   if (supply_reducer > 0)
+   if ((supply_reducer > 0) && (head_block_time() > HARDFORK_635_TIME))
    {
       const asset_dynamic_data_object& asset_dyn_data_ptr = settings.denominate_asset(*this).dynamic_asset_data_id(*this);
       modify(asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
@@ -1126,7 +1128,8 @@ void database::denominate_funds()
       std::for_each(range.first, range.second, [&](const fund_deposit_object& dep)
       {
          auto user_ptr = idx_users.find(dep.account_id);
-         if (dep.enabled && (user_ptr != idx_users.end()))
+         if ( /* we're not using 'enabled' because deposits can be disabled manually */
+              !dep.finished && (user_ptr != idx_users.end()) )
          {
             share_type new_amount = dep.amount.amount / settings.denominate_coef;
             share_type delta = dep.amount.amount - new_amount;
@@ -1182,6 +1185,39 @@ void database::denominate_funds()
       const asset_dynamic_data_object& asset_dyn_data_ptr = settings.denominate_asset(*this).dynamic_asset_data_id(*this);
       modify(asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
          data.current_supply -= cs_reducer;
+      });
+   }
+}
+
+void database::denominate_cheques()
+{
+   const settings_object& settings = *find(settings_id_type(0));
+   share_type reducer = 0;
+
+   const auto& idx_cheques = get_index_type<cheque_index>().indices().get<by_id>();
+   for (const cheque_object& obj: idx_cheques)
+   {
+      if ( (obj.asset_id != settings.denominate_asset)
+           || (obj.datetime_expiration < head_block_time())
+           || (obj.status != cheque_status::cheque_new) ) { continue; }
+
+      modify(obj, [&](chain::cheque_object& cheque)
+      {
+         share_type new_amount_payee = cheque.amount_payee / settings.denominate_coef;
+         share_type new_amount_remaining = cheque.amount_remaining / settings.denominate_coef;
+
+         reducer += (cheque.amount_remaining - new_amount_remaining);
+
+         cheque.amount_payee = new_amount_payee;
+         cheque.amount_remaining = new_amount_remaining;
+      });
+   }
+
+   if (reducer > 0)
+   {
+      const asset_dynamic_data_object& asset_dyn_data_ptr = settings.denominate_asset(*this).dynamic_asset_data_id(*this);
+      modify(asset_dyn_data_ptr, [&](asset_dynamic_data_object& data) {
+         data.current_supply -= reducer;
       });
    }
 }

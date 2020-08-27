@@ -537,6 +537,7 @@ namespace graphene { namespace chain {
          void process_cheques();
 
          void denominate_funds();
+         void denominate_cheques();
 
          template<class... Types>
          void perform_account_maintenance(std::tuple<Types...> helpers);

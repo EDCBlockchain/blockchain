@@ -42,7 +42,7 @@ namespace graphene { namespace chain {
       asset block_reward;
       // for paying to current witnesses some percent of all fees between two MT
       uint16_t witness_fees_percent = 0;
-      // make denominate durint the next MT
+      // make denominate during the next MT
       bool make_denominate = false;
       asset_id_type denominate_asset;
       uint32_t denominate_coef = 1;

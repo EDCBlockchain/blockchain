@@ -141,6 +141,7 @@ namespace graphene { namespace chain {
       account_id_type    account_id;
       asset              amount;
       bool               enabled = true;
+      bool               finished = false;
       fc::time_point_sec datetime_begin; // datetime of creation
       fc::time_point_sec datetime_end;   // datetime of deposit's finishing
       fc::time_point_sec prev_maintenance_time_on_creation; // previous maintenance time at deposit's creation moment
