@@ -904,6 +904,12 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
    {
       if (settings.make_denominate && (head_block_time() > HARDFORK_635_TIME))
       {
+         // max supply of asset
+         const asset_object& a = settings.denominate_asset(*this);
+         modify(a, [&](asset_object& a) {
+            a.options.max_supply = a.options.max_supply / settings.denominate_coef;
+         });
+
          denominate_funds();
          denominate_cheques();
       }
