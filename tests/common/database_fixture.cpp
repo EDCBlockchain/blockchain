@@ -566,12 +566,12 @@ void database_fixture::issue_uia( account_id_type recipient_id, asset amount )
 }
 
 void database_fixture::change_fees(
-   const flat_set< fee_parameters >& new_params,
+   const fee_parameters::flat_set_type& new_params,
    uint32_t new_scale /* = 0 */
    )
 {
    const chain_parameters& current_chain_params = db.get_global_properties().parameters;
-   const fee_schedule& current_fees = *(current_chain_params.current_fees);
+   const fee_schedule& current_fees = current_chain_params.get_current_fees();
 
    flat_map< int, fee_parameters > fee_map;
    fee_map.reserve( current_fees.parameters.size() );

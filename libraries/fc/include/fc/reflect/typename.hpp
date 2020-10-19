@@ -12,11 +12,15 @@
 #include <fc/container/flat_fwd.hpp>
 
 namespace fc {
+  template<typename...> class static_variant;
   class value;
   class exception;
   namespace ip { class address; }
 
   template<typename... T> struct get_typename;
+#if defined(__APPLE__) or defined(__OpenBSD__)
+  template<> struct get_typename<size_t>   { static const char* name()  { return "size_t";   } };
+#endif
   template<> struct get_typename<int32_t>  { static const char* name()  { return "int32_t";  } };
   template<> struct get_typename<int64_t>  { static const char* name()  { return "int64_t";  } };
   template<> struct get_typename<int16_t>  { static const char* name()  { return "int16_t";  } };
@@ -41,10 +45,19 @@ namespace fc {
          return n.c_str();  
      } 
   };
-  template<typename T> struct get_typename<flat_set<T>>   
+  template<typename T> struct get_typename<flat_set<T>>
+  {
+     static const char* name()  {
+         static std::string n = std::string("flat_set<") + get_typename<T>::name() + ">";
+         return n.c_str();
+     }
+  };
+  template<typename... Ts>
+  struct get_typename<flat_set<static_variant<Ts...>, typename static_variant<Ts...>::type_lt>>
   { 
      static const char* name()  { 
-         static std::string n = std::string("flat_set<") + get_typename<T>::name() + ">"; 
+         using TN = get_typename<static_variant<Ts...>>;
+         static std::string n = std::string("flat_set<") + TN::name() + ", " + TN::name() + "::type_lt>";
          return n.c_str();  
      } 
   };
@@ -102,6 +115,22 @@ namespace fc {
         return _name.c_str();
      } 
   }; 
+  template<typename T> struct get_typename< const T* >
+  {
+      static const char* name()
+      {
+         static std::string n = std::string("const ") + get_typename<T>::name() + "*";
+         return n.c_str();
+      }
+  };
+  template<typename T> struct get_typename< T* >
+  {
+      static const char* name()
+      {
+         static std::string n = std::string(get_typename<T>::name()) + "*";
+         return n.c_str();
+      }
+  };
 
   struct unsigned_int;
   class variant_object;

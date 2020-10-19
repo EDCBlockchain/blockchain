@@ -433,12 +433,8 @@ namespace fc {
                 auto p = context_pair{nullptr, prev};
                 auto t = bc::jump_fcontext( next->my_context, &p );
                 static_cast<context_pair*>(t.data)->second->my_context = t.fctx;
-#elif BOOST_VERSION >= 105600
-                bc::jump_fcontext( &prev->my_context, next->my_context, 0 );
-#elif BOOST_VERSION >= 105300
-                bc::jump_fcontext( prev->my_context, next->my_context, 0 );
 #else
-                bc::jump_fcontext( &prev->my_context, &next->my_context, 0 );
+                bc::jump_fcontext( &prev->my_context, next->my_context, 0 );
 #endif
                 BOOST_ASSERT( current );
                 BOOST_ASSERT( current == prev );
@@ -479,12 +475,8 @@ namespace fc {
                 auto p = context_pair{this, prev};
                 auto t = bc::jump_fcontext( next->my_context, &p );
                 static_cast<context_pair*>(t.data)->second->my_context = t.fctx;
-#elif BOOST_VERSION >= 105600
-                bc::jump_fcontext( &prev->my_context, next->my_context, (intptr_t)this );
-#elif BOOST_VERSION >= 105300
-                bc::jump_fcontext( prev->my_context, next->my_context, (intptr_t)this );
 #else
-                bc::jump_fcontext( &prev->my_context, &next->my_context, (intptr_t)this );
+                bc::jump_fcontext( &prev->my_context, next->my_context, (intptr_t)this );
 #endif
                 BOOST_ASSERT( current );
                 BOOST_ASSERT( current == prev );

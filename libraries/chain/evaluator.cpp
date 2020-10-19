@@ -33,6 +33,8 @@
 #include <graphene/chain/fba_object.hpp>
 #include <graphene/chain/committee_member_object.hpp>
 #include <graphene/protocol/fee_schedule.hpp>
+#include <graphene/chain/settings_object.hpp>
+#include <graphene/chain/witnesses_info_object.hpp>
 
 #include <fc/uint128.hpp>
 
@@ -112,12 +114,21 @@ database& generic_evaluator::db()const { return trx_state->db(); }
             database& d = db();
             if (d.head_block_time() > HARDFORK_623_TIME)
             {
-               d.modify(*fee_asset_dyn_data, [this](asset_dynamic_data_object& d)
+               d.modify(*fee_asset_dyn_data, [this](asset_dynamic_data_object& dyn_data)
                {
-                  d.current_supply -= fee_from_account.amount;
-                  d.fee_burnt += fee_from_account.amount;
-                  d.fees_sum += fee_from_account.amount;
+                  dyn_data.current_supply -= fee_from_account.amount;
+                  dyn_data.fee_burnt += fee_from_account.amount;
                });
+
+               // witness fee reward
+               const settings_object& settings = d.get(settings_id_type(0));
+               if ( (fee_from_account.asset_id == EDC_ASSET) && (settings.witness_fees_percent > 0) )
+               {
+                  const witnesses_info_object& witnesses_info = d.get(witnesses_info_id_type(0));
+                  d.modify(witnesses_info, [&](witnesses_info_object& obj) {
+                     obj.witness_fees_reward_edc_amount += fee_from_account.amount;
+                  });
+               }
             }
             else
             {

@@ -9,6 +9,7 @@
 #include <graphene/chain/settings_object.hpp>
 #include <graphene/chain/committee_member_object.hpp>
 #include <graphene/chain/proposal_object.hpp>
+#include <graphene/chain/witness_object.hpp>
 
 #include <fc/crypto/digest.hpp>
 
@@ -530,6 +531,12 @@ BOOST_AUTO_TEST_CASE(witness_fee_payments_test)
          trx.clear();
       }
 
+      // we must consider 'witness.first_mt' flag, it should be disabled
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
       {
          transfer_operation op;
          op.fee = asset(20, edc_id);
@@ -545,10 +552,13 @@ BOOST_AUTO_TEST_CASE(witness_fee_payments_test)
 
       BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 9980);
 
-      generate_blocks(h_time + fc::days(1));
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
       const account_object& acc_init0 = get_account("init0");
 
-      // 10 EDC (50% of full fee) / 10 (all witnesses)
       BOOST_CHECK(get_balance(acc_init0.get_id(), EDC_ASSET) == 1);
    }
    catch (fc::exception& e)

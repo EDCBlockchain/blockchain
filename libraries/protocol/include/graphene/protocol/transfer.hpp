@@ -27,6 +27,14 @@
 
 namespace graphene { namespace protocol {
 
+   struct asset_ext_info
+   {
+      asset asst;
+      std::string name;
+      uint64_t precision = 0;
+   };
+   typedef static_variant<void_t, /* address */ std::string, asset_ext_info>::flat_set_type asset_ext_type;
+
    /**
     * @ingroup operations
     *
@@ -41,16 +49,6 @@ namespace graphene { namespace protocol {
     *  @post to account's balance will be increased by amount
     *  @return n/a
     */
-
-   struct asset_info
-   {
-      asset asst;
-      std::string name;
-      uint64_t precision = 0;
-   };
-
-   typedef flat_set<static_variant<void_t, /* address */ string, asset_info>> transfer_extensions;
-
    struct transfer_operation: public base_operation
    {
       struct fee_parameters_type
@@ -70,7 +68,7 @@ namespace graphene { namespace protocol {
 
       /// User provided data encrypted to the memo key of the "to" account
       optional<memo_data> memo;
-      transfer_extensions extensions;
+      asset_ext_type extensions;
 
       account_id_type fee_payer()const { return from; }
       void            validate()const;
@@ -122,7 +120,7 @@ namespace graphene { namespace protocol {
       asset            amount;
 
       optional<memo_data> memo;
-      transfer_extensions extensions;
+      extensions_type extensions;
 
       account_id_type fee_payer() const { return from; }
       void            validate() const;
@@ -165,8 +163,7 @@ namespace graphene { namespace protocol {
 
 }} // graphene::protocol
 
-FC_REFLECT( graphene::protocol::asset_info, (asst)(name)(precision) )
-FC_REFLECT_TYPENAME( graphene::protocol::transfer_extensions )
+FC_REFLECT( graphene::protocol::asset_ext_info, (asst)(name)(precision) )
 
 FC_REFLECT( graphene::protocol::transfer_operation::fee_parameters_type, (fee)(price_per_kbyte) )
 FC_REFLECT( graphene::protocol::transfer_operation, (fee)(from)(to)(amount)(memo)(extensions) )
@@ -179,6 +176,8 @@ FC_REFLECT( graphene::protocol::blind_transfer2_operation, (fee)(from)(to)(amoun
 
 FC_REFLECT( graphene::protocol::override_transfer_operation::fee_parameters_type, (fee)(price_per_kbyte) )
 FC_REFLECT( graphene::protocol::override_transfer_operation, (fee)(issuer)(from)(to)(amount)(memo)(extensions) )
+
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::asset_ext_info )
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::transfer_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::update_blind_transfer2_settings_operation::fee_parameters_type )

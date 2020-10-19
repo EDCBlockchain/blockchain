@@ -45,7 +45,11 @@ namespace graphene { namespace chain {
          uint64_t         total_votes = 0;
          string           url;
          int64_t          total_missed = 0;
+         int64_t          daily_missed = 0;
+         int64_t          total_confirmed = 0;
+         int64_t          daily_confirmed = 0;
          uint32_t         last_confirmed_block_num = 0;
+         bool             first_mt = true;
 
          witness_object() : vote_id(vote_id_type::witness) {}
    };

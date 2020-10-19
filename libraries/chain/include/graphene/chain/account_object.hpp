@@ -37,6 +37,14 @@ namespace graphene { namespace chain {
    class account_object;
    class vesting_balance_object;
 
+   enum class e_account_rank: uint8_t
+   {
+      _default,
+      _1,
+      _2,
+      _3
+   };
+
    /**
     * @class account_statistics_object
     * @ingroup object
@@ -280,6 +288,8 @@ namespace graphene { namespace chain {
       account_restrict_operation::account_action current_restriction =
          account_restrict_operation::account_action::restore;
 
+      e_account_rank rank = e_account_rank::_default;
+
       bool is_market = false;
       bool verification_is_required = false;
       bool can_create_and_update_asset = false;
@@ -301,6 +311,11 @@ namespace graphene { namespace chain {
       share_type edc_cheques_max_amount;
       share_type edc_cheques_amount_counter = 0;
 
+      // statistics
+      share_type edc_burnt = 0;
+      uint32_t edc_transfers_count = 0;
+      uint32_t edc_transfers_daily_count = 0;
+
       /**
        * The owner authority represents absolute control over the account. Usually the keys in this authority will
        * be kept in cold storage, as they should not be needed very often and compromise of these keys constitutes
@@ -314,7 +329,6 @@ namespace graphene { namespace chain {
 
       vector<address> addresses;
 
-      typedef account_options options_type;
       account_options options;
 
       /// The reference implementation records the account's statistics in a separate object. This field contains the
@@ -719,9 +733,10 @@ FC_REFLECT( graphene::chain::mature_balances_history, (balance)(real_balance));
 FC_REFLECT_DERIVED( graphene::chain::Unit, (graphene::chain::SimpleUnit), (referrals)(level));
 FC_REFLECT( graphene::chain::ref_info,
             (level_1)(id)(name)(balance)(level_1_partners)(level_1_sum)(level_2_partners)
-            (all_partners)(all_sum)(bonus_percent)(rank)
-          );
+            (all_partners)(all_sum)(bonus_percent)(rank) )
 FC_REFLECT( graphene::chain::bonus_balances_object::bonus_balances_info, (bonus_time)(balances)(referral));
+
+FC_REFLECT_ENUM( graphene::chain::e_account_rank, (_default)(_1)(_2)(_3) )
 
 MAP_OBJECT_ID_TO_TYPE( graphene::chain::account_object )
 MAP_OBJECT_ID_TO_TYPE( graphene::chain::account_balance_object )

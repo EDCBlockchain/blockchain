@@ -265,7 +265,7 @@ int main( int argc, char** argv )
       std::shared_ptr<fc::http::websocket_server> _websocket_server;
       if( options.count("rpc-endpoint") )
       {
-         _websocket_server = std::make_shared<fc::http::websocket_server>();
+         _websocket_server = std::make_shared<fc::http::websocket_server>("");
          _websocket_server->on_connection([&wapi]( const fc::http::websocket_connection_ptr& c ){
             auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(c, GRAPHENE_MAX_NESTED_OBJECTS);
             wsc->register_api(wapi);
@@ -280,7 +280,7 @@ int main( int argc, char** argv )
       if( options.count( "rpc-tls-certificate" ) )
          cert_pem = options.at("rpc-tls-certificate").as<string>();
 
-      auto _websocket_tls_server = std::make_shared<fc::http::websocket_tls_server>(cert_pem);
+      auto _websocket_tls_server = std::make_shared<fc::http::websocket_tls_server>(cert_pem, "", "");
       if( options.count("rpc-tls-endpoint") )
       {
          _websocket_tls_server->on_connection([&wapi]( const fc::http::websocket_connection_ptr& c ){

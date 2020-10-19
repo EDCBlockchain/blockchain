@@ -650,5 +650,33 @@ namespace graphene { namespace wallet { namespace detail {
 
       return sign_transaction(tx, broadcast);
    } FC_CAPTURE_AND_RETHROW( (name_or_id)(enabled) ) }
-    
+
+   fc::optional<witness_object> wallet_api_impl::get_witness_by_account(const std::string& name_or_id)
+   { try {
+      const account_object& acc = get_account(name_or_id);
+      return _remote_db->get_witness_by_account(acc.get_id());
+   } FC_CAPTURE_AND_RETHROW( (name_or_id) ) }
+
+   signed_transaction wallet_api_impl::set_witness_exception(
+      const std::vector<account_id_type>& exc_accounts_blocks
+      , const std::vector<account_id_type>& exc_accounts_fees
+      , bool exception_enabled)
+   { try {
+      bool broadcast = true;
+      fc::optional<asset_object> fee_asset_obj = get_asset("CORE");
+      FC_ASSERT(fee_asset_obj, "Could not find asset matching ${asset}", ("asset", "CORE"));
+
+      set_witness_exception_operation op;
+      op.exc_accounts_blocks = exc_accounts_blocks;
+      op.exc_accounts_fees   = exc_accounts_fees;
+      op.exception_enabled   = exception_enabled;
+      signed_transaction tx;
+      tx.operations.push_back(op);
+      set_operation_fees( tx, _remote_db->get_global_properties().parameters.get_current_fees(), fee_asset_obj->options.core_exchange_rate );
+      tx.validate();
+
+      return sign_transaction(tx, broadcast);
+   } FC_CAPTURE_AND_RETHROW( (exc_accounts_blocks)(exc_accounts_fees)(exception_enabled) ) }
+
+
 }}} // namespace graphene::wallet::detail

@@ -37,7 +37,7 @@ namespace graphene { namespace protocol {
    fee_schedule fee_schedule::get_default()
    {
       fee_schedule result;
-      for( int i = 0; i < fee_parameters().count(); ++i )
+      for( int i = 0; i < (int)fee_parameters().count(); ++i )
       {
          fee_parameters x; x.set_which(i);
          result.parameters.insert(x);

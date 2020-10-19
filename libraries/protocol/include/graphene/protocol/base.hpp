@@ -26,6 +26,7 @@
 #include <graphene/protocol/types.hpp>
 #include <graphene/protocol/asset.hpp>
 #include <graphene/protocol/authority.hpp>
+#include <fc/thread/future.hpp>
 
 namespace graphene { namespace protocol {
 
@@ -89,7 +90,6 @@ namespace graphene { namespace protocol {
       fc::time_point datetime_begin;
       fc::time_point datetime_end;
       std::uint32_t  percent = 0; // current deposit percent
-
    };
 
    struct eval_fund_dep_apply_object_fixed
@@ -98,7 +98,6 @@ namespace graphene { namespace protocol {
       fc::time_point datetime_begin;
       fc::time_point datetime_end;
       asset daily_payment;
-
    };
 
    struct market_address
@@ -118,6 +117,8 @@ namespace graphene { namespace protocol {
       uint32_t percent = 0;
       asset daily_payment;
    };
+
+   /////////////////////////////////////////////////////////
 
    typedef fc::static_variant<
             void_result,
@@ -151,7 +152,7 @@ namespace graphene { namespace protocol {
     *  always add new types to a static_variant without breaking backward
     *  compatibility.   
     */
-   typedef static_variant<void_t>      future_extensions;
+   typedef static_variant<void_t> future_extensions;
 
    /**
     *  A flat_set is used to make sure that only one extension of
@@ -160,7 +161,7 @@ namespace graphene { namespace protocol {
     *  @note static_variant compares only the type tag and not the 
     *  content.
     */
-   typedef flat_set<future_extensions> extensions_type;
+   using extensions_type = future_extensions::flat_set_type;
 
    ///@}
 
@@ -182,5 +183,12 @@ FC_REFLECT( graphene::protocol::eval_fund_dep_apply_object_fixed,
             (daily_payment)
           )
 FC_REFLECT( graphene::protocol::market_address, (id)(addr) )
-FC_REFLECT( graphene::protocol::dep_update_info, (percent)(daily_payment) )
 FC_REFLECT( graphene::protocol::market_addresses, (addresses) )
+FC_REFLECT( graphene::protocol::dep_update_info, (percent)(daily_payment) )
+
+// impl in operations.cpp
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::eval_fund_dep_apply_object )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::eval_fund_dep_apply_object_fixed )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::market_address )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::market_addresses )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::dep_update_info )

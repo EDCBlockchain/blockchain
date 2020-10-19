@@ -42,6 +42,7 @@
 #include <graphene/protocol/withdraw_permission.hpp>
 #include <graphene/protocol/witness.hpp>
 #include <graphene/protocol/worker.hpp>
+#include <graphene/protocol/witnesses_info_ops.hpp>
 
 namespace graphene { namespace protocol {
 
@@ -140,7 +141,8 @@ namespace graphene { namespace protocol {
             fund_deposit_update_operation,         // [idx: 82]
             fund_deposit_reduce_operation,
             fund_deposit_update2_operation,
-            denominate_operation                   // [idx: 85]
+            denominate_operation,                  // [idx: 85]
+            set_witness_exception_operation
          > operation;
 
    /// @} // operations group

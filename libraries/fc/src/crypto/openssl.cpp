@@ -39,7 +39,11 @@ namespace  fc
 
        ~openssl_scope()
        {
+#if not defined(LIBRESSL_VERSION_NUMBER)
+          // No FIPS in LibreSSL.
+          // https://marc.info/?l=openbsd-misc&m=139819485423701&w=2
           FIPS_mode_set(0);
+#endif
           CONF_modules_unload(1);
           EVP_cleanup();
           CRYPTO_cleanup_all_ex_data();
@@ -59,4 +63,34 @@ namespace  fc
       static openssl_scope ossl;
       return 0;
     }
+
+    #define SSL_TYPE_IMPL(name, ssl_type, free_func) \
+            name::name( ssl_type* obj ) : ssl_wrapper(obj) {} \
+            name::name( name&& move ) : ssl_wrapper( move.obj ) \
+            { \
+               move.obj = nullptr; \
+            } \
+            name::~name() \
+            { \
+               if( obj != nullptr ) \
+                  free_func(obj); \
+            } \
+            name& name::operator=( name&& move ) \
+            { \
+               if( this != &move ) \
+               { \
+                  if( obj != nullptr ) \
+                     free_func(obj); \
+                  obj = move.obj; \
+                  move.obj = nullptr; \
+               } \
+               return *this; \
+            }
+
+    SSL_TYPE_IMPL(ec_group,       EC_GROUP,       EC_GROUP_free)
+    SSL_TYPE_IMPL(ec_point,       EC_POINT,       EC_POINT_free)
+    SSL_TYPE_IMPL(ecdsa_sig,      ECDSA_SIG,      ECDSA_SIG_free)
+    SSL_TYPE_IMPL(bn_ctx,         BN_CTX,         BN_CTX_free)
+    SSL_TYPE_IMPL(evp_cipher_ctx, EVP_CIPHER_CTX, EVP_CIPHER_CTX_free )
+    SSL_TYPE_IMPL(ssl_dh,         DH,             DH_free)
 }

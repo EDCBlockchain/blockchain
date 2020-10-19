@@ -68,7 +68,6 @@ namespace graphene { namespace chain {
          share_type accumulated_fees;    ///< fees accumulate to be paid out over time
          share_type fee_pool;            ///< in core asset
          share_type fee_burnt;           // burnt fee of this asset
-         share_type fees_sum;        // all fees between two maintenance times
    };
 
    /**

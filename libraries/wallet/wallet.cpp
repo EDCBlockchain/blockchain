@@ -253,11 +253,22 @@ vector<operation_history_object> wallet_api::get_account_operation_history2(acco
    return my->_remote_hist->get_account_operation_history2(account, stop, std::min(100,limit), start, operation_type);
 }
 
-vector<operation_history_object> wallet_api::get_account_operation_history4(account_id_type account
+vector<operation_detail> wallet_api::get_account_operation_history4(account_id_type account
                                                                             , operation_history_id_type start
                                                                             , unsigned limit
-                                                                            , const vector<uint16_t>& operation_types) const {
-   return my->_remote_hist->get_account_operation_history4(account, start, limit, operation_types);
+                                                                            , const vector<uint16_t>& operation_types) const
+{
+   vector<operation_detail> result;
+
+   vector<operation_history_object> current = my->_remote_hist->get_account_operation_history4(account, start, limit, operation_types);
+   for (auto& o: current)
+   {
+      std::stringstream ss;
+      auto memo = o.op.visit(detail::operation_printer(ss, *my, o.result));
+      result.push_back( operation_detail{ memo, ss.str(), o } );
+   }
+
+   return result;
 }
 
 vector<fund_deposit_object> wallet_api::get_account_deposits(const string& name_or_id, uint32_t start, uint32_t limit) const
@@ -808,6 +819,10 @@ fc::optional<restricted_account_object> wallet_api::get_restricted_account(const
    return my->get_restricted_account(name_or_id);
 }
 
+fc::optional<witness_object> wallet_api::get_witness_by_account(const std::string& name_or_id) const {
+   return my->get_witness_by_account(name_or_id);
+}
+
 vector<account_id_type> wallet_api::get_voting_accounts(const vote_id_type& vote) const
 { try {
 
@@ -882,6 +897,13 @@ signed_transaction wallet_api::vote_for_witness(string voting_account,
                                                 bool broadcast /* = false */)
 {
    return my->vote_for_witness(voting_account, witness, approve, broadcast);
+}
+
+signed_transaction wallet_api::set_witness_exception(
+   const std::vector<account_id_type>& exc_accounts_blocks
+   , const std::vector<account_id_type>& exc_accounts_fees
+   , bool exception_enabled) {
+   return my->set_witness_exception(exc_accounts_blocks, exc_accounts_fees, exception_enabled);
 }
 
 signed_transaction wallet_api::set_voting_proxy(string account_to_modify,

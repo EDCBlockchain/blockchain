@@ -30,9 +30,9 @@ namespace graphene { namespace protocol {
    template<typename ...T>
    struct transform_to_fee_parameters<fc::static_variant<T...>>
    {
-      typedef fc::static_variant< typename T::fee_parameters_type... > type;
+      using type = fc::static_variant< typename T::fee_parameters_type... >;
    };
-   typedef transform_to_fee_parameters<operation>::type fee_parameters;
+   using fee_parameters = transform_to_fee_parameters<operation>::type;
 
    /**
     *  @brief contains all of the parameters necessary to calculate the fee for any operation
@@ -75,7 +75,7 @@ namespace graphene { namespace protocol {
       /**
        *  @note must be sorted by fee_parameters.which() and have no duplicates
        */
-      flat_set<fee_parameters> parameters;
+      fee_parameters::flat_set_type parameters;
       uint32_t                 scale = GRAPHENE_100_PERCENT; ///< fee * scale / GRAPHENE_100_PERCENT
    };
 

@@ -72,3 +72,16 @@ namespace fc {
       }
    }
 }
+
+namespace std {
+#if defined(__clang__)
+   // Fix: https://github.com/bitshares/bitshares-core/issues/2197
+   #pragma clang diagnostic push
+   #pragma clang diagnostic ignored "-Wmismatched-tags"
+#endif
+   template< typename T, size_t N >
+   class tuple_size< fc::zero_initialized_array< T, N > > : public tuple_size< array< T, N > > {};
+#if defined(__clang__)
+   #pragma clang diagnostic pop
+#endif
+}

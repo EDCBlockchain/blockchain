@@ -67,6 +67,7 @@
 #include <graphene/chain/fund_evaluator.hpp>
 #include <graphene/chain/cheque_evaluator.hpp>
 #include <graphene/chain/settings_evaluator.hpp>
+#include <graphene/chain/witnesses_info_evaluator.hpp>
 
 #include <graphene/protocol/fee_schedule.hpp>
 
@@ -217,6 +218,7 @@ void database::initialize_evaluators()
    register_evaluator<fund_deposit_update_evaluator>();
    register_evaluator<fund_deposit_update2_evaluator>();
    register_evaluator<fund_deposit_reduce_evaluator>();
+   register_evaluator<witnesses_info_evaluator>();
 }
 
 void database::initialize_indexes()
@@ -275,6 +277,7 @@ void database::initialize_indexes()
    add_index<primary_index<simple_index<fund_statistics_object    >>>();
    add_index<primary_index<simple_index<fund_history_object       >>>();
    add_index<primary_index<simple_index<settings_object           >>>();
+   add_index<primary_index<simple_index<witnesses_info_object     >>>();
 }
 
 void database::init_genesis(const genesis_state_type& genesis_state)
@@ -469,6 +472,9 @@ void database::init_genesis(const genesis_state_type& genesis_state)
 
    // custom settings
    create<settings_object>([&](settings_object& obj) { });
+
+   // witnesses info object
+   create<witnesses_info_object>([&](witnesses_info_object& obj) { });
 
    FC_ASSERT( (genesis_state.immutable_parameters.min_witness_count & 1) == 1, "min_witness_count must be odd" );
    FC_ASSERT( (genesis_state.immutable_parameters.min_committee_member_count & 1) == 1, "min_committee_member_count must be odd" );

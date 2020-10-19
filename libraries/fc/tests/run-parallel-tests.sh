@@ -1,7 +1,7 @@
 #!/bin/sh
 
-if [ "$#" != 1 ]; then
-    echo "Usage: $0 <boost-unit-test-executable>" 1>&2
+if [ "$#" -lt 1 ]; then
+    echo "Usage: $0 <boost-unit-test-executable> [arguments]" 1>&2
     exit 1
 fi
 
@@ -15,7 +15,7 @@ fi
 
 if [ "$BOOST_VERSION" = "" -o "$BOOST_VERSION" -lt 105900 ]; then
     echo "Boost version '$BOOST_VERSION' - executing tests serially"
-    "$1"
+    "$@"
 else
   "$1" --list_content 2>&1 \
     | grep '\*$' \
@@ -26,5 +26,5 @@ else
 	*) pre="$t"; ;;
 	esac
       done \
-    | parallel echo Running {}\; "$1" -t {}
+    | parallel echo Running {}\; "$@" -t {}
 fi

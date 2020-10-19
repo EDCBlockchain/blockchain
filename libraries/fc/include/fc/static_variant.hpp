@@ -23,174 +23,6 @@ namespace fc {
 // Implementation details, the user should not import this:
 namespace impl {
 
-template<int N, typename... Ts>
-struct storage_ops;
-
-template<typename X, typename... Ts>
-struct position;
-
-template<typename... Ts>
-struct type_info;
-
-template<typename StaticVariant>
-struct copy_construct
-{
-   typedef void result_type;
-   StaticVariant& sv;
-   copy_construct( StaticVariant& s ):sv(s){}
-   template<typename T>
-   void operator()( const T& v )const
-   {
-      sv.init(v);
-   }
-};
-
-template<typename StaticVariant>
-struct move_construct
-{
-   typedef void result_type;
-   StaticVariant& sv;
-   move_construct( StaticVariant& s ):sv(s){}
-   template<typename T>
-   void operator()( T& v )const
-   {
-      sv.init( std::move(v) );
-   }
-};
-
-template<int N, typename T, typename... Ts>
-struct storage_ops<N, T&, Ts...> {
-    static void del(int n, void *data) {}
-    static void con(int n, void *data) {}
-
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, void *data, visitor& v) {}
-
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, void *data, const visitor& v) {}
-
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, const void *data, visitor& v) {}
-
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, const void *data, const visitor& v) {}
-};
-
-template<int N, typename T, typename... Ts>
-struct storage_ops<N, T, Ts...> {
-    static void del(int n, void *data) {
-        if(n == N) reinterpret_cast<T*>(data)->~T();
-        else storage_ops<N + 1, Ts...>::del(n, data);
-    }
-    static void con(int n, void *data) {
-        if(n == N) new(reinterpret_cast<T*>(data)) T();
-        else storage_ops<N + 1, Ts...>::con(n, data);
-    }
-
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, void *data, visitor& v) {
-        if(n == N) return v(*reinterpret_cast<T*>(data));
-        else return storage_ops<N + 1, Ts...>::apply(n, data, v);
-    }
-
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, void *data, const visitor& v) {
-        if(n == N) return v(*reinterpret_cast<T*>(data));
-        else return storage_ops<N + 1, Ts...>::apply(n, data, v);
-    }
-
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, const void *data, visitor& v) {
-        if(n == N) return v(*reinterpret_cast<const T*>(data));
-        else return storage_ops<N + 1, Ts...>::apply(n, data, v);
-    }
-
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, const void *data, const visitor& v) {
-        if(n == N) return v(*reinterpret_cast<const T*>(data));
-        else return storage_ops<N + 1, Ts...>::apply(n, data, v);
-    }
-};
-
-template<int N>
-struct storage_ops<N> {
-    static void del(int n, void *data) {
-       FC_THROW_EXCEPTION( fc::assert_exception, "Internal error: static_variant tag is invalid.");
-    }
-    static void con(int n, void *data) {
-       FC_THROW_EXCEPTION( fc::assert_exception, "Internal error: static_variant tag is invalid." );
-    }
-
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, void *data, visitor& v) {
-       FC_THROW_EXCEPTION( fc::assert_exception, "Internal error: static_variant tag is invalid." );
-    }
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, void *data, const visitor& v) {
-       FC_THROW_EXCEPTION( fc::assert_exception, "Internal error: static_variant tag is invalid." );
-    }
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, const void *data, visitor& v) {
-       FC_THROW_EXCEPTION( fc::assert_exception, "Internal error: static_variant tag is invalid." );
-    }
-    template<typename visitor>
-    static typename visitor::result_type apply(int n, const void *data, const visitor& v) {
-       FC_THROW_EXCEPTION( fc::assert_exception, "Internal error: static_variant tag is invalid." );
-    }
-};
-
-template<typename X>
-struct position<X> {
-    static constexpr int pos = -1;
-};
-
-template<typename X, typename... Ts>
-struct position<X, X, Ts...> {
-    static constexpr int pos = 0;
-};
-
-template<typename X, typename T, typename... Ts>
-struct position<X, T, Ts...> {
-    static constexpr int pos = position<X, Ts...>::pos != -1 ? position<X, Ts...>::pos + 1 : -1;
-};
-
-template<typename T, typename... Ts>
-struct type_info<T&, Ts...> {
-    static constexpr bool no_reference_types = false;
-    static constexpr bool no_duplicates = position<T, Ts...>::pos == -1 && type_info<Ts...>::no_duplicates;
-    static constexpr size_t size = type_info<Ts...>::size > sizeof(T&) ? type_info<Ts...>::size : sizeof(T&);
-    static constexpr size_t count = 1 + type_info<Ts...>::count;
-};
-
-template<typename T, typename... Ts>
-struct type_info<T, Ts...> {
-    static constexpr bool no_reference_types = type_info<Ts...>::no_reference_types;
-    static constexpr bool no_duplicates = position<T, Ts...>::pos == -1 && type_info<Ts...>::no_duplicates;
-    static constexpr size_t size = type_info<Ts...>::size > sizeof(T) ? type_info<Ts...>::size : sizeof(T&);
-    static constexpr size_t count = 1 + type_info<Ts...>::count;
-};
-
-template<>
-struct type_info<> {
-    static constexpr bool no_reference_types = true;
-    static constexpr bool no_duplicates = true;
-    static constexpr size_t count = 0;
-    static constexpr size_t size = 0;
-};
-
-template<typename TTag>
-constexpr size_t size( TTag )
-{
-    return 0;
-}
-
-template<typename TTag, typename A, typename...Ts>
-constexpr size_t size( TTag tag )
-{
-    return tag <= 0 ? sizeof(A) : size<TTag, Ts...>( --tag );
-}
-
-
 class dynamic_storage
 {
     char* storage;
@@ -206,71 +38,36 @@ public:
     void release();
 };
 
-
-
 } // namespace impl
-
-template<int L,typename Visitor,typename Data>
-static const std::array<typename Visitor::result_type(*)(Visitor&,Data),L>
-      init_wrappers( Visitor& v, Data d, typename Visitor::result_type(**funcs)(Visitor&,Data) = 0)
-{
-   return std::array<typename Visitor::result_type(*)(Visitor&,Data),L>();
-}
-
-template<int L,typename Visitor,typename Data,typename T, typename ... Types>
-static const std::array<typename Visitor::result_type(*)(Visitor&,Data),L>
-      init_wrappers( Visitor& v, Data d, typename Visitor::result_type(**funcs)(Visitor&,Data) = 0 )
-{
-   std::array<typename Visitor::result_type(*)(Visitor&,Data),L> result{};
-   if( !funcs ) funcs = result.data();
-   *funcs++ = [] ( Visitor& v, Data d ) { return v( *reinterpret_cast<T*>( d ) ); };
-   init_wrappers<L,Visitor,Data,Types...>( v, d, funcs );
-   return result;
-}
-
-template<int L,typename Visitor,typename Data>
-static const std::array<typename Visitor::result_type(*)(Visitor&,Data),L>
-      init_const_wrappers( Visitor& v, Data d, typename Visitor::result_type(**funcs)(Visitor&,Data) = 0 )
-{
-   return std::array<typename Visitor::result_type(*)(Visitor&,Data),L>();
-}
-
-template<int L,typename Visitor,typename Data,typename T, typename ... Types>
-static const std::array<typename Visitor::result_type(*)(Visitor&,Data),L>
-      init_const_wrappers( Visitor& v, Data d, typename Visitor::result_type(**funcs)(Visitor&,Data) = 0 )
-{
-   std::array<typename Visitor::result_type(*)(Visitor&,Data),L> result{};
-   if( !funcs ) funcs = result.data();
-   *funcs++ = [] ( Visitor& v, Data d ) { return v( *reinterpret_cast<const T*>( d ) ); };
-   init_const_wrappers<L,Visitor,Data,Types...>( v, d, funcs );
-   return result;
-}
 
 template<typename... Types>
 class static_variant {
 public:
     using tag_type = int64_t;
+    using list = typelist::list<Types...>;
 
 protected:
-    static_assert(impl::type_info<Types...>::no_reference_types, "Reference types are not permitted in static_variant.");
-    static_assert(impl::type_info<Types...>::no_duplicates, "static_variant type arguments contain duplicate types.");
+    static_assert(typelist::length<typelist::filter<list, std::is_reference>>() == 0,
+                  "Reference types are not permitted in static_variant.");
+    static_assert(typelist::length<typelist::concat_unique<list>>() == typelist::length<list>(),
+                  "static_variant type arguments contain duplicate types.");
 
     template<typename X>
-    using type_in_typelist = typename std::enable_if<impl::position<X, Types...>::pos != -1, X>::type; // type is in typelist of static_variant.
+    using type_in_typelist = std::enable_if_t<typelist::index_of<list, X>() != -1>;
 
     tag_type _tag;
     impl::dynamic_storage storage;
 
     template<typename X, typename = type_in_typelist<X>>
     void init(const X& x) {
-        _tag = impl::position<X, Types...>::pos;
+        _tag = typelist::index_of<list, X>();
         storage.alloc( sizeof(X) );
         new(storage.data()) X(x);
     }
 
     template<typename X, typename = type_in_typelist<X>>
     void init(X&& x) {
-        _tag = impl::position<X, Types...>::pos;
+        _tag = typelist::index_of<list, X>();
         storage.alloc( sizeof(X) );
         new(storage.data()) X( std::move(x) );
     }
@@ -278,29 +75,78 @@ protected:
     void init_from_tag(tag_type tag)
     {
         FC_ASSERT( tag >= 0 );
-        FC_ASSERT( tag < count() );
+        FC_ASSERT( static_cast<size_t>(tag) < count() );
         _tag = tag;
-        storage.alloc( impl::size<tag_type, Types...>( tag ) );
-        impl::storage_ops<0, Types...>::con(_tag, storage.data());
+        typelist::runtime::dispatch(list(), tag, [this](auto t) {
+            using T = typename decltype(t)::type;
+            storage.alloc(sizeof(T));
+            new(reinterpret_cast<T*>(storage.data())) T();
+        });
     }
 
     void clean()
     {
-        impl::storage_ops<0, Types...>::del(_tag, storage.data() );
+        typelist::runtime::dispatch(list(), _tag, [data=storage.data()](auto t) {
+            using T = typename decltype(t)::type;
+            reinterpret_cast<T*>(data)->~T();
+        });
         storage.release();
     }
 
+    template<typename T, typename = void>
+    struct import_helper {
+        static static_variant construct(const T&) {
+            FC_THROW_EXCEPTION(assert_exception, "Cannot import unsupported type ${T} into static_variant",
+                               ("T", get_typename<T>::name()));
+        }
+        static static_variant construct(T&&) {
+            FC_THROW_EXCEPTION(assert_exception, "Cannot import unsupported type ${T} into static_variant",
+                               ("T", get_typename<T>::name()));
+        }
+    };
+    template<typename T>
+    struct import_helper<T, type_in_typelist<T>> {
+        static static_variant construct(const T& t) {
+            return static_variant(t);
+        }
+        static static_variant construct(T&& t) {
+            return static_variant(std::move(t));
+        }
+    };
 
-    template<typename StaticVariant>
-    friend struct impl::copy_construct;
-    template<typename StaticVariant>
-    friend struct impl::move_construct;
 public:
     template<typename X, typename = type_in_typelist<X>>
     struct tag
     {
-       static constexpr int value = impl::position<X, Types...>::pos;
+       static constexpr tag_type value = typelist::index_of<list, X>();
     };
+
+    struct type_lt {
+       bool operator()(const static_variant& a, const static_variant& b) const { return a.which() < b.which(); }
+    };
+    struct type_eq {
+       bool operator()(const static_variant& a, const static_variant& b) const { return a.which() == b.which(); }
+    };
+    using flat_set_type = flat_set<static_variant, type_lt>;
+
+    /// Import the value from a foreign static_variant with types not in this one, and throw if the value is an
+    /// incompatible type
+    template<typename... Other>
+    static static_variant import_from(const static_variant<Other...>& other) {
+        return typelist::runtime::dispatch(typelist::list<Other...>(), other.which(), [&other](auto t) {
+            using other_type = typename decltype(t)::type;
+            return import_helper<other_type>::construct(other.template get<other_type>());
+        });
+    }
+    /// Import the value from a foreign static_variant with types not in this one, and throw if the value is an
+    /// incompatible type
+    template<typename... Other>
+    static static_variant import_from(static_variant<Other...>&& other) {
+        return typelist::runtime::dispatch(typelist::list<Other...>(), other.which(), [&other](auto t) {
+            using other_type = typename decltype(t)::type;
+            return import_helper<other_type>::construct(std::move(other.template get<other_type>()));
+        });
+    }
 
     static_variant()
     {
@@ -310,22 +156,40 @@ public:
     template<typename... Other>
     static_variant( const static_variant<Other...>& cpy )
     {
-       cpy.visit( impl::copy_construct<static_variant>(*this) );
+       typelist::runtime::dispatch(typelist::list<Other...>(), cpy.which(), [this, &cpy](auto t) mutable {
+          this->init(cpy.template get<typename decltype(t)::type>());
+       });
     }
 
     static_variant( const static_variant& cpy )
     {
-       cpy.visit( impl::copy_construct<static_variant>(*this) );
+       typelist::runtime::dispatch(list(), cpy.which(), [this, &cpy](auto t) mutable {
+          this->init(cpy.template get<typename decltype(t)::type>());
+       });
     }
 
     static_variant( static_variant&& mv )
     {
-       mv.visit( impl::move_construct<static_variant>(*this) );
+       typelist::runtime::dispatch(list(), mv.which(), [this, &mv](auto t) mutable {
+          this->init(std::move(mv.template get<typename decltype(t)::type>()));
+       });
+    }
+
+    template<typename... Other>
+    static_variant( static_variant<Other...>&& mv )
+    {
+       typelist::runtime::dispatch(typelist::list<Other...>(), mv.which(), [this, &mv](auto t) mutable {
+           this->init(std::move(mv.template get<typename decltype(t)::type>()));
+       });
     }
 
     template<typename X, typename = type_in_typelist<X>>
     static_variant(const X& v) {
         init(v);
+    }
+    template<typename X, typename = type_in_typelist<X>>
+    static_variant(X&& v) {
+        init(std::move(v));
     }
 
     ~static_variant() {
@@ -342,28 +206,33 @@ public:
     {
        if( this == &v ) return *this;
        clean();
-       v.visit( impl::copy_construct<static_variant>(*this) );
+       typelist::runtime::dispatch(list(), v.which(), [this, &v](auto t)mutable {
+          this->init(v.template get<typename decltype(t)::type>());
+       });
        return *this;
     }
     static_variant& operator=( static_variant&& v )
     {
        if( this == &v ) return *this;
        clean();
-       v.visit( impl::move_construct<static_variant>(*this) );
+       typelist::runtime::dispatch(list(), v.which(), [this, &v](auto t)mutable {
+          this->init(std::move(v.template get<typename decltype(t)::type>()));
+       });
        return *this;
     }
-    friend bool operator == ( const static_variant& a, const static_variant& b )
-    {
-       return a.which() == b.which();
-    }
-    friend bool operator < ( const static_variant& a, const static_variant& b )
-    {
-       return a.which() < b.which();
+
+    friend bool operator==( const static_variant& a, const static_variant& b ) {
+       if (a.which() != b.which())
+          return false;
+       return typelist::runtime::dispatch(list(), a.which(), [&a, &b](auto t) {
+          using Value = typename decltype(t)::type;
+          return a.template get<Value>() == b.template get<Value>();
+       });
     }
 
     template<typename X, typename = type_in_typelist<X>>
     X& get() {
-        if(_tag == impl::position<X, Types...>::pos) {
+        if(_tag == typelist::index_of<list, X>()) {
             return *reinterpret_cast<X*>(storage.data());
         } else {
             FC_THROW_EXCEPTION( fc::assert_exception, "static_variant does not contain a value of type ${t}", ("t",fc::get_typename<X>::name()) );
@@ -371,7 +240,7 @@ public:
     }
     template<typename X, typename = type_in_typelist<X>>
     const X& get() const {
-        if(_tag == impl::position<X, Types...>::pos) {
+        if(_tag == typelist::index_of<list, X>()) {
             return *reinterpret_cast<const X*>(storage.data());
         } else {
             FC_THROW_EXCEPTION( fc::assert_exception, "static_variant does not contain a value of type ${t}", ("t",fc::get_typename<X>::name()) );
@@ -400,41 +269,45 @@ public:
     template<typename visitor>
     static typename visitor::result_type visit( tag_type tag, visitor& v, void* data )
     {
-        static const auto wrappers = init_wrappers<impl::type_info<Types...>::count,visitor,void*,Types...>( v, data );
-        FC_ASSERT( tag >= 0 && tag < count(), "Unsupported type ${tag}!", ("tag",tag) );
-        return wrappers[tag]( v, data );
+        FC_ASSERT( tag >= 0 && static_cast<size_t>(tag) < count(), "Unsupported type ${tag}!", ("tag",tag) );
+        return typelist::runtime::dispatch(list(), tag, [&v, data](auto t) {
+            return v(*reinterpret_cast<typename decltype(t)::type*>(data));
+        });
     }
 
     template<typename visitor>
     static typename visitor::result_type visit( tag_type tag, const visitor& v, void* data )
     {
-        static const auto wrappers = init_wrappers<impl::type_info<Types...>::count,const visitor,void*,Types...>( v, data );
-        FC_ASSERT( tag >= 0 && tag < count(), "Unsupported type ${tag}!", ("tag",tag) );
-        return wrappers[tag]( v, data );
+        FC_ASSERT( tag >= 0 && static_cast<size_t>(tag) < count(), "Unsupported type ${tag}!", ("tag",tag) );
+        return typelist::runtime::dispatch(list(), tag, [&v, data](auto t) {
+            return v(*reinterpret_cast<typename decltype(t)::type*>(data));
+        });
     }
 
     template<typename visitor>
     static typename visitor::result_type visit( tag_type tag, visitor& v, const void* data )
     {
-        static const auto wrappers = init_const_wrappers<impl::type_info<Types...>::count,visitor,const void*,Types...>( v, data );
-        FC_ASSERT( tag >= 0 && tag < count(), "Unsupported type ${tag}!", ("tag",tag) );
-        return wrappers[tag]( v, data );
+        FC_ASSERT( tag >= 0 && static_cast<size_t>(tag) < count(), "Unsupported type ${tag}!", ("tag",tag) );
+        return typelist::runtime::dispatch(list(), tag, [&v, data](auto t) {
+            return v(*reinterpret_cast<const typename decltype(t)::type*>(data));
+        });
     }
 
     template<typename visitor>
     static typename visitor::result_type visit( tag_type tag, const visitor& v, const void* data )
     {
-        static const auto wrappers = init_const_wrappers<impl::type_info<Types...>::count,const visitor,const void*,Types...>( v, data );
-        FC_ASSERT( tag >= 0 && tag < count(), "Unsupported type ${tag}!", ("tag",tag) );
-        return wrappers[tag]( v, data );
+        FC_ASSERT( tag >= 0 && static_cast<size_t>(tag) < count(), "Unsupported type ${tag}!", ("tag",tag) );
+        return typelist::runtime::dispatch(list(), tag, [&v, data](auto t) {
+            return v(*reinterpret_cast<const typename decltype(t)::type*>(data));
+        });
     }
 
-    static constexpr int count() { return impl::type_info<Types...>::count; }
-    void set_which( tag_type w ) {
-      FC_ASSERT( w >= 0 );
-      FC_ASSERT( w < count() );
+    static constexpr size_t count() { return typelist::length<list>(); }
+    void set_which( tag_type tag ) {
+      FC_ASSERT( tag >= 0 );
+      FC_ASSERT( static_cast<size_t>(tag) < count() );
       clean();
-      init_from_tag(w);
+      init_from_tag(tag);
     }
 
     tag_type which() const {return _tag;}
@@ -442,6 +315,12 @@ public:
     template<typename T>
     bool is_type() const { return _tag == tag<T>::value; }
 };
+template<> class static_variant<> {
+public:
+    using tag_type = int64_t;
+    static_variant() { FC_THROW_EXCEPTION(assert_exception, "Cannot create static_variant with no types"); }
+};
+template<typename... Types> class static_variant<typelist::list<Types...>> : public static_variant<Types...> {};
 
    struct from_static_variant 
    {

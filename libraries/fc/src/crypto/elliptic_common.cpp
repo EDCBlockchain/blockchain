@@ -7,8 +7,6 @@
 
 #ifdef _WIN32
 # include <malloc.h>
-#else
-# include <alloca.h>
 #endif
 
 /* stuff common to all ecc implementations */
@@ -231,12 +229,11 @@ namespace fc { namespace ecc {
 
     static std::string _to_base58( const extended_key_data& key )
     {
-        size_t buf_len = key.size() + 4;
-        char *buffer = (char*)alloca(buf_len);
+        char buffer[std::tuple_size<extended_key_data>::value + 4]; // it's a small static array => allocate on stack
         memcpy( buffer, key.data(), key.size() );
-        fc::sha256 double_hash = fc::sha256::hash( fc::sha256::hash( (char*) key.data(), key.size() ));
+        fc::sha256 double_hash = fc::sha256::hash( fc::sha256::hash( (char*)key.data(), key.size() ));
         memcpy( buffer + key.size(), double_hash.data(), 4 );
-        return fc::to_base58( buffer, buf_len );
+        return fc::to_base58( buffer, sizeof(buffer) );
     }
 
     static void _parse_extended_data( unsigned char* buffer, std::string base58 )

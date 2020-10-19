@@ -90,22 +90,26 @@ namespace graphene { namespace wallet { namespace detail {
    
    signed_transaction wallet_api_impl::cancel_order(limit_order_id_type order_id, bool broadcast)
    { try {
-         FC_ASSERT(!is_locked());
-         signed_transaction trx;
+        FC_ASSERT(!is_locked());
+        signed_transaction trx;
 
-         limit_order_cancel_operation op;
-         op.fee_paying_account = get_object(order_id).seller;
-         op.order = order_id;
-         trx.operations = {op};
-         set_operation_fees( trx, _remote_db->get_global_properties().parameters.get_current_fees());
+        limit_order_cancel_operation op;
+        op.fee_paying_account = get_object(order_id).seller;
+        op.order = order_id;
+        trx.operations = {op};
+        set_operation_fees( trx, _remote_db->get_global_properties().parameters.get_current_fees());
 
-         trx.validate();
-         return sign_transaction(trx, broadcast);
+        trx.validate();
+        return sign_transaction(trx, broadcast);
    } FC_CAPTURE_AND_RETHROW((order_id)) }
    
-   signed_transaction wallet_api_impl::transfer(string from,
-      string to, string amount,
-      string asset_symbol, string memo, bool broadcast)
+   signed_transaction wallet_api_impl::transfer(
+      string from
+      , string to
+      , string amount
+      , string asset_symbol
+      , string memo
+      , bool broadcast)
    { try {
       FC_ASSERT( !self.is_locked() );
       fc::optional<asset_object> asset_obj = get_asset(asset_symbol);
@@ -166,29 +170,10 @@ namespace graphene { namespace wallet { namespace detail {
       }
 
       signed_transaction tx;
-      //      const dynamic_global_property_object& dynamic_props = get_dynamic_global_properties();
-      bool custom_fee_enabled = false;
-//      if (dynamic_props.time > HARDFORK_627_TIME)
-//      {
-      const settings_object& settings = get_object(settings_id_type(0));
-      auto itr = std::find_if(settings.transfer_fees.begin(), settings.transfer_fees.end(), [&](const chain::settings_fee& f) {
-         return (f.asset_id == asset_obj->params.fee_paying_asset);
-      });
-      if (itr != settings.transfer_fees.end())
-      {
-         custom_fee_enabled = true;
-         share_type amount = std::round(xfer_op.amount.amount.value * (itr->percent / 100000.0));
-         const asset& calc_fee = _remote_db->get_current_fee_schedule().calculate_fee(xfer_op, fee_asset_obj->options.core_exchange_rate);
-         amount = (amount < calc_fee.amount) ? calc_fee.amount : amount;
-         xfer_op.fee = asset(amount, asset_obj->params.fee_paying_asset);
-      }
-      //}
+
+      const transfer_fee_info& fee = _remote_db->get_required_transfer_fee(xfer_op.amount, from_id, to_id);
+      xfer_op.fee = fee.amount;
       tx.operations.push_back(xfer_op);
-
-      if (!custom_fee_enabled) {
-         set_operation_fees( tx, _remote_db->get_global_properties().parameters.get_current_fees(), fee_asset_obj->options.core_exchange_rate );
-      }
-
       tx.validate();
 
       _last_wallet_transfer.set(asset_symbol, from, to, amount, memo);

@@ -304,21 +304,38 @@ database_api_impl::get_asset_objects(const asset& amount, bool is_blind) const
    return result;
 }
 
-transfer_fee_info database_api::get_required_transfer_fee(const asset& amount) const {
-   return my->get_required_transfer_fee(amount);
+transfer_fee_info database_api::get_required_transfer_fee(const asset& amount, account_id_type from, account_id_type to) const {
+   return my->get_required_transfer_fee(amount, from, to);
 }
 
-transfer_fee_info database_api_impl::get_required_transfer_fee(const asset& amount) const
+transfer_fee_info database_api_impl::get_required_transfer_fee(const asset& amount, account_id_type from, account_id_type to) const
 {
    transfer_fee_info result;
    const settings_object& settings = _db.get(settings_id_type(0));
 
    std::pair<optional<asset_object>, optional<asset_object>>&& amounts = get_asset_objects(amount);
-   //const asset_object& asset_type = *amounts.first;
+   const asset_object& asset_type = *amounts.first;
    const asset_object& fee_asset_type = *amounts.second;
 
    result.name = fee_asset_type.symbol;
    result.precision = fee_asset_type.precision;
+
+   const account_object& to_account = _db.get(to);
+
+   // no fee from burning account
+   if (to_account.burning_mode_enabled)
+   {
+      result.amount = asset(0, fee_asset_type.get_id());
+      return result;
+   }
+
+   // account fee
+   const account_object& acc = _db.get(from);
+   if ((asset_type.get_id() == EDC_ASSET) && (acc.rank > e_account_rank::_default))
+   {
+      result.amount = asset(std::round(amount.amount.value * _db.get_percent(_db.get_account_fee_edc_percent_by_rank(acc))), EDC_ASSET);
+      return result;
+   }
 
    // custom fee
    optional<chain::settings_fee> fee = _db.get_custom_fee(settings.transfer_fees, fee_asset_type.get_id());
@@ -349,11 +366,11 @@ transfer_fee_info database_api_impl::get_required_transfer_fee(const asset& amou
    return result;
 }
 
-transfer_fee_info database_api::get_required_blind_transfer_fee(const asset& amount) const {
-   return my->get_required_blind_transfer_fee(amount);
+transfer_fee_info database_api::get_required_blind_transfer_fee(const asset& amount, account_id_type from, account_id_type to) const {
+   return my->get_required_blind_transfer_fee(amount, from, to);
 }
 
-transfer_fee_info database_api_impl::get_required_blind_transfer_fee(const asset& amount) const
+transfer_fee_info database_api_impl::get_required_blind_transfer_fee(const asset& amount, account_id_type from, account_id_type to) const
 {
    transfer_fee_info result;
    const settings_object& settings = _db.get(settings_id_type(0));
@@ -362,28 +379,45 @@ transfer_fee_info database_api_impl::get_required_blind_transfer_fee(const asset
    const asset_object& asset_type = *amounts.first;
    const asset_object& default_fee_asset_type = *amounts.second;
 
+   result.name = asset_type.symbol;
+   result.precision = asset_type.precision;
+
+   const account_object& to_account = _db.get(to);
+
+   // no fee with burning account
+   if (to_account.burning_mode_enabled)
+   {
+      result.amount = asset(0, asset_type.get_id());
+      return result;
+   }
+
+   // account fee
+   const account_object& acc = _db.get(from);
+   if ((asset_type.get_id() == EDC_ASSET) && (acc.rank > e_account_rank::_default))
+   {
+      result.amount = asset(std::round(amount.amount.value * _db.get_percent(_db.get_account_fee_edc_percent_by_rank(acc))), EDC_ASSET);
+      return result;
+   }
+
    // default fee
    result.name = default_fee_asset_type.symbol;
    result.precision = default_fee_asset_type.precision;
    result.amount = settings.blind_transfer_default_fee;
 
-   // fee
+   // custom
    optional<chain::settings_fee> fee = _db.get_custom_fee(settings.blind_transfer_fees, asset_type.get_id());
-   if (fee)
-   {
-      result.name = asset_type.symbol;
-      result.precision = asset_type.precision;
+   if (fee) {
       result.amount = asset(std::round(amount.amount.value * _db.get_percent(fee->percent)), asset_type.get_id());
    }
 
    return result;
 }
 
-transfer_fee_info database_api::get_required_cheque_fee(const asset& amount, uint32_t count) const {
-   return my->get_required_cheque_fee(amount, count);
+transfer_fee_info database_api::get_required_cheque_fee(const asset& amount, uint32_t count, account_id_type acc_id) const {
+   return my->get_required_cheque_fee(amount, count, acc_id);
 }
 
-transfer_fee_info database_api_impl::get_required_cheque_fee(const asset& amount, uint32_t count) const
+transfer_fee_info database_api_impl::get_required_cheque_fee(const asset& amount, uint32_t count, account_id_type acc_id) const
 {
    transfer_fee_info result;
    const settings_object& settings = _db.get(settings_id_type(0));
@@ -397,7 +431,16 @@ transfer_fee_info database_api_impl::get_required_cheque_fee(const asset& amount
    result.precision = asset_type.precision;
    result.amount = asset(0, asset_type.get_id());
 
-   // fee
+   const account_object& acc = _db.get(acc_id);
+   if ((asset_type.get_id() == EDC_ASSET) && (acc.rank > e_account_rank::_default))
+   {
+      result.name = asset_type.symbol;
+      result.precision = asset_type.precision;
+      result.amount = asset(std::round(cheque_amount.value * _db.get_percent(_db.get_account_fee_edc_percent_by_rank(acc))), EDC_ASSET);
+      return result;
+   }
+
+   // custom
    optional<chain::settings_fee> fee = _db.get_custom_fee(settings.cheque_fees, asset_type.get_id());
    if (fee)
    {
@@ -409,23 +452,46 @@ transfer_fee_info database_api_impl::get_required_cheque_fee(const asset& amount
    return result;
 }
 
-max_transfer_info database_api::get_max_transfer_amount_and_fee(const asset& amount, bool is_blind) const {
-   return my->get_max_transfer_amount_and_fee(amount, is_blind);
+max_transfer_info database_api::get_max_transfer_amount_and_fee(const asset& amount, bool is_blind, account_id_type from, account_id_type to) const {
+   return my->get_max_transfer_amount_and_fee(amount, is_blind, from, to);
 }
 
-max_transfer_info database_api_impl::get_max_transfer_amount_and_fee(const asset& amount, bool is_blind) const
+max_transfer_info database_api_impl::get_max_transfer_amount_and_fee(const asset& amount, bool is_blind, account_id_type from, account_id_type to) const
 {
    max_transfer_info result;
    const settings_object& settings = _db.get(settings_id_type(0));
+   std::pair<optional<asset_object>, optional<asset_object>>&& amounts = get_asset_objects(amount);
+   asset_object asset_type = *amounts.first;
+   const asset_object& fee_asset_type = *amounts.second;
+
+   // account (transfers & blind transfers)
+   const account_object& acc = _db.get(from);
+   const account_object& to_account = _db.get(to);
+
+   // no fee with burning account
+   if (to_account.burning_mode_enabled)
+   {
+      result.amount = asset(amount.amount, asset_type.get_id());
+      result.fee = { asset(0, fee_asset_type.get_id()), fee_asset_type.symbol, fee_asset_type.precision };
+      return result;
+   }
+
+   // account fee
+   if ((asset_type.get_id() == EDC_ASSET) && (acc.rank > e_account_rank::_default))
+   {
+      share_type a = std::round(amount.amount.value / (1 + _db.get_percent(_db.get_account_fee_edc_percent_by_rank(acc))));
+      result.amount = asset(a, asset_type.get_id());
+      result.fee = { asset(std::round(a.value * _db.get_percent(_db.get_account_fee_edc_percent_by_rank(acc))), EDC_ASSET)
+                   , asset_type.symbol
+                   , asset_type.precision };
+      return result;
+   }
 
    if (!is_blind)
    {
-      std::pair<optional<asset_object>, optional<asset_object>>&& amounts = get_asset_objects(amount);
-      const asset_object& asset_type = *amounts.first;
-      const asset_object& fee_asset_type = *amounts.second;
-
       if (asset_type.get_id() == fee_asset_type.get_id())
       {
+         // custom
          optional<chain::settings_fee> custom_fee = _db.get_custom_fee(settings.transfer_fees, fee_asset_type.get_id());
          if (custom_fee)
          {
@@ -436,6 +502,7 @@ max_transfer_info database_api_impl::get_max_transfer_amount_and_fee(const asset
                          , asset_type.precision };
             return result;
          }
+         // inner
          else
          {
             const vector<fc::variant>& v = get_required_fees({transfer_operation()}, asset_type.get_id());
@@ -453,7 +520,7 @@ max_transfer_info database_api_impl::get_max_transfer_amount_and_fee(const asset
          }
       }
 
-      transfer_fee_info&& fee = get_required_transfer_fee(amount);
+      transfer_fee_info&& fee = get_required_transfer_fee(amount, from, to);
       result.amount = amount;
       result.fee = { fee.amount, fee.name, fee.precision };
 
@@ -462,10 +529,11 @@ max_transfer_info database_api_impl::get_max_transfer_amount_and_fee(const asset
 
    /******** blind transfer ********/
 
-   std::pair<optional<asset_object>, optional<asset_object>>&& amounts = get_asset_objects(amount, true);
-   const asset_object& asset_type = *amounts.first;
-   const asset_object& blind_transfer_fee_type = *amounts.second;
+   std::pair<optional<asset_object>, optional<asset_object>>&& amounts_blind = get_asset_objects(amount, true);
+   asset_type = *amounts_blind.first;
+   const asset_object& blind_transfer_fee_type = *amounts_blind.second;
 
+   // custom
    optional<chain::settings_fee> custom_fee = _db.get_custom_fee(settings.blind_transfer_fees, asset_type.get_id());
    if (custom_fee)
    {
@@ -485,18 +553,18 @@ max_transfer_info database_api_impl::get_max_transfer_amount_and_fee(const asset
       return result;
    }
 
-   transfer_fee_info&& fee = get_required_blind_transfer_fee(amount);
+   transfer_fee_info&& fee = get_required_blind_transfer_fee(amount, from, to);
    result.amount = amount;
    result.fee = { fee.amount, fee.name, fee.precision };
 
    return result;
 }
 
-max_transfer_info database_api::get_max_cheque_amount_and_fee(const asset& amount) const {
-   return my->get_max_cheque_amount_and_fee(amount);
+max_transfer_info database_api::get_max_cheque_amount_and_fee(const asset& amount, account_id_type acc_id) const {
+   return my->get_max_cheque_amount_and_fee(amount, acc_id);
 }
 
-max_transfer_info database_api_impl::get_max_cheque_amount_and_fee(const asset& amount) const
+max_transfer_info database_api_impl::get_max_cheque_amount_and_fee(const asset& amount, account_id_type acc_id) const
 {
    max_transfer_info result;
    const settings_object& settings = _db.get(settings_id_type(0));
@@ -507,14 +575,27 @@ max_transfer_info database_api_impl::get_max_cheque_amount_and_fee(const asset& 
    result.amount = amount;
    result.fee = { asset(0, asset_type.get_id()), asset_type.symbol, asset_type.precision };
 
+   // account
+   const account_object& acc = _db.get(acc_id);
+   if ((asset_type.get_id() == EDC_ASSET) && (acc.rank > e_account_rank::_default))
+   {
+      share_type a = std::round(amount.amount.value / (1 + _db.get_percent(_db.get_account_fee_edc_percent_by_rank(acc))));
+      result.amount = asset(a, asset_type.get_id());
+      result.fee = { asset(std::round(a.value * _db.get_percent(_db.get_account_fee_edc_percent_by_rank(acc))), EDC_ASSET)
+                   , asset_type.symbol
+                   , asset_type.precision };
+      return result;
+   }
+
+   // custom
    optional<chain::settings_fee> fee = _db.get_custom_fee(settings.cheque_fees, asset_type.get_id());
    if (fee)
    {
       share_type a = std::round(amount.amount.value / (1 + _db.get_percent(fee->percent)));
       result.amount = asset(a, asset_type.get_id());
       result.fee = { asset(std::round(a.value * _db.get_percent(fee->percent)), fee->asset_id)
-      , asset_type.symbol
-      , asset_type.precision };
+                   , asset_type.symbol
+                   , asset_type.precision };
    }
 
    return result;

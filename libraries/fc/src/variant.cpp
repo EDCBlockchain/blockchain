@@ -11,7 +11,7 @@
 #include <fc/reflect/variant.hpp>
 #include <algorithm>
 
-#ifdef __APPLE__
+#if defined(__APPLE__) or defined(__OpenBSD__)
 #include <boost/multiprecision/integer.hpp>
 #endif
 
@@ -79,7 +79,7 @@ variant::variant( uint64_t val, uint32_t max_depth )
    set_variant_type( this, uint64_type );
 }
 
-#ifdef __APPLE__
+#if defined(__APPLE__) or defined(__OpenBSD__)
 variant::variant( size_t val, uint32_t max_depth )
 {
    *reinterpret_cast<uint64_t*>(this)  = val;
@@ -679,7 +679,7 @@ void from_variant( const variant& var, std::vector<char>& vo, uint32_t max_depth
 
 void to_variant( const uint128_t& var, variant& vo, uint32_t max_depth )
 {
-#ifdef __APPLE__
+#if defined(__APPLE__) or defined(__OpenBSD__)
    boost::multiprecision::uint128_t helper = uint128_hi64( var );
    helper <<= 64;
    helper += uint128_lo64( var );
@@ -691,7 +691,7 @@ void to_variant( const uint128_t& var, variant& vo, uint32_t max_depth )
 
 void from_variant( const variant& var, uint128_t& vo, uint32_t max_depth )
 {
-#ifdef __APPLE__
+#if defined(__APPLE__) or defined(__OpenBSD__)
    boost::multiprecision::uint128_t helper = boost::lexical_cast<boost::multiprecision::uint128_t>( var.as_string() );
    vo = static_cast<uint64_t>( helper >> 64 );
    vo <<= 64;
@@ -701,7 +701,8 @@ void from_variant( const variant& var, uint128_t& vo, uint32_t max_depth )
 #endif
 }
 
-#ifdef __APPLE__
+#if defined(__APPLE__) or defined(__OpenBSD__)
+   void to_variant( size_t s, variant& v, uint32_t max_depth ) { v = variant( uint64_t(s) ); }
 #elif !defined(_WIN32)
    void to_variant( long long int s, variant& v, uint32_t max_depth ) { v = variant( int64_t(s) ); }
    void to_variant( unsigned long long int s, variant& v, uint32_t max_depth ) { v = variant( uint64_t(s)); }

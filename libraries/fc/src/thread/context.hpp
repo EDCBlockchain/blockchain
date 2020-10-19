@@ -19,11 +19,11 @@
   namespace bc  = boost::context::detail;
   namespace bco = boost::coroutines;
   typedef bco::stack_allocator stack_allocator;
-#elif BOOST_VERSION >= 105400
+#else
 # include <boost/coroutine/stack_context.hpp>
   namespace bc  = boost::context;
   namespace bco = boost::coroutines;
-# if BOOST_VERSION >= 105600 && !defined(NDEBUG)
+# if !defined(NDEBUG)
 #  include <boost/assert.hpp>
 #  include <boost/coroutine/protected_stack_allocator.hpp>
   typedef bco::protected_stack_allocator stack_allocator;
@@ -32,16 +32,7 @@
   typedef bco::stack_allocator stack_allocator;
 # endif
 
-#elif BOOST_VERSION >= 105300
-  #include <boost/coroutine/stack_allocator.hpp>
-  namespace bc  = boost::context;
-  namespace bco = boost::coroutines;
-#elif BOOST_VERSION >= 105200
-  namespace bc = boost::context;
-#else
-  namespace bc  = boost::ctx;
-  namespace bco = boost::coroutine;
-#endif
+#endif // BOOST_VERSION >= 106100
 
 namespace fc {
   class thread;
@@ -55,10 +46,7 @@ namespace fc {
    */
   struct context  {
     typedef fc::context* ptr;
-
-#if BOOST_VERSION >= 105400
     bco::stack_context stack_ctx;
-#endif
 
 #if BOOST_VERSION >= 106100
     using context_fn = void (*)(bc::transfer_t);
@@ -81,32 +69,13 @@ namespace fc {
       cur_task(0),
       context_posted_num(0)
     {
-#if BOOST_VERSION >= 105600
      size_t stack_size = FC_CONTEXT_STACK_SIZE;
      alloc.allocate(stack_ctx, stack_size);
      my_context = bc::make_fcontext( stack_ctx.sp, stack_ctx.size, sf); 
-#elif BOOST_VERSION >= 105400
-     size_t stack_size = FC_CONTEXT_STACK_SIZE;
-     alloc.allocate(stack_ctx, stack_size);
-     my_context = bc::make_fcontext( stack_ctx.sp, stack_ctx.size, sf);
-#elif BOOST_VERSION >= 105300
-     size_t stack_size = FC_CONTEXT_STACK_SIZE;
-     void*  stackptr = alloc.allocate(stack_size);
-     my_context = bc::make_fcontext( stackptr, stack_size, sf);
-#else
-     size_t stack_size = FC_CONTEXT_STACK_SIZE;
-     my_context.fc_stack.base = alloc.allocate( stack_size );
-     my_context.fc_stack.limit = static_cast<char*>( my_context.fc_stack.base) - stack_size;
-     make_fcontext( &my_context, sf );
-#endif
     }
 
     context( fc::thread* t) :
-#if BOOST_VERSION >= 105600
      my_context(nullptr),
-#elif BOOST_VERSION >= 105300
-     my_context(new bc::fcontext_t),
-#endif
      caller_context(0),
      stack_alloc(0),
      next_blocked(0), 
@@ -123,23 +92,8 @@ namespace fc {
     {}
 
     ~context() {
-#if BOOST_VERSION >= 105600
       if(stack_alloc)
         stack_alloc->deallocate( stack_ctx );
-#elif BOOST_VERSION >= 105400
-      if(stack_alloc)
-        stack_alloc->deallocate( stack_ctx );
-      else
-        delete my_context;
-#elif BOOST_VERSION >= 105300
-      if(stack_alloc)
-        stack_alloc->deallocate( my_context->fc_stack.sp, FC_CONTEXT_STACK_SIZE);
-      else
-        delete my_context;
-#else
-      if(stack_alloc)
-        stack_alloc->deallocate( my_context.fc_stack.base, FC_CONTEXT_STACK_SIZE );
-#endif
     }
 
     void reinitialize()
@@ -225,13 +179,7 @@ namespace fc {
 
     bool is_complete()const { return complete; }
 
-
-
-#if BOOST_VERSION >= 105300 && BOOST_VERSION < 105600
-    bc::fcontext_t*              my_context;
-#else
     bc::fcontext_t               my_context;
-#endif
     fc::context*                caller_context;
     stack_allocator*            stack_alloc;
     priority                     prio;

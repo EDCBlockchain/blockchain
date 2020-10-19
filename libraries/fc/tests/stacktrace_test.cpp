@@ -64,17 +64,20 @@ public:
 BOOST_AUTO_TEST_CASE(static_variant_depth_test)
 {
    int64_t i = 1;
-   fc::static_variant<uint8_t,uint16_t,uint32_t,uint64_t,int8_t,int16_t,int32_t,int64_t> test(i);
+   fc::static_variant<std::string,std::vector<uint8_t>,std::vector<uint16_t>,std::vector<uint32_t>,
+                      uint8_t,uint16_t,uint32_t,uint64_t,int8_t,int16_t,int32_t,int64_t> test(i);
 
    std::string stacktrace = test.visit( _svdt_visitor() );
-   //std::cerr << stacktrace << "\n";
+   std::cerr << stacktrace << "\n";
    std::vector<std::string> lines;
    boost::split( lines, stacktrace, boost::is_any_of("\n") );
    int count = 0;
    for( const auto& line : lines )
       if( line.find("_svdt_visitor") != std::string::npos ) count++;
-   BOOST_CHECK_LT( 2, count ); // test.visit(), static_variant::visit, function object, visitor
-   BOOST_CHECK_GT( 8, count ); // some is implementation-dependent
+   BOOST_CHECK_LT( 1, count ); // test.visit(), static_variant::visit, function object, visitor.
+                               // The actual count depends on compiler and optimization settings.
+   BOOST_CHECK_GT( 10, count ); // It *should* be less than the number of static variant components.
+                                // some is implementation-dependent
 }
 #endif
 

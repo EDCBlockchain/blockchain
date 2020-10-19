@@ -748,7 +748,7 @@ BOOST_AUTO_TEST_CASE( funds_hardfork_626_test )
    } FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE( funds_deposits_limit )
+BOOST_AUTO_TEST_CASE( funds_deposits_limit_test)
 {
    try
    {
@@ -836,7 +836,7 @@ BOOST_AUTO_TEST_CASE( funds_deposits_limit )
 
       generate_block();
 
-      BOOST_CHECK(alice.edc_in_deposits.value == 30000000000);
+      BOOST_CHECK(get_account("alice").edc_in_deposits.value == 30000000000);
 
       fc::time_point_sec h_time = db.head_block_time() + fc::days(1);
       while (db.head_block_time() < h_time) {
@@ -882,7 +882,7 @@ BOOST_AUTO_TEST_CASE( funds_deposits_limit )
    } FC_LOG_AND_RETHROW()
 }
 
-BOOST_AUTO_TEST_CASE( funds_payments_limit )
+BOOST_AUTO_TEST_CASE( funds_payments_limit_test )
 {
    try
    {

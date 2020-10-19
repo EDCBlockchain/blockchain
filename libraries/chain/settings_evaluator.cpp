@@ -52,6 +52,16 @@ void_result settings_evaluator::do_apply( const update_settings_operation& op )
       if (op.extensions.value.witness_fees_percent) {
          obj.witness_fees_percent = *op.extensions.value.witness_fees_percent;
       }
+      // ranks
+      if (op.extensions.value.ranks)
+      {
+         obj.rank1_edc_amount = op.extensions.value.ranks->rank1_edc_amount;
+         obj.rank2_edc_amount = op.extensions.value.ranks->rank2_edc_amount;
+         obj.rank3_edc_amount = op.extensions.value.ranks->rank3_edc_amount;
+         obj.rank1_edc_transfer_fee_percent = op.extensions.value.ranks->rank1_edc_transfer_fee_percent;
+         obj.rank2_edc_transfer_fee_percent = op.extensions.value.ranks->rank2_edc_transfer_fee_percent;
+         obj.rank3_edc_transfer_fee_percent = op.extensions.value.ranks->rank3_edc_transfer_fee_percent;
+      }
    });
 
    return void_result{};

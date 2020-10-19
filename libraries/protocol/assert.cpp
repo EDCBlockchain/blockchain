@@ -66,7 +66,6 @@ share_type  assert_operation::calculate_fee(const fee_parameters_type& k)const
    return k.fee * predicates.size();
 }
 
-
 } }  // namespace graphene::protocol
 
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::assert_operation::fee_parameters_type )

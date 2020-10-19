@@ -186,8 +186,8 @@ void account_create_operation::validate()const
    FC_ASSERT( owner.address_auths.size() == 0 );
    FC_ASSERT( active.num_auths() != 0 );
    FC_ASSERT( active.address_auths.size() == 0 );
-   FC_ASSERT( !owner.is_impossible(), "cannot create an account with an imposible owner authority threshold" );
-   FC_ASSERT( !active.is_impossible(), "cannot create an account with an imposible active authority threshold" );
+   FC_ASSERT( !owner.is_impossible(), "cannot create an account with an impossible owner authority threshold" );
+   FC_ASSERT( !active.is_impossible(), "cannot create an account with an impossible active authority threshold" );
    options.validate();
    if( extensions.value.owner_special_authority.valid() )
       validate_special_authority( *extensions.value.owner_special_authority );
@@ -300,6 +300,7 @@ void create_market_address_operation::validate() const
 } } // graphene::protocol
 
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::account_options )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::limit_daily_ext_info )
 
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::add_address_operation::fee_parameters_type )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::account_create_operation::fee_parameters_type )

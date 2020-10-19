@@ -33,11 +33,13 @@ namespace graphene { namespace chain {
 
 void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
 { try {
-   
+
    const database& d = db();
 
-   const account_object& from_account = op.from(d);
+   from_account_ptr = &op.from(d);
    to_account_ptr = &op.to(d);
+   const account_object& from_account = *from_account_ptr;
+   const account_object& to_account = *to_account_ptr;
 
    const asset_object& asset_type = op.amount.asset_id(d);
 
@@ -46,7 +48,9 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
    const asset_object& fee_asset_type = fee_asset_type_ptr ? *fee_asset_type_ptr : CORE_ASSET(d);
 
    asset_dyn_data_ptr = &asset_type.dynamic_asset_data_id(d);
-   const settings_object& settings = *d.find(settings_id_type(0));
+
+   settings_ptr = &(const chain::settings_object&)(d.get(settings_id_type(0)));
+   const chain::settings_object& settings = *settings_ptr;
 
    try {
 
@@ -58,7 +62,7 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
          ("asset",op.amount.asset_id)
       );
       GRAPHENE_ASSERT(
-         is_authorized_asset( d, *to_account_ptr, asset_type ),
+         is_authorized_asset( d, to_account, asset_type ),
          transfer_to_account_not_whitelisted,
          "'to' account ${to} is not whitelisted for asset ${asset}",
          ("to",op.to)
@@ -71,7 +75,7 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
          ("from",op.from)
       );
       GRAPHENE_ASSERT(
-         not_restricted_account( d, *to_account_ptr, directionality_type::receiver),
+         not_restricted_account( d, to_account, directionality_type::receiver),
          transfer_to_account_restricted,
          "'to' account ${to} is restricted by committee",
          ("to",op.to)
@@ -80,70 +84,87 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
       if (asset_type.is_transfer_restricted())
       {
          GRAPHENE_ASSERT(
-            from_account.id == asset_type.issuer || to_account_ptr->id == asset_type.issuer,
+            from_account.id == asset_type.issuer || to_account.id == asset_type.issuer,
             transfer_restricted_transfer_asset,
             "Asset ${asset} has transfer_restricted flag enabled",
             ("asset", op.amount.asset_id)
           );
       }
 
-      int64_t fee_percent = 0;
-
       if (d.head_block_time() > HARDFORK_627_TIME)
       {
          // EDC daily limit
          if ((op.amount.asset_id == EDC_ASSET) && from_account.edc_limit_transfers_enabled)
          {
-            bool limit_is_valid = true;
-            share_type max_amount = (from_account.edc_transfers_max_amount > 0) ? from_account.edc_transfers_max_amount : settings.edc_transfers_daily_limit;
+            if ((d.head_block_time() < HARDFORK_636_TIME) || !to_account.burning_mode_enabled)
+            {
+               bool limit_is_valid = true;
+               share_type max_amount = (from_account.edc_transfers_max_amount > 0) ? from_account.edc_transfers_max_amount : settings.edc_transfers_daily_limit;
 
-            if (d.head_block_time() > HARDFORK_631_TIME) {
-               limit_is_valid = max_amount >= (from_account.edc_transfers_amount_counter + op.amount.amount);
+               if (d.head_block_time() > HARDFORK_631_TIME) {
+                  limit_is_valid = max_amount >= (from_account.edc_transfers_amount_counter + op.amount.amount);
+               }
+               else {
+                  limit_is_valid = max_amount > (from_account.edc_transfers_amount_counter + op.amount.amount);
+               }
+               FC_ASSERT(limit_is_valid
+                        , "Daily transfers limit exceeded. Current transfers counter value: ${a} (+op.amount)"
+                        , ("a", from_account.edc_transfers_amount_counter.value) );
             }
-            else {
-               limit_is_valid = max_amount > (from_account.edc_transfers_amount_counter + op.amount.amount);
-            }
-            FC_ASSERT(limit_is_valid
-                      , "Daily transfers limit exceeded. Current transfers counter value: ${a} (+op.amount)"
-                      , ("a", from_account.edc_transfers_amount_counter.value) );
          }
 
-         optional<chain::settings_fee> fee;
-         if (d.head_block_time() > HARDFORK_628_TIME) {
-            fee = d.get_custom_fee(settings.transfer_fees, fee_asset_type.get_id());
-         }
-         else {
-            fee = d.get_custom_fee(settings.transfer_fees, asset_type.get_id());
-         }
+         int64_t fee_percent = 0;
 
-         if (fee)
+         if (d.head_block_time() > HARDFORK_628_TIME)
          {
-            custom_fee = std::round(op.amount.amount.value * d.get_percent(fee->percent));
+            if ( (d.head_block_time() >= HARDFORK_636_TIME)
+                 && (fee_asset_type.get_id() == EDC_ASSET)
+                 && (from_account.rank > e_account_rank::_default)
+                 // don't take fee from burning operation
+                 && !to_account.burning_mode_enabled) {
+               fee_percent = d.get_account_fee_edc_percent_by_rank(from_account);
+            }
+            else if ((d.head_block_time() < HARDFORK_636_TIME) || !to_account.burning_mode_enabled)
+            {
+               optional<chain::settings_fee> fee = d.get_custom_fee(settings.transfer_fees, fee_asset_type.get_id());
+               fee_percent = (fee) ? fee->percent : 0;
+            }
+         }
+         else
+         {
+            optional<chain::settings_fee> fee = d.get_custom_fee(settings.transfer_fees, asset_type.get_id());
+            fee_percent = (fee) ? fee->percent : 0;
+         }
+
+         if (fee_percent > 0)
+         {
+            custom_fee = std::round(op.amount.amount.value * d.get_percent(fee_percent));
 
             bool balance_is_valid = d.get_balance(from_account, asset_type).amount >= (op.amount.amount + custom_fee);
             FC_ASSERT(balance_is_valid,
                       "Insufficient Balance: ${balance}, unable to transfer '${total_transfer}' from account '${a}' to '${t}'. Custom fee: ${fee}",
-                      ("a", from_account.name)("t", to_account_ptr->name)("total_transfer", d.to_pretty_string(op.amount))
+                      ("a", from_account.name)("t", to_account.name)("total_transfer", d.to_pretty_string(op.amount))
                       ("fee", d.to_pretty_string(asset(custom_fee, op.amount.asset_id)))
                       ("balance", d.to_pretty_string(d.get_balance(from_account, asset_type))));
          }
+
          if (custom_fee > 0) {
-            FC_ASSERT(op.fee.amount >= custom_fee, "Wrong fee amount (${fee}) sent. Custom fee: ${cfee}", ("fee", op.fee.amount)("cfee", custom_fee) );
+            FC_ASSERT(op.fee.amount >= custom_fee, "Wrong fee amount (${fee}) sent. Custom fee: ${cfee}", ("fee", op.fee.amount)("custom fee", custom_fee) );
+         }
+
+         if (fee_percent == 0)
+         {
+            // check only amounts (without fees)
+            bool balance_is_valid = d.get_balance(from_account, asset_type).amount >= op.amount.amount;
+            FC_ASSERT(balance_is_valid,
+                      "Insufficient Balance: ${balance}, unable to transfer '${total_transfer}' from account '${a}' to '${t}'",
+                      ("a", from_account.name)("t", to_account.name)("total_transfer", d.to_pretty_string(op.amount))(
+                      "balance", d.to_pretty_string(d.get_balance(from_account, asset_type))));
          }
       }
 
-      // fee_percent not found in settings
-      if (fee_percent == 0)
-      {
-         bool balance_is_valid = d.get_balance(from_account, asset_type).amount >= op.amount.amount;
-         FC_ASSERT(balance_is_valid,
-                   "Insufficient Balance: ${balance}, unable to transfer '${total_transfer}' from account '${a}' to '${t}'",
-                   ("a", from_account.name)("t", to_account_ptr->name)("total_transfer", d.to_pretty_string(op.amount))(
-                   "balance", d.to_pretty_string(d.get_balance(from_account, asset_type))));
-      }
-
       // see also 'asset_reserve_operation'
-      if (to_account_ptr->burning_mode_enabled)
+      if (to_account.burning_mode_enabled)
       {
          FC_ASSERT(!asset_type.is_market_issued(), "Cannot reserve (burn) ${sym} because it is a market-issued asset", ("sym", asset_type.symbol));
          FC_ASSERT((asset_dyn_data_ptr->current_supply - (op.amount.amount + custom_fee)) >= 0);
@@ -157,32 +178,43 @@ void_result transfer_evaluator::do_evaluate( const transfer_operation& op )
 void_result transfer_evaluator::do_apply( const transfer_operation& o )
 { try {
    database& d = db();
+   const account_object& to_account = *to_account_ptr;
 
    d.adjust_balance(o.from, -o.amount);
 
-   if (to_account_ptr)
+   // normal accrual
+   if (!to_account.burning_mode_enabled) {
+      d.adjust_balance(o.to, o.amount);
+   }
+   // burning
+   else if (asset_dyn_data_ptr)
    {
-      // normal accrual
-      if (!to_account_ptr->burning_mode_enabled) {
-         d.adjust_balance(o.to, o.amount);
-      }
-      // burning
-      else if (asset_dyn_data_ptr)
+      d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data)
       {
-         d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data)
-         {
-            data.current_supply -= o.amount.amount;
-            data.fee_burnt += o.amount.amount;
-         });
-      }
+         data.current_supply -= o.amount.amount;
+         data.fee_burnt += o.amount.amount;
+      });
 
-      // edc daily transfers counter
-      if ((d.head_block_time() > HARDFORK_627_TIME) && (o.amount.asset_id == EDC_ASSET))
+      // increase burnt EDC of sender
+      if ((d.head_block_time() >= HARDFORK_636_TIME) && (o.amount.asset_id == EDC_ASSET))
       {
-         d.modify(o.from(d), [&](account_object& obj) {
-            obj.edc_transfers_amount_counter += o.amount.amount;
+         d.modify(*from_account_ptr, [&](account_object& acc) {
+            acc.edc_burnt += o.amount.amount;
          });
       }
+   }
+
+   // edc daily transfers counter
+   if ((d.head_block_time() > HARDFORK_627_TIME) && (o.amount.asset_id == EDC_ASSET))
+   {
+      d.modify(o.from(d), [&](account_object& obj)
+      {
+         if ((d.head_block_time() < HARDFORK_636_TIME) || !to_account.burning_mode_enabled) {
+            obj.edc_transfers_amount_counter += o.amount.amount;
+         }
+
+         ++obj.edc_transfers_count;
+      });
    }
 
    return void_result();
@@ -194,13 +226,18 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
 { try {
 
    const database& d = db();
-   const settings_object& settings = d.get(settings_id_type(0));
 
-   const account_object& from_account = op.from(d);
+   from_account_ptr = &op.from(d);
    to_account_ptr = &op.to(d);
+
+   const account_object& from_account = *from_account_ptr;
+   const account_object& to_account = *to_account_ptr;
 
    const asset_object& asset_type = op.amount.asset_id(d);
    asset_dyn_data_ptr = &asset_type.dynamic_asset_data_id(d);
+
+   settings_ptr = &(const chain::settings_object&)(d.get(settings_id_type(0)));
+   const chain::settings_object& settings = *settings_ptr;
 
    try {
 
@@ -212,7 +249,7 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
          ("asset",op.amount.asset_id)
       );
       GRAPHENE_ASSERT(
-         is_authorized_asset( d, *to_account_ptr, asset_type ),
+         is_authorized_asset( d, to_account, asset_type ),
          transfer_to_account_not_whitelisted,
          "'to' account ${to} is not whitelisted for asset ${asset}",
          ("to",op.to)
@@ -225,7 +262,7 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
          ("from",op.from)
       );
       GRAPHENE_ASSERT(
-         not_restricted_account( d, *to_account_ptr, directionality_type::receiver),
+         not_restricted_account( d, to_account, directionality_type::receiver),
          transfer_to_account_restricted,
          "'to' account ${to} is restricted by committee",
          ("to",op.to)
@@ -234,7 +271,7 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
       if (asset_type.is_transfer_restricted())
       {
          GRAPHENE_ASSERT(
-            from_account.id == asset_type.issuer || to_account_ptr->id == asset_type.issuer,
+            from_account.id == asset_type.issuer || to_account.id == asset_type.issuer,
             transfer_restricted_transfer_asset,
             "Asset ${asset} has transfer_restricted flag enabled",
             ("asset", op.amount.asset_id)
@@ -245,11 +282,15 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
             && (op.amount.asset_id == EDC_ASSET)
             && from_account.edc_limit_transfers_enabled )
       {
-         share_type max_amount = (from_account.edc_transfers_max_amount > 0) ? from_account.edc_transfers_max_amount : settings.edc_transfers_daily_limit;
+         if ((d.head_block_time() < HARDFORK_636_TIME) || !to_account.burning_mode_enabled)
+         {
+            share_type max_amount = (from_account.edc_transfers_max_amount > 0) ? from_account.edc_transfers_max_amount : settings.edc_transfers_daily_limit;
 
-         FC_ASSERT(max_amount >= (from_account.edc_transfers_amount_counter + op.amount.amount)
-                   , "Daily transfers limit exceeded. Current transfers counter value: ${a} (+op.amount)"
-                   , ("a", from_account.edc_transfers_amount_counter.value));
+            FC_ASSERT(max_amount >= (from_account.edc_transfers_amount_counter + op.amount.amount)
+                      , "Daily transfers limit exceeded. Current transfers counter value: ${a} (+op.amount)"
+                      , ("a", from_account.edc_transfers_amount_counter.value));
+
+         }
       }
 
       //FC_ASSERT(op.amount.asset_id == s.blind_fee.asset_id, "assets are different('${a}','${b}')!", ("a",op.amount.asset_id)("b",s.blind_fee.asset_id));
@@ -259,13 +300,30 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
 
       if (d.head_block_time() > HARDFORK_627_TIME)
       {
-         optional<chain::settings_fee> fee = d.get_custom_fee(settings.blind_transfer_fees, asset_type.get_id());
-         if (fee)
+         if ( (d.head_block_time() >= HARDFORK_636_TIME)
+              && (asset_type.get_id() == EDC_ASSET)
+              && (from_account.rank > e_account_rank::_default)
+              // don't take fee from burning operation
+              && !to_account.burning_mode_enabled)
          {
-            custom_fee = asset(0, fee->asset_id);
-            custom_fee.amount = std::round(op.amount.amount.value * d.get_percent(fee->percent));
-            fee_dyn_data_ptr = &custom_fee.asset_id(d).dynamic_asset_data_id(d);
+            const share_type& amnt = std::round(op.amount.amount.value * d.get_percent(d.get_account_fee_edc_percent_by_rank(from_account)));
+            custom_fee = asset(amnt, EDC_ASSET);
          }
+         else if ((d.head_block_time() < HARDFORK_636_TIME) || !to_account.burning_mode_enabled)
+         {
+            optional<chain::settings_fee> fee = d.get_custom_fee(settings.blind_transfer_fees, asset_type.get_id());
+            if (fee)
+            {
+               const share_type& amnt = std::round(op.amount.amount.value * d.get_percent(fee->percent));
+               custom_fee = asset(amnt, fee->asset_id);
+            }
+         }
+         // sent to burning account after hf636
+         else {
+            custom_fee = asset(0, asset_type.get_id());
+         }
+
+         fee_dyn_data_ptr = &custom_fee.asset_id(d).dynamic_asset_data_id(d);
 
          if (asset_type.get_id() == custom_fee.asset_id(d).get_id())
          {
@@ -273,7 +331,7 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
             FC_ASSERT(insufficient_balance,
                       "Insufficient Balance [0]: ${balance} (fee: ${fee}), unable to make blind transfer '${total_transfer}' from account '${from}' to '${to}'",
                       ("from", from_account.name)
-                      ("to", to_account_ptr->name)
+                      ("to", to_account.name)
                       ("total_transfer", d.to_pretty_string(op.amount))
                       ("fee", d.to_pretty_string(custom_fee))
                       ("balance", d.to_pretty_string(d.get_balance(from_account, asset_type))) );
@@ -284,7 +342,7 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
             FC_ASSERT(insufficient_balance,
                       "Insufficient Balance [1]: ${balance} (fee: ${fee}), unable to make blind transfer '${total_transfer}' from account '${from}' to '${to}'",
                       ("from", from_account.name)
-                      ("to", to_account_ptr->name)
+                      ("to", to_account.name)
                       ("total_transfer", d.to_pretty_string(op.amount))
                       ("fee", d.to_pretty_string(custom_fee))
                       ("balance", d.to_pretty_string(d.get_balance(from_account, asset_type))) );
@@ -294,7 +352,7 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
             FC_ASSERT(insufficient_fee,
                       "Insufficient balance for fee: ${balance_for_fee}, unable to make blind transfer '${total_transfer}' from account '${from}' to '${to}'",
                       ("from", from_account.name)
-                      ("to", to_account_ptr->name)
+                      ("to", to_account.name)
                       ("total_transfer", d.to_pretty_string(op.amount))
                       ("balance_for_fee", d.to_pretty_string(d.get_balance(from_account, custom_fee_type))) );
          }
@@ -314,20 +372,20 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
          bool insufficient_balance = d.get_balance(from_account, asset_type).amount >= op.amount.amount;
          FC_ASSERT(insufficient_balance,
                    "Insufficient Balance [2]: ${balance}(fee: ${fee}), unable to make blind transfer '${total_transfer}' from account '${a}' to '${t}'",
-                   ("a",from_account.name)("t",to_account_ptr->name)
+                   ("a",from_account.name)("t",to_account.name)
                    ("total_transfer",d.to_pretty_string(op.amount))
                    ("balance",d.to_pretty_string(d.get_balance(from_account, asset_type))) );
 
          bool insufficient_fee = d.get_balance(from_account, custom_fee_type).amount >= custom_fee.amount;
          FC_ASSERT(insufficient_fee,
                    "Insufficient fee: ${fee}, unable to make blind transfer '${total_transfer}' from account '${a}' to '${t}'",
-                   ("a",from_account.name)("t",to_account_ptr->name)
+                   ("a",from_account.name)("t",to_account.name)
                    ("total_transfer",d.to_pretty_string(op.amount))
                    ("fee",d.to_pretty_string(d.get_balance(from_account, custom_fee_type))) );
       }
 
       // see also 'asset_reserve_operation'
-      if (to_account_ptr->burning_mode_enabled)
+      if (to_account.burning_mode_enabled)
       {
          FC_ASSERT(!asset_type.is_market_issued(), "Cannot reserve (burn) ${sym} because it is a market-issued asset",
                    ("sym", asset_type.symbol));
@@ -342,6 +400,7 @@ void_result blind_transfer2_evaluator::do_evaluate( const blind_transfer2_operat
 asset blind_transfer2_evaluator::do_apply( const blind_transfer2_operation& o )
 { try {
    database& d = db();
+   const account_object& to_account = *to_account_ptr;
 
    // amount
    d.adjust_balance(o.from, -o.amount);
@@ -365,38 +424,47 @@ asset blind_transfer2_evaluator::do_apply( const blind_transfer2_operation& o )
    // edc daily transfers counter
    if ((d.head_block_time() > HARDFORK_627_TIME) && (o.amount.asset_id == EDC_ASSET))
    {
-      d.modify(o.from(d), [&](account_object& obj) {
-         obj.edc_transfers_amount_counter += o.amount.amount;
+      d.modify(o.from(d), [&](account_object& obj)
+      {
+         if ((d.head_block_time() < HARDFORK_636_TIME) || !to_account.burning_mode_enabled) {
+            obj.edc_transfers_amount_counter += o.amount.amount;
+         }
+         ++obj.edc_transfers_count;
       });
    }
 
-   if (to_account_ptr)
+   // normal accrual
+   if (!to_account.burning_mode_enabled) {
+      d.adjust_balance(o.to, o.amount);
+   }
+   // burning
+   else if (asset_dyn_data_ptr)
    {
-      // normal accrual
-      if (!to_account_ptr->burning_mode_enabled) {
-         d.adjust_balance(o.to, o.amount);
-      }
-      // burning
-      else if (asset_dyn_data_ptr)
+      d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data)
       {
-         d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data)
-         {
-            data.current_supply -= o.amount.amount;
-            data.fee_burnt += o.amount.amount;
+         data.current_supply -= o.amount.amount;
+         data.fee_burnt += o.amount.amount;
+      });
+
+      // increase burnt EDC of sender
+      if ((d.head_block_time() >= HARDFORK_636_TIME) && (o.amount.asset_id == EDC_ASSET))
+      {
+         d.modify(*from_account_ptr, [&](account_object& acc) {
+            acc.edc_burnt += o.amount.amount;
          });
       }
-
-      // new blind_transfer2 object
-      d.create<blind_transfer2_object>([&](blind_transfer2_object& obj)
-      {
-         obj.from     = o.from;
-         obj.to       = o.to;
-         obj.amount   = o.amount;
-         obj.datetime = d.head_block_time();
-         obj.memo     = o.memo;
-         obj.fee      = custom_fee.amount;
-      });
    }
+
+   // new blind_transfer2 object
+   d.create<blind_transfer2_object>([&](blind_transfer2_object& obj)
+   {
+      obj.from     = o.from;
+      obj.to       = o.to;
+      obj.amount   = o.amount;
+      obj.datetime = d.head_block_time();
+      obj.memo     = o.memo;
+      obj.fee      = custom_fee.amount;
+   });
 
    return custom_fee;
 } FC_CAPTURE_AND_RETHROW( (o) ) }

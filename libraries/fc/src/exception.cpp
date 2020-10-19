@@ -182,22 +182,41 @@ namespace fc
     */
    string exception::to_detail_string( log_level ll )const
    {
-      fc::stringstream ss;
-      ss << variant(my->_code).as_string() <<" " << my->_name << ": " <<my->_what<<"\n";
-      for( auto itr = my->_elog.begin(); itr != my->_elog.end();  )
-      {
-         ss << itr->get_message() <<"\n";
-         try
-         {
-            ss << "    " << json::to_string( itr->get_data() )<<"\n";
+      std::stringstream ss;
+      try {
+         try {
+            ss << variant( my->_code ).as_string();
+         } catch( std::bad_alloc& ) {
+            throw;
+         } catch( ... ) {
+            ss << "<- exception in to_detail_string.";
          }
-         catch( const fc::assert_exception& e )
+         ss << " " << my->_name << ": " << my->_what << "\n";
+         for( auto itr = my->_elog.begin(); itr != my->_elog.end(); )
          {
-            ss << "ERROR: Failed to convert log data to string!\n";
+            try {
+               ss << itr->get_message() <<"\n";
+               try
+               {
+                  ss << "    " << json::to_string( itr->get_data() )<<"\n";
+               }
+               catch( const fc::assert_exception& e )
+               {
+                  ss << "ERROR: Failed to convert log data to string!\n";
+               }
+               ss << "    " << itr->get_context().to_string();
+            } catch( std::bad_alloc& ) {
+               throw;
+            } catch( ... ) {
+               ss << "<- exception in to_detail_string.";
+            }
+            ++itr;
+            if( itr != my->_elog.end() ) ss<<"\n";
          }
-         ss << "    " << itr->get_context().to_string();
-         ++itr;
-         if( itr != my->_elog.end() ) ss<<"\n";
+      } catch( std::bad_alloc& ) {
+         throw;
+      } catch( ... ) {
+         ss << "<- exception in to_detail_string.\n";
       }
       return ss.str();
    }
@@ -207,12 +226,23 @@ namespace fc
     */
    string exception::to_string( log_level ll )const
    {
-      fc::stringstream ss;
-      ss << what() << ":";
-      for( auto itr = my->_elog.begin(); itr != my->_elog.end(); ++itr )
-      {
-         if( itr->get_format().size() )
-            ss << " " << fc::format_string( itr->get_format(), itr->get_data() );
+      std::stringstream ss;
+      try {
+         ss << what() << ":";
+         for( auto itr = my->_elog.begin(); itr != my->_elog.end(); ++itr ) {
+            if( itr->get_format().size() )
+               try {
+                  ss << " " << fc::format_string( itr->get_format(), itr->get_data() );
+               } catch( std::bad_alloc& ) {
+                  throw;
+               } catch( ... ) {
+                  ss << "<- exception in to_string.\n";
+               }
+         }
+      } catch( std::bad_alloc& ) {
+         throw;
+      } catch( ... ) {
+         ss << "<- exception in to_string.\n";
       }
       return ss.str();
    }

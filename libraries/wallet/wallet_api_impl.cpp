@@ -342,7 +342,8 @@ namespace graphene { namespace wallet { namespace detail {
       result["head_block_age"] = fc::get_approximate_relative_time_string(dynamic_props.time,
                                                                           time_point_sec(time_point::now()),
                                                                           " old");
-      result["next_maintenance_time"] = fc::get_approximate_relative_time_string(dynamic_props.next_maintenance_time);
+      result["next_maintenance_time"] = fc::time_point_sec(dynamic_props.next_maintenance_time).to_iso_string()
+                                        + " (" + fc::get_approximate_relative_time_string(dynamic_props.next_maintenance_time) + ")";
 
       stringstream participation;
       participation << std::fixed << std::setprecision(2) << (100.0*fc::popcount(dynamic_props.recent_slots_filled)) / 128.0;
@@ -521,7 +522,7 @@ namespace graphene { namespace wallet { namespace detail {
    void wallet_api_impl::init_prototype_ops()
    {
       operation op;
-      for (int t=0; t<op.count(); t++)
+      for (size_t t=0; t<op.count(); t++)
       {
          op.set_which( t );
          op.visit( op_prototype_visitor(t, _prototype_ops) );

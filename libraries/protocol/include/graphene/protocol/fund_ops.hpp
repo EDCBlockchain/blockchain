@@ -32,9 +32,9 @@ namespace graphene { namespace protocol {
       std::vector<fund_rate>    fund_rates;
       std::vector<payment_rate> payment_rates;
 
-   }; // fund_options
+   };
 
-   struct fund_ext
+   struct fund_ext_info
    {
       share_type      max_limit_deposits_amount;
       bool            owner_monthly_payments_enabled = false;
@@ -42,7 +42,7 @@ namespace graphene { namespace protocol {
       bool            mlm_monthly_payments_enabled = false;
       uint32_t        mlm_daily_percent = 0;
    };
-   typedef flat_set<static_variant<void_t, fund_ext>> fund_extensions_type;
+   typedef static_variant<void_t, fund_ext_info>::flat_set_type fund_ext_type;
 
    /**
     * @ingroup operations
@@ -58,13 +58,13 @@ namespace graphene { namespace protocol {
       asset_id_type   asset_id;
       fund_options    options;
 
-      fund_extensions_type extensions;
+      fund_ext_type extensions;
 
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
       void            validate() const;
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_create_operation
+   };
 
    /**
     * @ingroup operations
@@ -79,13 +79,13 @@ namespace graphene { namespace protocol {
       fund_id_type    id; // fund id
       fund_options    options;
 
-      fund_extensions_type extensions;
+      fund_ext_type extensions;
 
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
       void            validate() const;
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_update_operation
+   };
 
    /**
     * @ingroup operations
@@ -105,7 +105,7 @@ namespace graphene { namespace protocol {
       void            validate() const;
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_refill_operation
+   };
 
    /**
     * @ingroup operations
@@ -126,7 +126,7 @@ namespace graphene { namespace protocol {
       void            validate() const;
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_deposit_operation
+   };
 
    /**
     * @ingroup operations
@@ -148,7 +148,7 @@ namespace graphene { namespace protocol {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_withdrawal_operation
+   };
 
    /**
     * @ingroup operations
@@ -171,7 +171,7 @@ namespace graphene { namespace protocol {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_payment_operation
+   };
 
    /**
     * @ingroup operations
@@ -190,8 +190,11 @@ namespace graphene { namespace protocol {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_set_enable_operation
+   };
 
+   /**
+    * @ingroup operations
+    */
    struct fund_deposit_set_enable_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
@@ -206,8 +209,11 @@ namespace graphene { namespace protocol {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_deposit_set_enable_operation
+   };
 
+   /**
+    * @ingroup operations
+    */
    struct fund_remove_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
@@ -221,8 +227,11 @@ namespace graphene { namespace protocol {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_remove_operation
+   };
 
+   /**
+    * @ingroup operations
+    */
    struct fund_change_payment_scheme_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
@@ -239,8 +248,11 @@ namespace graphene { namespace protocol {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_change_payment_scheme_operation
+   };
 
+   /**
+    * @ingroup operations
+    */
    struct enable_autorenewal_deposits_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
@@ -255,8 +267,11 @@ namespace graphene { namespace protocol {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // enable_autorenewal_deposits_operation
+   };
 
+   /**
+    * @ingroup operations
+    */
    struct deposit_renewal_operation: public base_operation
    {
       struct fee_parameters_type
@@ -276,7 +291,7 @@ namespace graphene { namespace protocol {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& k) const { return 0; };
 
-   }; // deposit_renewal_operation
+   };
 
    // deprecated
    struct fund_deposit_update_operation: public base_operation
@@ -304,16 +319,19 @@ namespace graphene { namespace protocol {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_deposit_update_operation
+   };
 
-   struct fund_dep_upd_ext
+   struct fund_dep_upd_ext_info
    {
       bool               apply_extension_flags_only = false;
       account_id_type    account_id;
       fc::time_point_sec datetime_end;
    };
-   typedef flat_set<static_variant<void_t, fund_dep_upd_ext>> fund_dep_upd_extensions_type;
+   typedef static_variant<void_t, fund_dep_upd_ext_info>::flat_set_type fund_dep_upd_ext_type;
 
+   /**
+    * @ingroup operations
+    */
    struct fund_deposit_update2_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
@@ -325,14 +343,17 @@ namespace graphene { namespace protocol {
       uint32_t percent = 0;
       bool     reset = false;
 
-      fund_dep_upd_extensions_type extensions;
+      fund_dep_upd_ext_type extensions;
 
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_deposit_update2_operation
+   };
 
+   /**
+    * @ingroup operations
+    */
    struct fund_deposit_reduce_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
@@ -348,7 +369,7 @@ namespace graphene { namespace protocol {
       void            validate() const { };
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
 
-   }; // fund_deposit_reduce_operation
+   };
 
 } } // graphene::protocol
 
@@ -361,19 +382,13 @@ FC_REFLECT( graphene::protocol::fund_options::fund_rate,
 FC_REFLECT( graphene::protocol::fund_options,
             (description)(period)(min_deposit)(rates_reduction_per_month)(fund_rates)(payment_rates) )
 
-FC_REFLECT( graphene::protocol::fund_ext,
+FC_REFLECT( graphene::protocol::fund_ext_info,
             (max_limit_deposits_amount)
             (owner_monthly_payments_enabled)
             (mlm_account)
             (mlm_monthly_payments_enabled)
             (mlm_daily_percent) )
-FC_REFLECT_TYPENAME( graphene::protocol::fund_extensions_type )
-
-FC_REFLECT( graphene::protocol::fund_dep_upd_ext,
-            (apply_extension_flags_only)
-            (account_id)
-            (datetime_end) )
-FC_REFLECT_TYPENAME( graphene::protocol::fund_dep_upd_extensions_type )
+FC_REFLECT( graphene::protocol::fund_dep_upd_ext_info, (apply_extension_flags_only)(account_id)(datetime_end) )
 
 FC_REFLECT( graphene::protocol::fund_create_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::fund_update_operation::fee_parameters_type, (fee) )
@@ -419,6 +434,9 @@ FC_REFLECT( graphene::protocol::fund_deposit_update_operation::ext, (null_ext)(a
 FC_REFLECT_TYPENAME(graphene::protocol::extension<graphene::protocol::fund_deposit_update_operation::ext>)
 FC_REFLECT( graphene::protocol::fund_deposit_update_operation, (fee)(deposit_id)(percent)(reset)(extensions) )
 FC_REFLECT( graphene::protocol::fund_deposit_update2_operation, (fee)(deposit_id)(percent)(reset)(extensions) )
+
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_ext_info )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_dep_upd_ext_info )
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_create_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_update_operation::fee_parameters_type )

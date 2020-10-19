@@ -35,6 +35,8 @@
 
 #include <iostream>
 
+namespace fc { namespace test {
+
 struct thread_config {
   thread_config() {
      for( int i = 0; i < boost::unit_test::framework::master_test_suite().argc - 1; ++i )
@@ -42,13 +44,51 @@ struct thread_config {
         {
            uint16_t threads = atoi(boost::unit_test::framework::master_test_suite().argv[++i]);
            std::cout << "Using " << threads << " pool threads\n";
-           fc::asio::default_io_service_scope::set_num_threads(threads);
+           asio::default_io_service_scope::set_num_threads(threads);
         }
   }
 };
 
-BOOST_GLOBAL_FIXTURE( thread_config );
+const std::string TEXT = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!\"$%&/()=?,.-#+´{[]}`*'_:;<>|";
 
+template<typename Hash>
+class hash_test {
+   public:
+      std::string _hashname = get_typename<Hash>::name();
+
+      void run_single_threaded() {
+         const std::string first = Hash::hash(TEXT).str();
+         time_point start = time_point::now();
+         for( int i = 0; i < 1000; i++ )
+            BOOST_CHECK_EQUAL( first, Hash::hash(TEXT).str() );
+         time_point end = time_point::now();
+         ilog( "${c} single-threaded ${h}'s in ${t}µs", ("c",1000)("h",_hashname)("t",end-start) );
+      }
+
+      void run_multi_threaded() {
+         const std::string first = Hash::hash(TEXT).str();
+         std::vector<future<std::string>> results;
+         results.reserve( 10000 );
+         time_point start = time_point::now();
+         for( int i = 0; i < 10000; i++ )
+            results.push_back( do_parallel( [] () { return Hash::hash(TEXT).str(); } ) );
+         for( auto& result: results )
+            BOOST_CHECK_EQUAL( first, result.wait() );
+         time_point end = time_point::now();
+         ilog( "${c} multi-threaded ${h}'s in ${t}µs", ("c",10000)("h",_hashname)("t",end-start) );
+      }
+
+      void run() {
+         run_single_threaded();
+         run_multi_threaded();
+      }
+};
+
+}} // fc::test
+
+using namespace fc::test;
+
+BOOST_GLOBAL_FIXTURE( thread_config );
 
 BOOST_AUTO_TEST_SUITE(parallel_tests)
 
@@ -95,41 +135,6 @@ BOOST_AUTO_TEST_CASE( do_something_parallel )
          BOOST_CHECK_EQUAL( (int64_t)i, pair.second[i] );
    }
 }
-
-const std::string TEXT = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!\"$%&/()=?,.-#+´{[]}`*'_:;<>|";
-
-template<typename Hash>
-class hash_test {
-   public:
-      std::string _hashname = fc::get_typename<Hash>::name();
-
-      void run_single_threaded() {
-         const std::string first = Hash::hash(TEXT).str();
-         fc::time_point start = fc::time_point::now();
-         for( int i = 0; i < 1000; i++ )
-            BOOST_CHECK_EQUAL( first, Hash::hash(TEXT).str() );
-         fc::time_point end = fc::time_point::now();
-         ilog( "${c} single-threaded ${h}'s in ${t}µs", ("c",1000)("h",_hashname)("t",end-start) );
-      }
-
-      void run_multi_threaded() {
-         const std::string first = Hash::hash(TEXT).str();
-         std::vector<fc::future<std::string>> results;
-         results.reserve( 10000 );
-         fc::time_point start = fc::time_point::now();
-         for( int i = 0; i < 10000; i++ )
-            results.push_back( fc::do_parallel( [] () { return Hash::hash(TEXT).str(); } ) );
-         for( auto& result: results )
-            BOOST_CHECK_EQUAL( first, result.wait() );
-         fc::time_point end = fc::time_point::now();
-         ilog( "${c} multi-threaded ${h}'s in ${t}µs", ("c",10000)("h",_hashname)("t",end-start) );
-      }
-
-      void run() {
-         run_single_threaded();
-         run_multi_threaded();
-      }
-};
 
 BOOST_AUTO_TEST_CASE( hash_parallel )
 {

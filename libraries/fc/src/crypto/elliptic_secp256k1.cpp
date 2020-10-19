@@ -14,8 +14,6 @@
 
 #if _WIN32
 # include <malloc.h>
-#else
-# include <alloca.h>
 #endif
 
 #include "_elliptic_impl_priv.hpp"

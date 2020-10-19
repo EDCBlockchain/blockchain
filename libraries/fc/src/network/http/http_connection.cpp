@@ -185,7 +185,7 @@ std::vector<header> parse_urlencoded_params( const std::string& f ) {
   std::vector<header> h(num_args);
   int arg = 0;
   for( size_t i = 0; i < f.size(); ++i ) {
-    while( f[i] != '=' && i < f.size() ) {
+    while( i < f.size() && f[i] != '=' ) {
       if( f[i] == '%' ) { 
         h[arg].key += char((fc::from_hex(f[i+1]) << 4) | fc::from_hex(f[i+2]));
         i += 3;

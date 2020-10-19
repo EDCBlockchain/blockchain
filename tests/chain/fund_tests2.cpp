@@ -677,7 +677,7 @@ BOOST_AUTO_TEST_CASE( max_limit_deposits_amount_test )
          op.fee = asset();
          op.id = fund.get_id();
          op.options = options;
-         fund_ext ext;
+         fund_ext_info ext;
          ext.max_limit_deposits_amount = 900;
          op.extensions.insert(ext); // <-- fund deposits limit
          set_expiration(db, trx);
@@ -784,7 +784,7 @@ BOOST_AUTO_TEST_CASE( owner_monthly_payments_test )
          op.fee = asset();
          op.id = fund.get_id();
          op.options = options;
-         fund_ext ext;
+         fund_ext_info ext;
          ext.owner_monthly_payments_enabled = true; // <-- monthly payments to owner is turned on
          op.extensions.insert(ext);
          set_expiration(db, trx);
@@ -814,7 +814,7 @@ BOOST_AUTO_TEST_CASE( owner_monthly_payments_test )
          op.fee = asset();
          op.id = fund.get_id();
          op.options = options;
-         fund_ext ext;
+         fund_ext_info ext;
          ext.owner_monthly_payments_enabled = false; // <-- monthly payments to owner is turned on
          op.extensions.insert(ext);
          set_expiration(db, trx);

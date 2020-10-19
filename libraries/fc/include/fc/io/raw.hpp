@@ -31,7 +31,7 @@ namespace fc {
         boost::endian::little_uint64_buf_at hilo[2];
         hilo[0] = uint128_hi64( v );
         hilo[1] = uint128_lo64( v );
-        s.write( hilo[0].data(), sizeof(hilo) );
+        s.write( (char*)hilo[0].data(), sizeof(hilo) );
     }
     template<typename Stream>
     inline void unpack( Stream& s, uint128_t& v, uint32_t _max_depth )
@@ -307,7 +307,7 @@ namespace fc {
     template<typename Stream> inline void pack( Stream& s, const bool& v, uint32_t _max_depth )
     {
        FC_ASSERT( _max_depth > 0 );
-       fc::raw::pack( s, uint8_t(v), _max_depth - 1 );
+       fc::raw::pack( s, v ? uint8_t(1) : uint8_t(0), _max_depth - 1 );
     }
     template<typename Stream> inline void unpack( Stream& s, bool& v, uint32_t _max_depth )
     {
@@ -731,7 +731,7 @@ namespace fc {
     void pack( Stream& s, const boost::endian::endian_buffer<O,T,N,A>& v, uint32_t _max_depth )
     {
        FC_ASSERT( _max_depth > 0 );
-       s.write( v.data(), sizeof(v) );
+       s.write( (char*)v.data(), sizeof(v) );
     }
     template<typename Stream, boost::endian::order O, class T, std::size_t N, boost::endian::align A>
     void unpack( Stream& s, boost::endian::endian_buffer<O,T,N,A>& v, uint32_t _max_depth )

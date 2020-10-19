@@ -33,14 +33,16 @@ BOOST_AUTO_TEST_CASE(time_point_sec_test)
     BOOST_CHECK_EQUAL( "20380119T031407", tp2gm1.to_non_delimited_iso_string() );
 
     time_point_sec tp2g(0x80000000U);
+#if BOOST_VERSION != 106000
     BOOST_CHECK_EQUAL( "2038-01-19T03:14:08", tp2g.to_iso_string() );
     BOOST_CHECK_EQUAL( "20380119T031408", tp2g.to_non_delimited_iso_string() );
+#endif
 
     time_point_sec tp3g(0xc0000000U);
-    if (BOOST_VERSION >= BOOST_VERSION_NUMBER(1,64,0)) {
-        BOOST_CHECK_EQUAL( "2072-01-28T16:51:12", tp3g.to_iso_string() );
-        BOOST_CHECK_EQUAL( "20720128T165112", tp3g.to_non_delimited_iso_string() );
-    }
+#if BOOST_VERSION >= 106400
+    BOOST_CHECK_EQUAL( "2072-01-28T16:51:12", tp3g.to_iso_string() );
+    BOOST_CHECK_EQUAL( "20720128T165112", tp3g.to_non_delimited_iso_string() );
+#endif
 
     BOOST_CHECK( tp0 == time_point_sec() );
     BOOST_CHECK( tp0 < tp1 );

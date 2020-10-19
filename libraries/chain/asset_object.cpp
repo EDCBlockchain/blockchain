@@ -167,7 +167,7 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::asset_dynamic_data_object, (gra
                     (accumulated_fees)
                     (fee_pool)
                     (fee_burnt)
-                    (fees_sum) )
+                  )
 
 FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::asset_bitasset_data_object, (graphene::db::object),
                     (options)

@@ -48,19 +48,24 @@ void database::update_global_dynamic_data( const signed_block& b )
    uint32_t missed_blocks = get_slot_at_time( b.timestamp );
    assert( missed_blocks != 0 );
    missed_blocks--;
-   for( uint32_t i = 0; i < missed_blocks; ++i ) {
+
+   for (uint32_t i = 0; i < missed_blocks; ++i)
+   {
       const auto& witness_missed = get_scheduled_witness( i+1 )(*this);
-      if(  witness_missed.id != b.witness ) {
+      if (witness_missed.id != b.witness)
+      {
          /*
          const auto& witness_account = witness_missed.witness_account(*this);
          if( (fc::time_point::now() - b.timestamp) < fc::seconds(30) )
             wlog( "Witness ${name} missed block ${n} around ${t}", ("name",witness_account.name)("n",b.block_num())("t",b.timestamp) );
             */
 
-         modify( witness_missed, [&]( witness_object& w ) {
+         modify( witness_missed, [&]( witness_object& w )
+         {
            w.total_missed++;
+           w.daily_missed++;
          });
-      } 
+      }
    }
 
    // dynamic global properties updating
@@ -114,19 +119,16 @@ void database::update_signing_witness(const witness_object& signing_witness, con
 
    deposit_witness_pay( signing_witness, witness_pay );
 
-   // EDC reward for each block
+   // witness reward for each block
    if (head_block_time() >= HARDFORK_633_TIME)
    {
       const settings_object& settings = get(settings_id_type(0));
-      const asset& reward = settings.block_reward;
-      if (reward.amount > 0)
+      if (settings.block_reward.amount > 0)
       {
-         asset_issue_operation op;
-         op.issuer           = reward.asset_id(*this).issuer;
-         op.asset_to_issue   = reward;
-         op.issue_to_account = signing_witness.witness_account;
-         transaction_evaluation_state eval(this);
-         apply_operation(eval, op);
+         const witnesses_info_object& witnesses_info = get(witnesses_info_id_type(0));
+         modify(witnesses_info, [&](witnesses_info_object& data) {
+            data.all_blocks_reward_count++;
+         });
       }
    }
 
@@ -134,6 +136,8 @@ void database::update_signing_witness(const witness_object& signing_witness, con
    {
       _wit.last_aslot = new_block_aslot;
       _wit.last_confirmed_block_num = new_block.block_num();
+      _wit.daily_confirmed++;
+      _wit.total_confirmed++;
    } );
 }
 

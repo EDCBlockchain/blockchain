@@ -177,7 +177,7 @@ namespace graphene { namespace app { namespace detail {
 
       //bool enable_deflate_compression = _options->count("enable-permessage-deflate") != 0;
 
-      _websocket_server = std::make_shared<fc::http::websocket_server>();
+      _websocket_server = std::make_shared<fc::http::websocket_server>("");
 
       _websocket_server->on_connection([&]( const fc::http::websocket_connection_ptr& c ){
          auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(c, GRAPHENE_NET_MAX_NESTED_OBJECTS);
@@ -204,7 +204,7 @@ namespace graphene { namespace app { namespace detail {
 
       string password = _options->count("server-pem-password") ? _options->at("server-pem-password").as<string>() : "";
       //bool enable_deflate_compression = _options->count("enable-permessage-deflate") != 0;
-      _websocket_tls_server = std::make_shared<fc::http::websocket_tls_server>( _options->at("server-pem").as<string>(), password );
+      _websocket_tls_server = std::make_shared<fc::http::websocket_tls_server>(_options->at("server-pem").as<string>(), password, "");
 
       _websocket_tls_server->on_connection([&]( const fc::http::websocket_connection_ptr& c )
       {

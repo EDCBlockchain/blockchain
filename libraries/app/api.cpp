@@ -37,6 +37,7 @@
 #include <graphene/chain/withdraw_permission_object.hpp>
 #include <graphene/chain/worker_object.hpp>
 #include <graphene/chain/fund_object.hpp>
+#include <graphene/chain/witnesses_info_object.hpp>
 #include <graphene/chain/cheque_object.hpp>
 #include <graphene/chain/operation_history_object.hpp>
 
@@ -396,6 +397,7 @@ namespace graphene { namespace app {
               case market_address_object_type:
               case fund_object_type:
               case cheque_object_type:
+              case witnesses_info_object_type:
               break;
           }
        }

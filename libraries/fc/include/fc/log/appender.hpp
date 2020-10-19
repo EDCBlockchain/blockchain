@@ -34,6 +34,7 @@ namespace fc {
             return register_appender( type, appender_factory::ptr( new detail::appender_factory_impl<T>() ) );
          }
 
+         virtual ~appender() = default;
          static appender::ptr create( const std::string& name, const std::string& type, const variant& args  );
          static appender::ptr get( const std::string& name );
          static bool          register_appender( const std::string& type, const appender_factory::ptr& f );

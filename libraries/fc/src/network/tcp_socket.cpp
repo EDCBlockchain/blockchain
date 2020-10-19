@@ -11,6 +11,13 @@
 # include <mstcpip.h>
 #endif
 
+#if defined __OpenBSD__
+# include <sys/types.h>
+# include <sys/sysctl.h>
+# include <netinet/tcp_timer.h>
+# include <netinet/tcp_var.h>
+#endif
+
 namespace fc {
 
   namespace detail
@@ -186,16 +193,37 @@ namespace fc {
       if (setsockopt(my->_sock.native_handle(), IPPROTO_TCP,
       #if defined( __APPLE__ )
                      TCP_KEEPALIVE,
+       #elif defined( __OpenBSD__ )
+                     SO_KEEPALIVE,
        #else
                      TCP_KEEPIDLE, 
        #endif
                      (char*)&timeout_sec, sizeof(timeout_sec)) < 0)
         wlog("Error setting TCP keepalive idle time");
-# if !defined(__APPLE__) || defined(TCP_KEEPINTVL) // TCP_KEEPINTVL not defined before 10.9
+# if defined(__OpenBSD__)
+        int name[4];
+        name[0] = CTL_NET;
+        name[1] = PF_INET;
+        name[2] = IPPROTO_TCP;
+
+        int value;
+        size_t sz;
+
+        // get tics per second
+        name[3] = TCPCTL_SLOWHZ;
+        if (sysctl(name, 4, &value, &sz, NULL, 0) == -1)
+          wlog("Error setting TCP keepalive interval");
+
+        // set interval
+        value *= timeout_sec;
+        name[3] = TCPCTL_KEEPINTVL;
+        if (sysctl(name, 4, NULL, NULL, &value, sizeof(value)) == -1)
+          wlog("Error setting TCP keepalive interval");
+# elif !defined(__APPLE__) || defined(TCP_KEEPINTVL) // TCP_KEEPINTVL not defined before 10.9
       if (setsockopt(my->_sock.native_handle(), IPPROTO_TCP, TCP_KEEPINTVL,
                      (char*)&timeout_sec, sizeof(timeout_sec)) < 0)
         wlog("Error setting TCP keepalive interval");
-# endif // !__APPLE__ || TCP_KEEPINTVL
+# endif // (__OpenBSD__) or (!__APPLE__ || TCP_KEEPINTVL)
 #endif // !WIN32
     }
     else

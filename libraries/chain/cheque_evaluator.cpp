@@ -30,25 +30,34 @@ namespace graphene { namespace chain {
                 , "Invalid 'expiration_datetime': ${a}. Head block time: ${b}"
                 , ("a", op.expiration_datetime)("b", d.head_block_time()));
 
-      const account_object& from_acc = op.account_id(d);
       const asset_object& asset_obj  = op.payee_amount.asset_id(d);
 
       int64_t fee_percent = 0;
 
       if (d.head_block_time() > HARDFORK_627_TIME)
       {
-         optional<chain::settings_fee> fee = d.get_custom_fee(settings.cheque_fees, asset_type.get_id());
-         if (fee)
+         if ( (d.head_block_time() >= HARDFORK_636_TIME)
+              && (asset_type.get_id() == EDC_ASSET)
+              && (from_account.rank > e_account_rank::_default) )
          {
-            fee_percent = fee->percent;
-            custom_fee = std::round(cheque_amount.value * d.get_percent(fee_percent));
+            fee_percent = d.get_account_fee_edc_percent_by_rank(from_account);
+            custom_fee = std::round(cheque_amount.value * d.get_percent(d.get_account_fee_edc_percent_by_rank(from_account)));
+         }
+         else
+         {
+            optional<chain::settings_fee> fee = d.get_custom_fee(settings.cheque_fees, asset_type.get_id());
+            if (fee)
+            {
+               fee_percent = fee->percent;
+               custom_fee = std::round(cheque_amount.value * d.get_percent(fee_percent));
 
-            bool balance_is_valid = d.get_balance(from_account, asset_type).amount >= (cheque_amount + custom_fee);
-            FC_ASSERT(balance_is_valid,
-                      "Insufficient Balance: ${balance}, unable to build cheque with amount '${amount}'. Custom fee: ${fee}",
-                      ("balance", d.to_pretty_string(d.get_balance(from_account, asset_type)))
-                      ("amount", d.to_pretty_string(op.payee_amount))
-                      ("fee", d.to_pretty_string(asset(custom_fee, op.payee_amount.asset_id))));
+               bool balance_is_valid = d.get_balance(from_account, asset_type).amount >= (cheque_amount + custom_fee);
+               FC_ASSERT(balance_is_valid,
+                         "Insufficient Balance: ${balance}, unable to build cheque with amount '${amount}'. Custom fee: ${fee}",
+                         ("balance", d.to_pretty_string(d.get_balance(from_account, asset_type)))
+                         ("amount", d.to_pretty_string(op.payee_amount))
+                         ("fee", d.to_pretty_string(asset(custom_fee, op.payee_amount.asset_id))));
+            }
          }
 
          if (custom_fee > 0) {
@@ -58,10 +67,10 @@ namespace graphene { namespace chain {
 
       if (fee_percent == 0)
       {
-         bool insufficient_balance = (d.get_balance(from_acc, asset_obj).amount >= cheque_amount);
+         bool insufficient_balance = (d.get_balance(from_account, asset_obj).amount >= cheque_amount);
          FC_ASSERT(insufficient_balance,
                    "Insufficient balance=${balance}, amount=${amount}, payee_count=${pc}. Unable to create receipt.",
-                   ("balance", d.to_pretty_string(d.get_balance(from_acc, asset_obj)))("amount", d.to_pretty_string(
+                   ("balance", d.to_pretty_string(d.get_balance(from_account, asset_obj)))("amount", d.to_pretty_string(
                    op.payee_amount))("pc", op.payee_count));
       }
 

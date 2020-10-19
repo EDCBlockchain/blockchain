@@ -723,11 +723,12 @@ class database_api
 
       optional<signed_block> get_block_reserved(uint32_t block_num) const;
 
-      transfer_fee_info get_required_transfer_fee(const asset& amount) const;
-      transfer_fee_info get_required_blind_transfer_fee(const asset& amount) const;
-      transfer_fee_info get_required_cheque_fee(const asset& amount, uint32_t count) const;
-      max_transfer_info get_max_transfer_amount_and_fee(const asset& amount, bool is_blind) const;
-      max_transfer_info get_max_cheque_amount_and_fee(const asset& amount) const;
+      transfer_fee_info get_required_transfer_fee(const asset& amount, account_id_type from, account_id_type to) const;
+      transfer_fee_info get_required_blind_transfer_fee(const asset& amount, account_id_type from, account_id_type to) const;
+      transfer_fee_info get_required_cheque_fee(const asset& amount, uint32_t count, account_id_type acc_id) const;
+
+      max_transfer_info get_max_transfer_amount_and_fee(const asset& amount, bool is_blind, account_id_type from, account_id_type to) const;
+      max_transfer_info get_max_cheque_amount_and_fee(const asset& amount, account_id_type acc_id) const;
       asset get_burnt_asset(asset_id_type id) const;
 
 private:

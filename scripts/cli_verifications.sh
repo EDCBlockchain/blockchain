@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# accounts.txt:
+# 	"1.2.153923",
+# 	"1.2.153958",
+#   ...
+
 readarray -t array < accounts.txt
 counter=791
 for i in "${array[@]}"

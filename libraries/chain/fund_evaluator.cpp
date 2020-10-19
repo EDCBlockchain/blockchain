@@ -45,7 +45,7 @@ object_id_type fund_create_evaluator::do_apply( const fund_create_operation& op 
 
       if (op.extensions.size() > 0)
       {
-         const protocol::fund_ext& ext = op.extensions.begin()->get<protocol::fund_ext>();
+         const protocol::fund_ext_info& ext = op.extensions.begin()->get<protocol::fund_ext_info>();
 
          o.max_limit_deposits_amount = ext.max_limit_deposits_amount;
          o.owner_monthly_payments_enabled = ext.owner_monthly_payments_enabled;
@@ -128,7 +128,7 @@ void_result fund_update_evaluator::do_apply( const fund_update_operation& op )
 
       if (op.extensions.size() > 0)
       {
-         const protocol::fund_ext& ext = op.extensions.begin()->get<protocol::fund_ext>();
+         const protocol::fund_ext_info& ext = op.extensions.begin()->get<protocol::fund_ext_info>();
 
          o.max_limit_deposits_amount = ext.max_limit_deposits_amount;
          o.owner_monthly_payments_enabled = ext.owner_monthly_payments_enabled;
@@ -874,7 +874,7 @@ void_result fund_deposit_update2_evaluator::do_evaluate( const fund_deposit_upda
 
    if (op.extensions.size() > 0)
    {
-      const protocol::fund_dep_upd_ext& ext = op.extensions.begin()->get<protocol::fund_dep_upd_ext>();
+      const protocol::fund_dep_upd_ext_info& ext = op.extensions.begin()->get<protocol::fund_dep_upd_ext_info>();
 
       {
          const auto& idx = d.get_index_type<fund_index>().indices().get<by_id>();
@@ -921,11 +921,11 @@ dep_update_info fund_deposit_update2_evaluator::do_apply( const fund_deposit_upd
    const fund_object& fund = *fund_obj_ptr;
    const fund_deposit_object& fund_deposit = *fund_deposit_ptr;
 
-   optional<protocol::fund_dep_upd_ext> ext;
+   optional<protocol::fund_dep_upd_ext_info> ext;
 
    if (o.extensions.size() > 0)
    {
-      ext = o.extensions.begin()->get<protocol::fund_dep_upd_ext>();
+      ext = o.extensions.begin()->get<protocol::fund_dep_upd_ext_info>();
 
       // change deposit owner
       if (ext->account_id != account_id_type())

@@ -125,7 +125,8 @@ public:
    account_object get_market_by_address(const std::string& addr) const;
    flat_set<vote_id_type> get_account_votes(const std::string& name_or_id) const;
    fc::optional<restricted_account_object> get_restricted_account(const std::string& name_or_id) const;
-   
+   fc::optional<witness_object> get_witness_by_account(const std::string& name_or_id);
+
    std::pair<unsigned, vector<address>>
    get_account_addresses(const string& name_or_id, unsigned from, unsigned limit);
    
@@ -142,10 +143,15 @@ public:
    signed_transaction set_verification_is_required(account_id_type target, bool verification_is_required);
 
    signed_transaction set_account_limit_daily_volume(const std::string& name_or_id, bool enabled);
-   
+
    signed_transaction generate_address(const string& account_id_or_name);
    
    signed_transaction generate_market_address(const string& account_id_or_name, const std::string& notes);
+
+   signed_transaction set_witness_exception(
+      const std::vector<account_id_type>& exc_accounts_blocks
+      , const std::vector<account_id_type>& exc_accounts_fees
+      , bool exception_enabled);
    
    /***
     * @brief encrypt the keys

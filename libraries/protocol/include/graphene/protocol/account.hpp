@@ -120,7 +120,6 @@ namespace graphene { namespace protocol {
     * @brief Update an existing account
     *
     * This operation is used to update an existing account. It can be used to update the authorities, or adjust the options on the account.
-    * See @ref account_object::options_type for the options which may be updated.
     */
    struct account_update_operation: public base_operation
    {
@@ -444,7 +443,7 @@ namespace graphene { namespace protocol {
       void            validate() const { };
    };
 
-   typedef flat_set<static_variant<void_t, uint32_t>> address_ext_type;
+   typedef static_variant<void_t, uint32_t>::flat_set_type address_ext_type;
 
    struct create_market_address_operation: public base_operation
    {
@@ -455,19 +454,21 @@ namespace graphene { namespace protocol {
       account_id_type market_account_id;
       std::string     notes;
 
+      //extensions_type extensions;
       address_ext_type extensions;
+
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
       void            validate() const;
    };
 
-   struct limit_daily_ext
+   struct limit_daily_ext_info
    {
       // transfers + blind_transfers
       share_type transfers_max_amount;
       bool       limit_cheques_enabled = false;
       share_type cheques_max_amount;
    };
-   typedef flat_set<static_variant<void_t, limit_daily_ext>> limit_daily_extensions_type;
+   typedef static_variant<void_t, limit_daily_ext_info>::flat_set_type limit_daily_ext_type;
 
    struct account_edc_limit_daily_volume_operation: public base_operation
    {
@@ -478,7 +479,7 @@ namespace graphene { namespace protocol {
       account_id_type account_id;
       bool            limit_transfers_enabled = false;
 
-      limit_daily_extensions_type extensions;
+      limit_daily_ext_type extensions;
       account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
       void            validate() const { };
    };
@@ -492,12 +493,8 @@ FC_REFLECT_ENUM( graphene::protocol::account_restrict_operation::account_action,
 FC_REFLECT_ENUM( graphene::protocol::account_allow_referrals_operation::account_action,
                  (allow)(disallow))
 
-FC_REFLECT( graphene::protocol::limit_daily_ext,
-            (transfers_max_amount)
-            (limit_cheques_enabled)
-            (cheques_max_amount) )
-FC_REFLECT_TYPENAME( graphene::protocol::limit_daily_extensions_type )
 FC_REFLECT_TYPENAME( graphene::protocol::address_ext_type )
+FC_REFLECT( graphene::protocol::limit_daily_ext_info, (transfers_max_amount)(limit_cheques_enabled)(cheques_max_amount) )
 
 FC_REFLECT( graphene::protocol::account_create_operation::ext, (null_ext)(owner_special_authority)(active_special_authority)(buyback_options) )
 FC_REFLECT_TYPENAME(graphene::protocol::extension<graphene::protocol::account_create_operation::ext>)
@@ -528,14 +525,11 @@ FC_REFLECT( graphene::protocol::account_edc_limit_daily_volume_operation::fee_pa
 FC_REFLECT( graphene::protocol::account_create_operation,
             (fee)(registrar)
             (referrer)(referrer_percent)
-            (name)(owner)(active)(options)(extensions)
-)
+            (name)(owner)(active)(options)(extensions) )
 FC_REFLECT( graphene::protocol::account_update_operation,
-            (fee)(account)(owner)(active)(new_options)(extensions)
-)
+            (fee)(account)(owner)(active)(new_options)(extensions) )
 FC_REFLECT( graphene::protocol::account_update_authorities_operation,
-            (account)(owner)(active)(memo_key)(fee)(extensions)
-)
+            (account)(owner)(active)(memo_key)(fee)(extensions) )
 FC_REFLECT( graphene::protocol::add_address_operation, (fee)(to_account)(extensions) )
 FC_REFLECT( graphene::protocol::account_upgrade_operation,
             (fee)(account_to_upgrade)(upgrade_to_lifetime_member)(extensions) )
@@ -554,6 +548,7 @@ FC_REFLECT( graphene::protocol::create_market_address_operation, (fee)(market_ac
 FC_REFLECT( graphene::protocol::account_edc_limit_daily_volume_operation, (fee)(account_id)(limit_transfers_enabled)(extensions) )
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_options )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::limit_daily_ext_info )
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::add_address_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_create_operation::fee_parameters_type )

@@ -41,6 +41,7 @@
 #include <graphene/chain/witness_schedule_object.hpp>
 #include <graphene/chain/worker_object.hpp>
 #include <graphene/chain/settings_object.hpp>
+#include <graphene/chain/witnesses_info_object.hpp>
 
 #include <fc/io/raw.hpp>
 
@@ -155,7 +156,11 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::witness_object, (graphene::db::
                     (total_votes)
                     (url)
                     (total_missed)
+                    (daily_missed)
+                    (total_confirmed)
+                    (daily_confirmed)
                     (last_confirmed_block_num)
+                    (first_mt)
                   )
 
 FC_REFLECT_DERIVED_NO_TYPENAME(
@@ -178,7 +183,22 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::settings_object,
    (witness_fees_percent)
    (make_denominate)
    (denominate_asset)
-   (denominate_coef) )
+   (denominate_coef)
+   (rank1_edc_amount)
+   (rank2_edc_amount)
+   (rank3_edc_amount)
+   (rank1_edc_transfer_fee_percent)
+   (rank2_edc_transfer_fee_percent)
+   (rank3_edc_transfer_fee_percent)
+)
+
+FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::witnesses_info_object,
+   (graphene::db::object),
+   (witness_fees_reward_edc_amount)
+   (all_blocks_reward_count)
+   (exc_accounts_blocks)
+   (exc_accounts_fees)
+)
 
 FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::refund_worker_type, BOOST_PP_SEQ_NIL, (total_burned) )
 FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::vesting_balance_worker_type, BOOST_PP_SEQ_NIL, (balance) )
@@ -219,3 +239,4 @@ GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::witness_object )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::witness_schedule_object )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::settings_object )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::worker_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::chain::witnesses_info_object )

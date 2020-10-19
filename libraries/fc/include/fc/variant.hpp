@@ -153,7 +153,7 @@ namespace fc
    void to_variant( const uint128_t& var, variant& vo, uint32_t max_depth = 1 );
    void from_variant( const variant& var, uint128_t& vo, uint32_t max_depth = 1 );
 
-   #ifdef __APPLE__
+   #if defined(__APPLE__) or defined(__OpenBSD__)
    void to_variant( size_t s, variant& v, uint32_t max_depth = 1 );
    #elif !defined(_WIN32)
    void to_variant( long long int s,          variant& v, uint32_t max_depth = 1 );
@@ -229,7 +229,7 @@ namespace fc
         variant( uint32_t val, uint32_t max_depth = 1 );
         variant( int32_t val, uint32_t max_depth = 1 );
         variant( uint64_t val, uint32_t max_depth = 1 );
-#ifdef __APPLE__
+#if defined(__APPLE__) or defined(__OpenBSD__)
         variant( size_t val, uint32_t max_depth = 1 );
 #endif
         variant( int64_t val, uint32_t max_depth = 1 );
@@ -581,9 +581,7 @@ namespace fc
       memset( this, 0, sizeof(*this) );
       to_variant( val, *this, max_depth );
    }
-   #ifdef __APPLE__
-   inline void to_variant( size_t s, variant& v, uint32_t max_depth ) { v = variant(uint64_t(s)); }
-   #endif
+
    template<typename T>
    void to_variant( const std::shared_ptr<T>& var, variant& vo, uint32_t max_depth )
    {
@@ -632,7 +630,7 @@ namespace fc
 
    template<typename T>
    void to_variant( const safe<T>& s, variant& v, uint32_t max_depth ) {
-      to_variant( s.value, v, max_depth );
+      to_variant( static_cast<T>(s.value), v, max_depth );
    }
 
    template<typename T>

@@ -53,6 +53,9 @@ void fund_deposit_operation::validate() const
 
 } } // namespace graphene::protocol
 
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_ext_info )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_dep_upd_ext_info )
+
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_create_operation::fee_parameters_type )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_update_operation::fee_parameters_type )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_refill_operation::fee_parameters_type )

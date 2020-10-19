@@ -179,10 +179,10 @@ class wallet_api
                                                                        , int operation_type = 0) const;
 
       // from old to new entities
-      vector<operation_history_object>  get_account_operation_history4(account_id_type account
-                                                                       , operation_history_id_type start = operation_history_id_type()
-                                                                       , unsigned limit = 100
-                                                                       , const vector<uint16_t>& operation_types = vector<uint16_t>()) const;
+      vector<operation_detail> get_account_operation_history4(account_id_type account
+                                                              , operation_history_id_type start = operation_history_id_type()
+                                                              , unsigned limit = 100
+                                                              , const vector<uint16_t>& operation_types = vector<uint16_t>()) const;
 
       vector<fund_deposit_object> get_account_deposits(const string& name_or_id, uint32_t start, uint32_t limit) const;
       vector<market_address_object> get_market_addresses(const string& name_or_id, uint32_t start, uint32_t limit) const;
@@ -1074,6 +1074,12 @@ class wallet_api
       fc::optional<restricted_account_object> get_restricted_account(const std::string& name_or_id) const;
 
       /**
+       * Returns witness_object of account if exists
+       * @param name_or_id the name or id of the account that can contain restricted_account_object
+       */
+      fc::optional<witness_object> get_witness_by_account(const std::string& name_or_id) const;
+
+      /**
        * Returns all accounts that have votes 'vote'
        */
       vector<account_id_type> get_voting_accounts(const vote_id_type& vote) const;
@@ -1210,6 +1216,10 @@ class wallet_api
                                           string witness,
                                           bool approve,
                                           bool broadcast = false);
+      
+      signed_transaction set_witness_exception(const std::vector<account_id_type>& exc_accounts_blocks
+                                         , const std::vector<account_id_type>& exc_accounts_fees
+                                         , bool exception_enabled);
 
       /** Set the voting proxy for an account.
        *
@@ -1534,6 +1544,7 @@ FC_API( graphene::wallet::wallet_api,
         (get_witness)
         (get_account_votes)
         (get_restricted_account)
+        (get_witness_by_account)
         (get_voting_accounts)
         (get_committee_member)
         (list_witnesses)
@@ -1546,6 +1557,7 @@ FC_API( graphene::wallet::wallet_api,
         (withdraw_vesting)
         (vote_for_committee_member)
         (vote_for_witness)
+        (set_witness_exception)
         (set_voting_proxy)
         
         (set_desired_witness_and_committee_member_count)

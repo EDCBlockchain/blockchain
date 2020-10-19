@@ -6,6 +6,8 @@
 #include <fc/rpc/api_connection.hpp>
 #include <fc/rpc/websocket_api.hpp>
 
+namespace fc { namespace test {
+
 class calculator
 {
    public:
@@ -14,9 +16,6 @@ class calculator
       void    on_result( const std::function<void(int32_t)>& cb );
       void    on_result2( const std::function<void(int32_t)>& cb, int test );
 };
-
-FC_API( calculator, (add)(sub)(on_result)(on_result2) )
-
 
 class login_api
 {
@@ -29,8 +28,6 @@ class login_api
       fc::optional<fc::api<calculator>> calc;
       std::set<std::string> test( const std::string&, const std::string& ) { return std::set<std::string>(); }
 };
-FC_API( login_api, (get_calc)(test) );
-
 
 class optionals_api
 {
@@ -44,9 +41,6 @@ public:
         return fc::json::to_string(fc::variants{{first,2}, {second, 2}, {third, 2}});
     }
 };
-FC_API( optionals_api, (foo)(bar) );
-
-using namespace fc;
 
 class some_calculator
 {
@@ -58,6 +52,12 @@ class some_calculator
       std::function<void(int32_t)> _cb;
 };
 
+}} // fc::test
+
+FC_API( fc::test::calculator, (add)(sub)(on_result)(on_result2) )
+FC_API( fc::test::login_api, (get_calc)(test) );
+FC_API( fc::test::optionals_api, (foo)(bar) );
+
 using namespace fc::http;
 using namespace fc::rpc;
 
@@ -67,14 +67,14 @@ BOOST_AUTO_TEST_SUITE(api_tests)
 
 BOOST_AUTO_TEST_CASE(login_test) {
    try {
-      fc::api<calculator> calc_api( std::make_shared<some_calculator>() );
+      fc::api<fc::test::calculator> calc_api( std::make_shared<fc::test::some_calculator>() );
 
-      auto server = std::make_shared<fc::http::websocket_server>();
+      auto server = std::make_shared<fc::http::websocket_server>("");
       server->on_connection([&]( const websocket_connection_ptr& c ){
                auto wsc = std::make_shared<websocket_api_connection>(c, MAX_DEPTH);
-               auto login = std::make_shared<login_api>();
+               auto login = std::make_shared<fc::test::login_api>();
                login->calc = calc_api;
-               wsc->register_api(fc::api<login_api>(login));
+               wsc->register_api(fc::api<fc::test::login_api>(login));
                c->set_session_data( wsc );
           });
 
@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE(login_test) {
       auto con  = client->connect( "ws://localhost:" + std::to_string(listen_port) );
       server->stop_listening();
       auto apic = std::make_shared<websocket_api_connection>(con, MAX_DEPTH);
-      auto remote_login_api = apic->get_remote_api<login_api>();
+      auto remote_login_api = apic->get_remote_api<fc::test::login_api>();
       auto remote_calc = remote_login_api->get_calc();
       bool remote_triggered = false;
       remote_calc->on_result( [&remote_triggered]( uint32_t r ) { remote_triggered = true; } );
@@ -103,8 +103,8 @@ BOOST_AUTO_TEST_CASE(login_test) {
 
 BOOST_AUTO_TEST_CASE(optionals_test) {
    try {
-      auto optionals = std::make_shared<optionals_api>();
-      fc::api<optionals_api> oapi(optionals);
+      auto optionals = std::make_shared<fc::test::optionals_api>();
+      fc::api<fc::test::optionals_api> oapi(optionals);
       BOOST_CHECK_EQUAL(oapi->foo("a"), "[\"a\",null,null]");
       BOOST_CHECK_EQUAL(oapi->foo("a", "b"), "[\"a\",\"b\",null]");
       BOOST_CHECK_EQUAL(oapi->foo("a", "b", "c"), "[\"a\",\"b\",\"c\"]");
@@ -116,10 +116,10 @@ BOOST_AUTO_TEST_CASE(optionals_test) {
       BOOST_CHECK_EQUAL(oapi->bar("a", "b", "c"), "[\"a\",\"b\",\"c\"]");
       BOOST_CHECK_EQUAL(oapi->bar("a", {}, "c"), "[\"a\",null,\"c\"]");
 
-      auto server = std::make_shared<fc::http::websocket_server>();
+      auto server = std::make_shared<fc::http::websocket_server>("");
       server->on_connection([&]( const websocket_connection_ptr& c ){
                auto wsc = std::make_shared<websocket_api_connection>(c, MAX_DEPTH);
-               wsc->register_api(fc::api<optionals_api>(optionals));
+               wsc->register_api(fc::api<fc::test::optionals_api>(optionals));
                c->set_session_data( wsc );
           });
 
@@ -130,7 +130,7 @@ BOOST_AUTO_TEST_CASE(optionals_test) {
       auto client = std::make_shared<fc::http::websocket_client>();
       auto con  = client->connect( "ws://localhost:" + std::to_string(listen_port) );
       auto apic = std::make_shared<websocket_api_connection>(con, MAX_DEPTH);
-      auto remote_optionals = apic->get_remote_api<optionals_api>();
+      auto remote_optionals = apic->get_remote_api<fc::test::optionals_api>();
 
       BOOST_CHECK_EQUAL(remote_optionals->foo("a"), "[\"a\",null,null]");
       BOOST_CHECK_EQUAL(remote_optionals->foo("a", "b"), "[\"a\",\"b\",null]");
@@ -145,8 +145,8 @@ BOOST_AUTO_TEST_CASE(optionals_test) {
 
       auto client2 = std::make_shared<fc::http::websocket_client>();
       auto con2  = client2->connect( "ws://localhost:" + std::to_string(listen_port) );
-      string response;
-      con2->on_message_handler([&](const std::string& s){
+      std::string response;
+      con2->on_message_handler([&response](const std::string& s){
                     response = s;
                 });
 

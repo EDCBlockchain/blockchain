@@ -17,7 +17,7 @@ namespace fc
   std::string to_pretty_string( int64_t );
   inline std::string to_string( int32_t v ) { return to_string( int64_t(v) ); }
   inline std::string to_string( uint32_t v ){ return to_string( uint64_t(v) ); }
-#ifdef __APPLE__
+#if defined(__APPLE__) or defined(__OpenBSD__)
   inline std::string to_string( size_t s) { return to_string(uint64_t(s)); }
 #endif
 

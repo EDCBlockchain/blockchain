@@ -343,6 +343,9 @@ namespace graphene { namespace chain {
 
          void rebuild_user_edc_deposit_availability(account_id_type acc_id);
 
+         void update_user_rank(const account_object& acc);
+         int64_t get_account_fee_edc_percent_by_rank(const account_object& acc) const;
+
          asset get_burnt_asset(asset_id_type id);
 
          /**
@@ -521,7 +524,8 @@ namespace graphene { namespace chain {
          void issue_bonuses_old();
          void issue_bonuses_before_620();
          void issue_bonuses();
-         void make_witness_fee_payments();
+         void make_witness_payments();
+         void process_witnesses();
          bool bonus_allowed(account_id_type issue_to_account, asset asset_to_issue, account_id_type issuer);
          void clear_account_mature_balance_index();
          void update_active_witnesses();

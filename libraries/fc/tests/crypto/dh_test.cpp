@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE(dh_test)
     alice.p.clear(); alice.p.push_back(100); alice.p.push_back(2);
     BOOST_CHECK( !alice.validate() );
     alice.p = bob.p;
-    alice.g = 9;
+    alice.g = 1;
     BOOST_CHECK( !alice.validate() );
 }
 

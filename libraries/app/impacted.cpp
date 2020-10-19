@@ -381,6 +381,9 @@ struct get_impacted_items_visitor
    void operator()( const denominate_operation& op ) {
       _impacted_accounts.insert(op.fee_payer());
    }
+   void operator()( const set_witness_exception_operation& op ) {
+      _impacted_accounts.insert(op.fee_payer());
+   }
 };
 
 void operation_get_impacted_items(

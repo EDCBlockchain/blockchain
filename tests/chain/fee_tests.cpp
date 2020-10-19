@@ -671,18 +671,20 @@ BOOST_AUTO_TEST_CASE( fee_refund_test )
          // C++ -- The above commented out statement doesn't work, I don't know why
          // so we will use the following rather lengthy initialization instead
          {
-            flat_set< fee_parameters > new_fees;
             {
-               limit_order_create_operation::fee_parameters_type create_fee_params;
-               create_fee_params.fee = order_create_fee;
-               new_fees.insert( create_fee_params );
+               fee_parameters::flat_set_type new_fees;
+               {
+                  limit_order_create_operation::fee_parameters_type create_fee_params;
+                  create_fee_params.fee = order_create_fee;
+                  new_fees.insert( create_fee_params );
+               }
+               {
+                  limit_order_cancel_operation::fee_parameters_type cancel_fee_params;
+                  cancel_fee_params.fee = order_cancel_fee;
+                  new_fees.insert( cancel_fee_params );
+               }
+               change_fees( new_fees );
             }
-            {
-               limit_order_cancel_operation::fee_parameters_type cancel_fee_params;
-               cancel_fee_params.fee = order_cancel_fee;
-               new_fees.insert( cancel_fee_params );
-            }
-            change_fees( new_fees );
          }
 
          // Alice creates order

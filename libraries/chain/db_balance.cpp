@@ -437,6 +437,41 @@ void database::rebuild_user_edc_deposit_availability(account_id_type acc_id)
    }
 }
 
+void database::update_user_rank(const account_object& acc)
+{
+   const settings_object& settings = *find(settings_id_type(0));
+   e_account_rank rank = acc.rank;
+
+   // rank3
+   if (acc.edc_burnt >= settings.rank3_edc_amount) {
+      rank = e_account_rank::_3;
+   }
+   // rank2
+   else if (acc.edc_burnt >= settings.rank2_edc_amount) {
+      rank = e_account_rank::_2;
+   }
+   // rank1
+   else if (acc.edc_burnt >= settings.rank1_edc_amount) {
+      rank = e_account_rank::_1;
+   }
+
+   if (rank > acc.rank)
+   {
+      modify(acc, [&](account_object& obj) {
+         obj.rank = rank;
+      });
+   }
+}
+
+int64_t database::get_account_fee_edc_percent_by_rank(const account_object& acc) const
+{
+   const settings_object& settings = *find(settings_id_type(0));
+   if (acc.rank == e_account_rank::_1) { return settings.rank1_edc_transfer_fee_percent; }
+   else if (acc.rank == e_account_rank::_2) { return settings.rank2_edc_transfer_fee_percent; }
+   else if (acc.rank == e_account_rank::_3) { return settings.rank3_edc_transfer_fee_percent; }
+   return 0;
+}
+
 asset database::get_burnt_asset(asset_id_type id)
 {
    const asset_dynamic_data_object& asset_dyn_data_ptr = id(*this).dynamic_asset_data_id(*this);

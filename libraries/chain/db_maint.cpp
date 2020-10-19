@@ -45,6 +45,7 @@
 #include <graphene/chain/witness_object.hpp>
 #include <graphene/chain/worker_object.hpp>
 #include <graphene/chain/is_authorized_asset.hpp>
+#include <graphene/chain/witnesses_info_object.hpp>
 
 namespace graphene { namespace chain {
 
@@ -231,6 +232,8 @@ void database::update_active_witnesses()
       }
    } );
 
+   flat_set<witness_id_type> old_witnesses = gpo.active_witnesses;
+
    modify(gpo, [&]( global_property_object& gp ){
       gp.active_witnesses.clear();
       gp.active_witnesses.reserve(wits.size());
@@ -240,6 +243,18 @@ void database::update_active_witnesses()
          return w.id;
       });
    });
+
+   for (const witness_id_type& id: gpo.active_witnesses)
+   {
+      // new active witness
+      if (old_witnesses.find(id) == old_witnesses.end())
+      {
+         const witness_object& witness_obj = id(*this);
+         modify(witness_obj, [&](witness_object& w) {
+            w.first_mt = true;
+         });
+      }
+   }
 
 } FC_CAPTURE_AND_RETHROW() }
 
@@ -927,8 +942,10 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
    }
 
    // make fee-payments to witnesses
-   if (head_block_time() > HARDFORK_633_TIME) {
-      make_witness_fee_payments();
+   if (head_block_time() > HARDFORK_633_TIME)
+   {
+      make_witness_payments();
+      process_witnesses();
    }
 
    if (settings.make_denominate && (head_block_time() > HARDFORK_635_TIME))
@@ -1017,7 +1034,14 @@ void database::process_accounts()
          {
             obj.edc_transfers_amount_counter = 0;
             obj.edc_cheques_amount_counter = 0;
+            obj.edc_transfers_daily_count = obj.edc_transfers_count;
+            obj.edc_transfers_count = 0;
          });
+      }
+
+      // ranks
+      if (head_block_time() >= HARDFORK_636_TIME) {
+         update_user_rank(acc_obj);
       }
 
       // reduce balance according to denomination
@@ -1228,47 +1252,115 @@ void database::denominate_cheques()
    }
 }
 
-void database::make_witness_fee_payments()
+void database::make_witness_payments()
 {
    const global_property_object& gpo = get_global_properties();
    const settings_object& settings = get(settings_id_type(0));
+   const witnesses_info_object& witnesses_info = get(witnesses_info_id_type(0));
 
-   const auto& asset_idx = get_index_type<asset_index>();
-   asset_idx.inspect_all_objects([&](const db::object& obj)
+   // payments for signed blocks
+   if ( (witnesses_info.all_blocks_reward_count > 0)
+        && (settings.block_reward.amount > 0)
+        && (gpo.active_witnesses.size() > 0) )
    {
-      const chain::asset_object& asset_obj = static_cast<const chain::asset_object&>(obj);
-      const asset_dynamic_data_object& d = asset_obj.dynamic_asset_data_id(*this);
-
-      share_type amount = std::round(d.fees_sum.value * get_percent(settings.witness_fees_percent));
-      if (amount > 0)
+      const chain::asset_object& asset_obj = (const chain::asset_object&)get(settings.block_reward.asset_id);
+      for (const witness_id_type& witness_id: gpo.active_witnesses)
       {
-         share_type amount_part = amount / gpo.active_witnesses.size();
+         const witness_object& witness_obj = witness_id(*this);
+
+         if (witness_obj.witness_account == asset_obj.issuer) { continue; }
+         if (witnesses_info.exc_accounts_blocks.find(witness_obj.witness_account) != witnesses_info.exc_accounts_blocks.end()) { continue; }
+         // witness is as active witness for the first time
+         if (witness_obj.first_mt) { continue; }
+         if (witness_obj.daily_confirmed <= 0) { continue; }
+
+         share_type amnt = settings.block_reward.amount * witness_obj.daily_confirmed;
+         amnt = check_supply_overflow(asset(amnt, settings.block_reward.asset_id)).amount;
+         if (amnt <= 0) { continue; }
+
+         asset_issue_operation op;
+         op.issuer           = asset_obj.issuer;
+         op.asset_to_issue   = asset(amnt, asset_obj.get_id());
+         op.issue_to_account = witness_obj.witness_account;
+         op.extensions.insert(e_asset_issue_type::_blocks);
+         transaction_evaluation_state eval(this);
+         apply_operation(eval, op);
+      }
+   }
+
+   // payments for fees (in EDC)
+   if (witnesses_info.witness_fees_reward_edc_amount > 0)
+   {
+      share_type witnesses_amount = std::round(witnesses_info.witness_fees_reward_edc_amount.value * get_percent(settings.witness_fees_percent));
+      const asset& asst = check_supply_overflow(asset(witnesses_amount, EDC_ASSET));
+
+      if ( (asst.amount > 0) && (gpo.active_witnesses.size() > 0) )
+      {
+         share_type amount_part = asst.amount / gpo.active_witnesses.size();
          if (amount_part > 0)
          {
-            // accruals to witnesses
+            const chain::asset_object& edc_asset = (const chain::asset_object&)get(EDC_ASSET);
             for (const witness_id_type& witness_id: gpo.active_witnesses)
             {
                const witness_object& witness_obj = witness_id(*this);
-               if (witness_obj.witness_account == asset_obj.issuer) { continue; }
+               if (witness_obj.witness_account == edc_asset.issuer) { continue; }
+               if (witnesses_info.exc_accounts_fees.find(witness_obj.witness_account) != witnesses_info.exc_accounts_fees.end()) { continue; }
+               if (witness_obj.first_mt) { continue; }
 
-               asset_issue_operation op;
-               op.issuer           = asset_obj.issuer;
-               op.asset_to_issue   = asset(amount_part, asset_obj.get_id());
-               op.issue_to_account = witness_obj.witness_account;
-               transaction_evaluation_state eval(this);
-               apply_operation(eval, op);
+               share_type amnt;
+               if (witness_obj.daily_confirmed > 0)
+               {
+                  int all_witness_blocks = witness_obj.daily_missed + witness_obj.daily_confirmed;
+                  if (all_witness_blocks > 0)
+                  {
+                     double coef = ((double)witness_obj.daily_missed / (double)all_witness_blocks) * (double)100;
+                     amnt = amount_part - (amount_part / 100 * coef);
+                  }
+               }
+
+               if (amnt > 0)
+               {
+                  asset_issue_operation op;
+                  op.issuer           = edc_asset.issuer;
+                  op.asset_to_issue   = asset(amnt, edc_asset.get_id());
+                  op.issue_to_account = witness_obj.witness_account;
+                  op.extensions.insert(e_asset_issue_type::_fees);
+                  transaction_evaluation_state eval(this);
+                  apply_operation(eval, op);
+               }
             }
          }
       }
+   }
 
-      // reset daily counter
-      if (d.fees_sum > 0)
-      {
-         modify(d, [&](asset_dynamic_data_object& data) {
-            data.fees_sum = 0;
-         });
-      }
+   // reset daily counters
+   modify(witnesses_info, [&](witnesses_info_object& obj)
+   {
+      obj.witness_fees_reward_edc_amount = 0;
+      obj.all_blocks_reward_count = 0;
    });
+}
+
+void database::process_witnesses()
+{
+   const global_property_object& gpo = get_global_properties();
+   for (const witness_id_type& id: gpo.active_witnesses)
+   {
+      const witness_object& witness_obj = id(*this);
+      modify(witness_obj, [&](witness_object& w) {
+         w.first_mt = false;
+      });
+   }
+
+   const auto& idx = get_index_type<witness_index>().indices().get<by_id>();
+   for (const witness_object& obj_idx: idx)
+   {
+      modify(obj_idx, [&](witness_object& obj)
+      {
+         obj.daily_missed = 0;
+         obj.daily_confirmed = 0;
+      });
+   }
 }
 
 void database::issue_bonuses()

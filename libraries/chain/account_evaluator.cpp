@@ -1071,7 +1071,7 @@ void_result account_limit_daily_volume_evaluator::do_apply(const account_edc_lim
 
          if (op.extensions.size() > 0)
          {
-            const protocol::limit_daily_ext& ext = op.extensions.begin()->get<protocol::limit_daily_ext>();
+            const protocol::limit_daily_ext_info& ext = op.extensions.begin()->get<protocol::limit_daily_ext_info>();
 
             acc.edc_transfers_max_amount  = ext.transfers_max_amount;
             acc.edc_limit_cheques_enabled = ext.limit_cheques_enabled;

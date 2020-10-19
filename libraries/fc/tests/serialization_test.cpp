@@ -35,7 +35,6 @@ namespace fc { namespace test {
    inline bool operator < ( const item& a, const item& b )
    { return ( std::tie( a.level, a.w ) < std::tie( b.level, b.w ) ); }
 
-
 } } // namespace fc::test
 
 FC_REFLECT( fc::test::item_wrapper, (v) );

@@ -28,6 +28,8 @@
 
 namespace graphene { namespace chain {
 
+   class settings_object;
+
    class transfer_evaluator: public evaluator<transfer_evaluator>
    {
       public:
@@ -37,7 +39,10 @@ namespace graphene { namespace chain {
          void_result do_apply( const transfer_operation& o );
 
          const asset_dynamic_data_object* asset_dyn_data_ptr = nullptr;
-         const account_object*            to_account_ptr = nullptr;
+         const account_object* from_account_ptr = nullptr;
+         const account_object* to_account_ptr = nullptr;
+
+         const settings_object* settings_ptr = nullptr;
 
          share_type custom_fee = 0;
    };
@@ -53,7 +58,10 @@ namespace graphene { namespace chain {
       const asset_dynamic_data_object* asset_dyn_data_ptr = nullptr;
       const asset_dynamic_data_object* fee_dyn_data_ptr = nullptr;
 
-      const account_object*            to_account_ptr = nullptr;
+      const account_object* from_account_ptr = nullptr;
+      const account_object* to_account_ptr = nullptr;
+      const settings_object* settings_ptr = nullptr;
+
       asset custom_fee;
    };
 

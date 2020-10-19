@@ -88,3 +88,9 @@ void operation_get_required_authorities( const operation& op,
 } } // namespace graphene::protocol
 
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::op_wrapper )
+
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::eval_fund_dep_apply_object )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::eval_fund_dep_apply_object_fixed )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::market_address )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::market_addresses )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::dep_update_info )

@@ -71,6 +71,8 @@ void override_transfer_operation::validate()const
 
 } } // graphene::protocol
 
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::asset_ext_info )
+
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::transfer_operation::fee_parameters_type )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::update_blind_transfer2_settings_operation::fee_parameters_type )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::blind_transfer2_operation::fee_parameters_type )

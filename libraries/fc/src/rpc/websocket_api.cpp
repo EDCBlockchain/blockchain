@@ -221,7 +221,8 @@ response websocket_api_connection::on_request( const variant& var )
    catch ( const fc::exception& e )
    {
       if( has_id )
-         return response( call.id, error_object{ e.code(), "Execution error", variant( e, _max_conversion_depth ) },
+         return response( call.id, error_object{ e.code(), "Execution error: " + e.to_string(),
+                                                 variant( e, _max_conversion_depth ) },
                           call.jsonrpc );
    }
    catch ( const std::exception& e )

@@ -2,6 +2,11 @@
 #include <boost/test/unit_test.hpp>
 
 #include <fc/thread/thread.hpp>
+#include <fc/thread/mutex.hpp>
+#include <fc/thread/scoped_lock.hpp>
+#include <fc/asio.hpp>
+
+#include <iostream>
 
 using namespace fc;
 
@@ -90,6 +95,65 @@ BOOST_AUTO_TEST_CASE(reschedules_yielded_task)
 
     future.wait();
     BOOST_CHECK_EQUAL(10, reschedule_count);
+}
+
+/****
+ * Attempt to have fc::threads use fc::mutex when yield() causes a context switch
+ */
+BOOST_AUTO_TEST_CASE( yield_with_mutex )
+{ 
+   // set up thread pool
+   uint16_t num_threads = 5;
+   std::vector<fc::thread*> thread_collection;
+   for(uint16_t i = 0; i < num_threads; i++)
+      thread_collection.push_back(new fc::thread("My" + std::to_string(i)));
+
+   // the function that will give a thread something to do
+   fc::mutex my_mutex;
+   volatile uint32_t my_mutable = 0;
+   auto my_func = ([&my_mutable, &my_mutex] ()
+         {
+            // grab the mutex
+            my_mutex.lock();
+            // get the prior value
+            uint32_t old_value = my_mutable;
+            // modify the value
+            my_mutable++;
+            // yield
+            fc::yield();
+            // test to see if the mutex is recursive
+            my_mutex.lock();
+            // return the value to the original
+            my_mutable--;
+            my_mutex.unlock();
+            // verify the original still matches
+            if (old_value != my_mutable)
+               BOOST_FAIL("Values do not match");
+            my_mutex.unlock();
+         });
+
+   // the loop that gives threads the work
+   uint16_t thread_counter = 0;
+   uint32_t num_loops = 50000;
+   std::vector<fc::future<void>> futures(num_loops);
+   for(uint32_t i = 0; i < num_loops; ++i)
+   { 
+      futures[i] = thread_collection[thread_counter]->async(my_func);
+      ++thread_counter;
+      if (thread_counter == num_threads)
+         thread_counter = 0;
+   }
+
+   // now wait for each to finish
+   for(uint32_t i = 0; i < num_loops; ++i)
+      futures[i].wait();
+
+   // clean up the thread pointers
+   for(uint16_t i = 0; i < num_threads; i++)
+      delete thread_collection[i];
+
+   // verify that evertying worked
+   BOOST_CHECK_EQUAL(0u, my_mutable);
 }
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -47,6 +47,14 @@ namespace graphene { namespace chain {
       asset_id_type denominate_asset;
       uint32_t denominate_coef = 1;
 
+      // ranks
+      share_type rank1_edc_amount = 1000000000;
+      share_type rank2_edc_amount = 5000000000;
+      share_type rank3_edc_amount = 10000000000;
+      int64_t rank1_edc_transfer_fee_percent = 3000;
+      int64_t rank2_edc_transfer_fee_percent = 2000;
+      int64_t rank3_edc_transfer_fee_percent = 0;
+
       settings_id_type get_id() { return id; }
    };
 

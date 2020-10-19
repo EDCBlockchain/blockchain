@@ -11,6 +11,16 @@ namespace graphene { namespace protocol {
       int64_t percent = 0;
    };
 
+   struct settings_ranks
+   {
+      share_type rank1_edc_amount = 0;
+      share_type rank2_edc_amount = 0;
+      share_type rank3_edc_amount = 0;
+      int64_t rank1_edc_transfer_fee_percent = 0;
+      int64_t rank2_edc_transfer_fee_percent = 0;
+      int64_t rank3_edc_transfer_fee_percent = 0;
+   };
+
    /**
     * @ingroup operations
     */
@@ -26,6 +36,7 @@ namespace graphene { namespace protocol {
          optional<share_type> edc_cheques_daily_limit;
          optional<asset> block_reward;
          optional<uint32_t> witness_fees_percent;
+         optional<settings_ranks> ranks;
       };
 
       asset fee;
@@ -47,13 +58,21 @@ namespace graphene { namespace protocol {
 } } // graphene::protocol
 
 FC_REFLECT( graphene::protocol::settings_fee, (asset_id)(percent) )
+FC_REFLECT( graphene::protocol::settings_ranks,
+            (rank1_edc_amount)
+            (rank2_edc_amount)
+            (rank3_edc_amount)
+            (rank1_edc_transfer_fee_percent)
+            (rank2_edc_transfer_fee_percent)
+            (rank3_edc_transfer_fee_percent) )
 FC_REFLECT( graphene::protocol::update_settings_operation::ext,
             (null_ext)
             (cheque_fees)
             (create_market_address_fee_edc)
             (edc_cheques_daily_limit)
             (block_reward)
-            (witness_fees_percent) )
+            (witness_fees_percent)
+            (ranks) )
 FC_REFLECT( graphene::protocol::update_settings_operation::fee_parameters_type, (fee) )
 
 FC_REFLECT( graphene::protocol::update_settings_operation,

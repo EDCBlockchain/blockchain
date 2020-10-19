@@ -457,7 +457,7 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::account_object,
                                 (top_n_control_flags)
                                 (allowed_assets)
                                 (register_datetime)(last_generated_address)
-                                (current_restriction)(is_market)(verification_is_required)
+                                (current_restriction)(rank)(is_market)(verification_is_required)
                                 (can_create_and_update_asset)(can_create_addresses)
                                 (burning_mode_enabled)
                                 (deposits_autorenewal_enabled)
@@ -468,6 +468,9 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::account_object,
                                 (edc_limit_cheques_enabled)
                                 (edc_cheques_max_amount)
                                 (edc_cheques_amount_counter)
+                                (edc_burnt)
+                                (edc_transfers_count)
+                                (edc_transfers_daily_count)
                               )
 
 FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::account_balance_object,

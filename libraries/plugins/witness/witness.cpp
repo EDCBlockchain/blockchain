@@ -134,7 +134,7 @@ void witness_plugin::plugin_startup()
       }
       schedule_production_loop();
    } else
-      elog("No witnesses configured! Please add witness IDs and private keys to configuration.");
+      elog("No witnesses configured. Please add witness IDs and private keys to configuration if you would like to use a production witness_node.");
    ilog("witness plugin:  plugin_startup() end");
 } FC_CAPTURE_AND_RETHROW() }
 

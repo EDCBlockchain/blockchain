@@ -452,6 +452,13 @@ namespace graphene { namespace protocol {
       void            validate()const;
    };
 
+   enum class e_asset_issue_type: uint8_t
+   {
+      _blocks,
+      _fees
+   };
+   typedef static_variant<void_t, e_asset_issue_type>::flat_set_type asset_issue_ext_type;
+
    /**
     * @ingroup operations
     */
@@ -469,7 +476,7 @@ namespace graphene { namespace protocol {
 
       /** user provided data encrypted to the memo key of the "to" account */
       optional<memo_data>  memo;
-      extensions_type      extensions;
+      asset_issue_ext_type extensions;
 
       account_id_type fee_payer()const { return issuer; }
       void            validate()const;
@@ -574,7 +581,6 @@ namespace graphene { namespace protocol {
       void            validate()const;
    };
 
-   typedef flat_set<static_variant<void_t>> denominate_extensions_type;
    /**
     * @brief makes asset denominate actions: reduce of user balances, deposits, etc. on MT
     */
@@ -587,7 +593,7 @@ namespace graphene { namespace protocol {
       asset_id_type   asset_id;
       uint32_t        coef = 1;
 
-      denominate_extensions_type extensions;
+      future_extensions extensions;
 
       account_id_type fee_payer()const { return GRAPHENE_COMMITTEE_ACCOUNT; }
       void            validate()const { FC_ASSERT( coef > 1 ); };
@@ -595,9 +601,9 @@ namespace graphene { namespace protocol {
 
 } } // graphene::protocol
 
-FC_REFLECT( graphene::protocol::asset_claim_fees_operation, (fee)(issuer)(amount_to_claim)(extensions) )
+FC_REFLECT_ENUM( graphene::chain::e_asset_issue_type, (_blocks)(_fees) )
 
-FC_REFLECT_TYPENAME( graphene::protocol::denominate_extensions_type )
+FC_REFLECT( graphene::protocol::asset_claim_fees_operation, (fee)(issuer)(amount_to_claim)(extensions) )
 
 FC_REFLECT( graphene::protocol::asset_options,
             (max_supply)

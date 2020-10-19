@@ -27,8 +27,8 @@
 #include <graphene/protocol/exceptions.hpp>
 #include <graphene/protocol/vesting.hpp>
 #include <graphene/protocol/settings_ops.hpp>
+#include <graphene/protocol/witnesses_info_ops.hpp>
 #include <graphene/protocol/fba.hpp>
-
 #include <fc/io/raw.hpp>
 
 namespace graphene { namespace protocol {
@@ -61,7 +61,9 @@ GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fba_distribute_op
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::vesting_balance_create_operation::fee_parameters_type )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::vesting_balance_withdraw_operation::fee_parameters_type )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::update_settings_operation::fee_parameters_type )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::set_witness_exception_operation::fee_parameters_type )
 
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::vesting_balance_create_operation )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::vesting_balance_withdraw_operation )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::update_settings_operation )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::set_witness_exception_operation )

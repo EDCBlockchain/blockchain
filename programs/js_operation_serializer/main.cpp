@@ -24,20 +24,9 @@
 #include <graphene/protocol/block.hpp>
 #include <graphene/protocol/fee_schedule.hpp>
 
-#include <graphene/chain/account_object.hpp>
-#include <graphene/chain/asset_object.hpp>
-#include <graphene/chain/balance_object.hpp>
-#include <graphene/chain/committee_member_object.hpp>
-#include <graphene/chain/confidential_object.hpp>
 #include <graphene/chain/fba_object.hpp>
-#include <graphene/chain/market_object.hpp>
-#include <graphene/chain/proposal_object.hpp>
 #include <graphene/chain/vesting_balance_object.hpp>
-#include <graphene/chain/withdraw_permission_object.hpp>
-#include <graphene/chain/witness_object.hpp>
-#include <graphene/chain/worker_object.hpp>
 #include <graphene/chain/fund_object.hpp>
-#include <graphene/chain/cheque_object.hpp>
 
 #include <iostream>
 
@@ -290,7 +279,7 @@ struct serializer< fc::static_variant<T...>, false >
       {
          init = true;
          fc::static_variant<T...> var;
-         for( int i = 0; i < var.count(); ++i )
+         for( size_t i = 0; i < var.count(); ++i )
          {
             var.set_which(i);
             var.visit( register_type_visitor() );
@@ -371,7 +360,7 @@ int main( int argc, char** argv )
     operation op;
 
     std::cout << "ChainTypes.operations=\n";
-    for( int i = 0; i < op.count(); ++i )
+    for( size_t i = 0; i < op.count(); ++i )
     {
        op.set_which(i);
        op.visit( detail_ns::serialize_type_visitor(i) );

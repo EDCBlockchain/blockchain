@@ -99,6 +99,13 @@ namespace fc {
     void logger::add_appender( const appender::ptr& a )
     { my->_appenders.push_back(a); }
     
+    void logger::remove_appender( const appender::ptr& a )
+    { 
+      auto item = std::find(my->_appenders.begin(), my->_appenders.end(), a);
+      if (item != my->_appenders.end())
+         my->_appenders.erase(item); 
+    }
+
     std::vector<appender::ptr> logger::get_appenders()const
     {
         return my->_appenders;
