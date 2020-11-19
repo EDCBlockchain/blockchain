@@ -102,7 +102,7 @@ namespace graphene { namespace protocol {
             referral_issue_operation,
             edc_asset_fund_fee_pool_operation, // [idx: 48]
             account_restrict_operation,        // restrict account money_in, money_out, bonuses
-            account_allow_referrals_operation, // account can create other accounts
+            account_allow_registrar_operation, // account can create other accounts
             set_online_time_operation,         // [idx: 51]
             set_verification_is_required_operation,
             allow_create_asset_operation,
@@ -142,7 +142,10 @@ namespace graphene { namespace protocol {
             fund_deposit_reduce_operation,
             fund_deposit_update2_operation,
             denominate_operation,                  // [idx: 85]
-            set_witness_exception_operation
+            set_witness_exception_operation,
+            update_referral_settings_operation,
+            update_accounts_referrer_operation,    // [idx: 88]
+            enable_account_referral_payments_operation
          > operation;
 
    /// @} // operations group

@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE( recursive_accounts )
          trx.operations.clear();
       }
 
-      const account_object& child = get_account("child");
+      const account_object& child = get_account_by_name("child");
       auto old_balance = fund(child);
 
       BOOST_TEST_MESSAGE( "Attempting to transfer with no signatures, should fail" );
@@ -317,7 +317,7 @@ BOOST_AUTO_TEST_CASE( proposed_single_account )
       fc::ecc::private_key nathan_key3 = fc::ecc::private_key::regenerate(fc::digest("key3"));
 
       const account_object& moneyman = create_account("moneyman", init_account_pub_key);
-      const account_object& nathan = get_account("nathan");
+      const account_object& nathan = get_account_by_name("nathan");
       const asset_object& core = asset_id_type()(db);
 
       transfer(account_id_type()(db), moneyman, core.amount(1000000));
@@ -515,7 +515,7 @@ BOOST_FIXTURE_TEST_CASE( fired_committee_members, database_fixture )
    const account_object* nathan = &create_account("nathan");
    transfer(account_id_type()(db), *nathan, asset(5000));
    generate_block();
-   nathan = &get_account("nathan");
+   nathan = &get_account_by_name("nathan");
    flat_set<vote_id_type> committee_members;
 
    /*
@@ -575,7 +575,7 @@ BOOST_FIXTURE_TEST_CASE( fired_committee_members, database_fixture )
    //Yay! The proposal to give nathan more money is authorized.
    BOOST_REQUIRE(pid(db).is_authorized_to_execute(db));
 
-   nathan = &get_account("nathan");
+   nathan = &get_account_by_name("nathan");
    // no money yet
    BOOST_REQUIRE_EQUAL(get_balance(*nathan, asset_id_type()(db)), 5000);
 

@@ -295,6 +295,7 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
 
    // new deposit object
    auto next_fund_deposit_id = d.get_index_type<fund_deposit_index>().get_next_id();
+   fc::time_point_sec datetime_end;
 
    const fund_deposit_object& new_fund_deposit =
    d.create<fund_deposit_object>([&](fund_deposit_object& o)
@@ -320,10 +321,12 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
       o.percent = p_rate->percent;
       o.daily_payment = d.get_deposit_daily_payment(o.percent, o.period, o.amount.amount);
 
+      datetime_end = o.datetime_end;
+
       if (d.head_block_time() >= HARDFORK_626_TIME)
       {
          result_new.datetime_begin = o.datetime_begin;
-         result_new.datetime_end   = o.datetime_end;
+         result_new.datetime_end   = datetime_end;
          result_new.daily_payment  = asset(o.daily_payment, fund.asset_id);
       }
       else
@@ -336,8 +339,7 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
 
    asset asst(op.amount, fund.asset_id);
 
-   // ========= statistics
-
+   // ======== statistics
    d.modify(fund.statistics_id(d), [&](fund_statistics_object& obj)
    {
       // fund: increasing deposits count
@@ -345,19 +347,32 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
    });
    d.modify(from_acc, [&](account_object& obj)
    {
-      auto itr = obj.deposit_sums.find(fund.get_id());
-      if (itr != obj.deposit_sums.end()) {
-         itr->second += asset(op.amount, fund.asset_id);
+      auto itr = obj.deposits_info.find(fund.get_id());
+      if (itr != obj.deposits_info.end())
+      {
+         itr->second.sum += asset(op.amount, fund.asset_id);
+         if (datetime_end < itr->second.nearest_deposit_dt) {
+            itr->second.nearest_deposit_dt = datetime_end;
+         }
       }
-      else {
-         obj.deposit_sums[fund.get_id()] = asset(op.amount, fund.asset_id);
+      else
+      {
+         dep_info inf;
+         inf.fund_id = fund.get_id();
+         inf.nearest_deposit_dt = datetime_end;
+         inf.sum = asset(op.amount, fund.asset_id);
+         obj.deposits_info.emplace(fund.get_id(), std::move(inf));
       }
 
-      if (fund.asset_id == EDC_ASSET) {
-         obj.edc_in_deposits = d.get_user_deposits_sum(op.from_account, EDC_ASSET);
+      if (fund.asset_id == EDC_ASSET)
+      {
+         ++obj.edc_active_deposits_count;
+         obj.edc_in_deposits_daily += op.amount;
+         const std::tuple<share_type, fc::time_point_sec>& dep_info = d.get_user_deposits_info(op.from_account, EDC_ASSET);
+         obj.edc_in_deposits = std::get<0>(dep_info);
+         obj.edc_deposit_nearest_dt = std::get<1>(dep_info);
       }
    });
-
    // ====================
 
    // user
@@ -425,16 +440,20 @@ void_result fund_withdrawal_evaluator::do_apply( const fund_withdrawal_operation
 
    const chain::fund_object& fund = *fund_obj_ptr;
 
-   // update stats
+   // statistics
+   d.update_user_nearest_active_deposit_dt(op.issue_to_account, fund);
    d.modify(*account_ptr, [&](account_object& obj)
    {
-      auto itr = obj.deposit_sums.find(fund.get_id());
-      if (itr != obj.deposit_sums.end()) {
-         itr->second -= asset(op.asset_to_issue.amount, fund.asset_id);
+      auto itr = obj.deposits_info.find(fund.get_id());
+      if (itr != obj.deposits_info.end()) {
+         itr->second.sum.amount -= op.asset_to_issue.amount;
       }
-
-      if (fund.asset_id == EDC_ASSET) {
-         obj.edc_in_deposits = d.get_user_deposits_sum(op.issue_to_account, EDC_ASSET);
+      if (fund.asset_id == EDC_ASSET)
+      {
+         --obj.edc_active_deposits_count;
+         const std::tuple<share_type, fc::time_point_sec>& dep_info = d.get_user_deposits_info(op.issue_to_account, EDC_ASSET);
+         obj.edc_in_deposits = std::get<0>(dep_info);
+         obj.edc_deposit_nearest_dt = std::get<1>(dep_info);
       }
    });
 
@@ -458,6 +477,7 @@ void_result fund_payment_evaluator::do_evaluate( const fund_payment_operation& o
    FC_ASSERT( !asst_obj.is_market_issued(), "Cannot manually issue a market-issued asset." );
 
    const account_object& to_account = op.issue_to_account(d);
+   account_ptr = &to_account;
    FC_ASSERT( is_authorized_asset( d, to_account, asst_obj), "Not authorized asset '${asst}'!", ("asst", asst_obj.symbol));
    FC_ASSERT( not_restricted_account(d, to_account, directionality_type::receiver), "Account '${acc}' is restricted!", ("acc", to_account.name) );
 
@@ -474,8 +494,14 @@ void_result fund_payment_evaluator::do_apply( const fund_payment_operation& op )
 { try {
 
    database& d = db();
-
    d.adjust_balance(op.issue_to_account, op.asset_to_issue);
+
+   if (d.head_block_time() > HARDFORK_637_TIME)
+   {
+      d.modify(*account_ptr, [&](account_object& obj) {
+         obj.edc_deposit_payments_daily += op.asset_to_issue.amount;
+      });
+   }
 
    // current supply
    if (asset_dyn_data_ptr)
@@ -540,10 +566,40 @@ void_result fund_deposit_set_enable_evaluator::do_evaluate( const fund_deposit_s
 void_result fund_deposit_set_enable_evaluator::do_apply( const fund_deposit_set_enable_operation& op )
 { try {
 
-   FC_ASSERT(fund_dep_obj_ptr);
+   database& d = db();
+   const fund_deposit_object& dep = *fund_dep_obj_ptr;
+   const account_object& account = dep.account_id(d);
+   const fund_object& fund = dep.fund_id(d);
+   bool old_enabled = dep.enabled;
 
-   db().modify(*fund_dep_obj_ptr, [&](fund_deposit_object& o) {
+   d.modify(*fund_dep_obj_ptr, [&](fund_deposit_object& o) {
       o.enabled = op.enabled;
+   });
+
+   // statistics
+   d.update_user_nearest_active_deposit_dt(dep.account_id, fund);
+   d.modify(account, [&](account_object& obj)
+   {
+      auto itr = obj.deposits_info.find(fund.get_id());
+      if (itr != obj.deposits_info.end()) {
+         itr->second.sum.amount = op.enabled ?
+            (itr->second.sum.amount + dep.amount.amount) : (itr->second.sum.amount - dep.amount.amount);
+      }
+      if (fund.asset_id == EDC_ASSET)
+      {
+         if (!dep.finished)
+         {
+            if (op.enabled && !old_enabled) {
+               ++obj.edc_active_deposits_count;
+            }
+            else if (!op.enabled && old_enabled) {
+               --obj.edc_active_deposits_count;
+            }
+         }
+         const std::tuple<share_type, fc::time_point_sec>& dep_info = d.get_user_deposits_info(dep.account_id, EDC_ASSET);
+         obj.edc_in_deposits = std::get<0>(dep_info);
+         obj.edc_deposit_nearest_dt = std::get<1>(dep_info);
+      }
    });
 
    return void_result();
@@ -775,55 +831,80 @@ dep_update_info fund_deposit_update_evaluator::do_apply( const fund_deposit_upda
 { try {
    database& d = db();
    const fund_object& fund = *fund_obj_ptr;
-   const fund_deposit_object& fund_deposit = *fund_deposit_ptr;
-
-   // change deposit owner
-   if (o.extensions.value.account_id)
-   {
-      account_id_type old_account_id = fund_deposit.account_id;
-      account_id_type new_account_id = *o.extensions.value.account_id;
-
-      d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep) {
-         dep.account_id = new_account_id;
-      });
-
-      // ========= statistics
-
-      d.modify(old_account_id(d), [&](account_object& obj)
-      {
-         auto itr = obj.deposit_sums.find(fund.get_id());
-         if (itr != obj.deposit_sums.end()) {
-            itr->second -= asset(fund_deposit.amount.amount, fund.asset_id);
-         }
-      });
-      d.modify(new_account_id(d), [&](account_object& obj)
-      {
-         auto itr = obj.deposit_sums.find(fund.get_id());
-         if (itr != obj.deposit_sums.end()) {
-            itr->second += asset(fund_deposit.amount.amount, fund.asset_id);
-         }
-         else {
-            obj.deposit_sums[fund.get_id()] = asset(fund_deposit.amount.amount, fund.asset_id);
-         }
-      });
-
-      if (fund.asset_id == EDC_ASSET)
-      {
-         d.modify(old_account_id(d), [&](account_object& obj) {
-            obj.edc_in_deposits = d.get_user_deposits_sum(old_account_id, EDC_ASSET);
-         });
-         d.modify(new_account_id(d), [&](account_object& obj) {
-            obj.edc_in_deposits = d.get_user_deposits_sum(new_account_id, EDC_ASSET);
-         });
-      }
-   }
+   const fund_deposit_object& dep = *fund_deposit_ptr;
+   bool is_active = !dep.finished && dep.enabled;
+   account_id_type old_account_id = dep.account_id;
 
    // change 'datetime_end' of deposit
    if (o.extensions.value.datetime_end)
    {
-      d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep) {
+      d.modify(dep, [&](fund_deposit_object& dep) {
          dep.datetime_end = *o.extensions.value.datetime_end;
       });
+
+      // statistics
+      if (!o.extensions.value.account_id) {
+         d.update_user_nearest_active_deposit_dt(old_account_id, fund);
+      }
+   }
+
+   // change deposit owner
+   if (o.extensions.value.account_id)
+   {
+      account_id_type new_account_id = *o.extensions.value.account_id;
+
+      d.modify(dep, [&](fund_deposit_object& dep) {
+         dep.account_id = new_account_id;
+      });
+
+      // statistics
+      d.modify(old_account_id(d), [&](account_object& obj)
+      {
+         if (is_active) {
+            --obj.edc_active_deposits_count;
+         }
+         auto itr = obj.deposits_info.find(fund.get_id());
+         if (itr != obj.deposits_info.end()) {
+            itr->second.sum.amount -= dep.amount.amount;
+         }
+      });
+      d.modify(new_account_id(d), [&](account_object& obj)
+      {
+         if (is_active) {
+            ++obj.edc_active_deposits_count;
+         }
+         auto itr = obj.deposits_info.find(fund.get_id());
+         if (itr != obj.deposits_info.end()) {
+            itr->second.sum.amount += dep.amount.amount;
+         }
+         else
+         {
+            dep_info inf;
+            inf.fund_id = fund.get_id();
+            inf.nearest_deposit_dt = dep.datetime_end;
+            inf.sum = asset(dep.amount.amount, fund.asset_id);
+            obj.deposits_info.emplace(fund.get_id(), std::move(inf));
+         }
+      });
+
+      d.update_user_nearest_active_deposit_dt(old_account_id, fund);
+      d.update_user_nearest_active_deposit_dt(new_account_id, fund);
+
+      if (fund.asset_id == EDC_ASSET)
+      {
+         d.modify(old_account_id(d), [&](account_object& obj)
+         {
+            const std::tuple<share_type, fc::time_point_sec>& dep_info = d.get_user_deposits_info(old_account_id, EDC_ASSET);
+            obj.edc_in_deposits = std::get<0>(dep_info);
+            obj.edc_deposit_nearest_dt = std::get<1>(dep_info);
+         });
+         d.modify(new_account_id(d), [&](account_object& obj)
+         {
+            const std::tuple<share_type, fc::time_point_sec>& dep_info = d.get_user_deposits_info(new_account_id, EDC_ASSET);
+            obj.edc_in_deposits = std::get<0>(dep_info);
+            obj.edc_deposit_nearest_dt = std::get<1>(dep_info);
+         });
+      }
    }
 
    // main flags
@@ -832,7 +913,7 @@ dep_update_info fund_deposit_update_evaluator::do_apply( const fund_deposit_upda
       // fund percent
       if (o.reset)
       {
-         d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep)
+         d.modify(dep, [&](fund_deposit_object& dep)
          {
             dep.percent = p_rate->percent;
             dep.manual_percent_enabled = false;
@@ -842,7 +923,7 @@ dep_update_info fund_deposit_update_evaluator::do_apply( const fund_deposit_upda
       // manual percent
       else
       {
-         d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep)
+         d.modify(dep, [&](fund_deposit_object& dep)
          {
             dep.percent = o.percent;
             dep.manual_percent_enabled = true;
@@ -852,8 +933,8 @@ dep_update_info fund_deposit_update_evaluator::do_apply( const fund_deposit_upda
    }
 
    dep_update_info result;
-   result.percent = fund_deposit_ptr->percent;
-   result.daily_payment = asset(fund_deposit_ptr->daily_payment, fund_deposit_ptr->amount.asset_id);
+   result.percent = dep.percent;
+   result.daily_payment = asset(dep.daily_payment, dep.amount.asset_id);
 
    return result;
 
@@ -919,7 +1000,9 @@ dep_update_info fund_deposit_update2_evaluator::do_apply( const fund_deposit_upd
 { try {
    database& d = db();
    const fund_object& fund = *fund_obj_ptr;
-   const fund_deposit_object& fund_deposit = *fund_deposit_ptr;
+   const fund_deposit_object& dep = *fund_deposit_ptr;
+   bool is_active = !dep.finished && dep.enabled;
+   account_id_type old_account_id = dep.account_id;
 
    optional<protocol::fund_dep_upd_ext_info> ext;
 
@@ -927,53 +1010,73 @@ dep_update_info fund_deposit_update2_evaluator::do_apply( const fund_deposit_upd
    {
       ext = o.extensions.begin()->get<protocol::fund_dep_upd_ext_info>();
 
+      // change 'datetime_end' of deposit
+      if (ext->datetime_end.sec_since_epoch() > 0)
+      {
+         d.modify(dep, [&](fund_deposit_object& dep) {
+            dep.datetime_end = ext->datetime_end;
+         });
+
+         // statistics
+         if (ext->account_id == account_id_type()) {
+            d.update_user_nearest_active_deposit_dt(old_account_id, fund);
+         }
+      }
+
       // change deposit owner
       if (ext->account_id != account_id_type())
       {
-         account_id_type old_account_id = fund_deposit.account_id;
          account_id_type new_account_id = ext->account_id;
 
-         d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep) {
+         d.modify(dep, [&](fund_deposit_object& dep) {
             dep.account_id = new_account_id;
          });
 
-         // ========= statistics
-
+         // statistics
          d.modify(old_account_id(d), [&](account_object& obj)
          {
-            auto itr = obj.deposit_sums.find(fund.get_id());
-            if (itr != obj.deposit_sums.end()) {
-               itr->second -= asset(fund_deposit.amount.amount, fund.asset_id);
+            if (is_active) {
+               --obj.edc_active_deposits_count;
+            }
+            auto itr = obj.deposits_info.find(fund.get_id());
+            if (itr != obj.deposits_info.end()) {
+               itr->second.sum.amount -= dep.amount.amount;
             }
          });
          d.modify(new_account_id(d), [&](account_object& obj)
          {
-            auto itr = obj.deposit_sums.find(fund.get_id());
-            if (itr != obj.deposit_sums.end()) {
-               itr->second += asset(fund_deposit.amount.amount, fund.asset_id);
+            if (is_active) {
+               ++obj.edc_active_deposits_count;
             }
-            else {
-               obj.deposit_sums[fund.get_id()] = asset(fund_deposit.amount.amount, fund.asset_id);
+            auto itr = obj.deposits_info.find(fund.get_id());
+            if (itr != obj.deposits_info.end()) {
+               itr->second.sum.amount += dep.amount.amount;
+            }
+            else
+            {
+               dep_info inf;
+               inf.fund_id = fund.get_id();
+               inf.nearest_deposit_dt = dep.datetime_end;
+               inf.sum = asset(dep.amount.amount, fund.asset_id);
+               obj.deposits_info.emplace(fund.get_id(), std::move(inf));
             }
          });
 
          if (fund.asset_id == EDC_ASSET)
          {
-            d.modify(old_account_id(d), [&](account_object& obj) {
-               obj.edc_in_deposits = d.get_user_deposits_sum(old_account_id, EDC_ASSET);
+            d.modify(old_account_id(d), [&](account_object& obj)
+            {
+               const std::tuple<share_type, fc::time_point_sec>& dep_info = d.get_user_deposits_info(old_account_id, EDC_ASSET);
+               obj.edc_in_deposits = std::get<0>(dep_info);
+               obj.edc_deposit_nearest_dt = std::get<1>(dep_info);
             });
-            d.modify(new_account_id(d), [&](account_object& obj) {
-               obj.edc_in_deposits = d.get_user_deposits_sum(new_account_id, EDC_ASSET);
+            d.modify(new_account_id(d), [&](account_object& obj)
+            {
+               const std::tuple<share_type, fc::time_point_sec>& dep_info = d.get_user_deposits_info(new_account_id, EDC_ASSET);
+               obj.edc_in_deposits = std::get<0>(dep_info);
+               obj.edc_deposit_nearest_dt = std::get<1>(dep_info);
             });
          }
-      }
-
-      // change 'datetime_end' of deposit
-      if (ext->datetime_end.sec_since_epoch() > 0)
-      {
-         d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep) {
-            dep.datetime_end = ext->datetime_end;
-         });
       }
    }
 
@@ -983,7 +1086,7 @@ dep_update_info fund_deposit_update2_evaluator::do_apply( const fund_deposit_upd
       // fund percent
       if (o.reset)
       {
-         d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep)
+         d.modify(dep, [&](fund_deposit_object& dep)
          {
             dep.percent = p_rate->percent;
             dep.manual_percent_enabled = false;
@@ -993,7 +1096,7 @@ dep_update_info fund_deposit_update2_evaluator::do_apply( const fund_deposit_upd
       // manual percent
       else
       {
-         d.modify(*fund_deposit_ptr, [&](fund_deposit_object& dep)
+         d.modify(dep, [&](fund_deposit_object& dep)
          {
             dep.percent = o.percent;
             dep.manual_percent_enabled = true;
@@ -1003,8 +1106,8 @@ dep_update_info fund_deposit_update2_evaluator::do_apply( const fund_deposit_upd
    }
 
    dep_update_info result;
-   result.percent = fund_deposit_ptr->percent;
-   result.daily_payment = asset(fund_deposit_ptr->daily_payment, fund_deposit_ptr->amount.asset_id);
+   result.percent = dep.percent;
+   result.daily_payment = asset(dep.daily_payment, dep.amount.asset_id);
 
    return result;
 
@@ -1072,15 +1175,17 @@ asset fund_deposit_reduce_evaluator::do_apply( const fund_deposit_reduce_operati
 
    d.modify(fund_deposit.account_id(d), [&](account_object& obj)
    {
-      auto itr = obj.deposit_sums.find(fund.get_id());
-      if (itr != obj.deposit_sums.end()) {
-         itr->second -= asset(o.amount, fund.asset_id);
+      auto itr = obj.deposits_info.find(fund.get_id());
+      if (itr != obj.deposits_info.end()) {
+         itr->second.sum.amount -= o.amount;
       }
    });
    if (fund.asset_id == EDC_ASSET)
    {
-      d.modify(fund_deposit.account_id(d), [&](account_object& obj) {
-         obj.edc_in_deposits = d.get_user_deposits_sum(fund_deposit.account_id, EDC_ASSET);
+      d.modify(fund_deposit.account_id(d), [&](account_object& obj)
+      {
+         const std::tuple<share_type, fc::time_point_sec>& dep_info = d.get_user_deposits_info(fund_deposit.account_id, EDC_ASSET);
+         obj.edc_in_deposits = std::get<0>(dep_info);
       });
    }
 

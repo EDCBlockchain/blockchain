@@ -7,11 +7,11 @@ std::map<string, account_object> accounts_map;
 
 void create_test_account(account_test_in& new_account, database_fixture &db)
 {
-   account_object parent = db.get_account(new_account.parent);
+   account_object parent = db.get_account_by_name(new_account.parent);
    db.create_account(new_account.name, parent, parent, 80, db.generate_private_key(new_account.name).get_public_key());
-   db.upgrade_to_lifetime_member(db.get_account(new_account.name));
-   accounts_map.insert(std::pair<string, account_object>(new_account.name, db.get_account(new_account.name)));
-   accounts_map.insert(std::pair<string, account_object>(new_account.parent, db.get_account(new_account.parent)));
+   db.upgrade_to_lifetime_member(db.get_account_by_name(new_account.name));
+   accounts_map.insert(std::pair<string, account_object>(new_account.name, db.get_account_by_name(new_account.name)));
+   accounts_map.insert(std::pair<string, account_object>(new_account.parent, db.get_account_by_name(new_account.parent)));
    new_account.exp_data.account_id = accounts_map[new_account.name].id;
    if(new_account.exp_data.balance) {
          int64_t mand_sum = new_account.mand_transfer ? asset::scaled_precision(asset_id_type()(db.db).precision).value : 0;
@@ -49,8 +49,8 @@ void append_children(account_children_in& new_account, database_fixture &db)
    {
       std::string acc_name(acc_prefix);
       acc_name.append(std::to_string(i));
-      db.create_account(acc_name, db.get_account(parent), db.get_account(parent), 80, db.generate_private_key(acc_name).get_public_key());
-      accounts_map.insert(std::pair<string, account_object>(acc_name, db.get_account(acc_name)));
+      db.create_account(acc_name, db.get_account_by_name(parent), db.get_account_by_name(parent), 80, db.generate_private_key(acc_name).get_public_key());
+      accounts_map.insert(std::pair<string, account_object>(acc_name, db.get_account_by_name(acc_name)));
       if(new_account.balance > 0) {
          int64_t mand_sum = new_account.mand_transfer ? asset::scaled_precision(asset_id_type()(db.db).precision).value : 0;
          db.transfer(db.committee_account, accounts_map[acc_name].id, asset(new_account.balance + mand_sum, asset_id_type()));

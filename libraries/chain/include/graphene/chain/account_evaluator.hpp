@@ -106,13 +106,13 @@ public:
 
 };
 
-class account_allow_referrals_evaluator: public evaluator<account_allow_referrals_evaluator>
+class account_allow_registrar_evaluator: public evaluator<account_allow_registrar_evaluator>
 {
 public:
-   typedef account_allow_referrals_operation operation_type;
+   typedef account_allow_registrar_operation operation_type;
 
-   void_result do_evaluate( const account_allow_referrals_operation& o);
-   object_id_type do_apply( const account_allow_referrals_operation& o);
+   void_result do_evaluate( const account_allow_registrar_operation& o);
+   object_id_type do_apply( const account_allow_registrar_operation& o);
 
 };
 
@@ -216,7 +216,27 @@ public:
    void_result do_apply(const account_edc_limit_daily_volume_operation& op);
 
    const account_object* account_ptr = nullptr;
+};
 
+class update_accounts_referrer_evaluator: public evaluator<update_accounts_referrer_evaluator>
+{
+public:
+   typedef update_accounts_referrer_operation operation_type;
+
+   void_result do_evaluate(const update_accounts_referrer_operation& op);
+   void_result do_apply(const update_accounts_referrer_operation& op);
+
+};
+
+class enable_account_referral_payments_evaluator: public evaluator<enable_account_referral_payments_evaluator>
+{
+public:
+   typedef enable_account_referral_payments_operation operation_type;
+
+   void_result do_evaluate(const enable_account_referral_payments_operation& op);
+   void_result do_apply(const enable_account_referral_payments_operation& op);
+
+   const account_object* account_ptr = nullptr;
 };
 
 } } // graphene::chain

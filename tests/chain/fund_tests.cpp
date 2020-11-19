@@ -661,7 +661,7 @@ BOOST_AUTO_TEST_CASE( fund_make_autorenewal_test )
       PUSH_TX(db, trx, ~0);
       trx.clear();
 
-      BOOST_CHECK(!get_account("bob").deposits_autorenewal_enabled);
+      BOOST_CHECK(!get_account_by_name("bob").deposits_autorenewal_enabled);
 
       // payment to user should work only once (+amount of deposit) despite of 3 days
       h_time = db.head_block_time() + fc::days(3);
@@ -836,7 +836,7 @@ BOOST_AUTO_TEST_CASE( funds_deposits_limit_test)
 
       generate_block();
 
-      BOOST_CHECK(get_account("alice").edc_in_deposits.value == 30000000000);
+      BOOST_CHECK(get_account_by_name("alice").edc_in_deposits.value == 30000000000);
 
       fc::time_point_sec h_time = db.head_block_time() + fc::days(1);
       while (db.head_block_time() < h_time) {
@@ -955,8 +955,11 @@ BOOST_AUTO_TEST_CASE( funds_payments_limit_test )
       }
 
       //std::cout << get_balance(bob_id, EDC_ASSET) << std::endl;
-      BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 20150000000);
-      BOOST_CHECK(db.get_user_deposits_sum(bob_id, EDC_ASSET).value == 30000000000);
+      {
+         BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 20150000000);
+         const std::tuple<share_type, fc::time_point_sec>& dep_info = db.get_user_deposits_info(bob_id, EDC_ASSET);
+         BOOST_CHECK(std::get<0>(dep_info).value == 30000000000);
+      }
 
       // must throw, because 30m exceeded
       {
@@ -978,7 +981,11 @@ BOOST_AUTO_TEST_CASE( funds_payments_limit_test )
          generate_block();
       }
 
-      BOOST_CHECK(db.get_user_deposits_sum(bob_id, EDC_ASSET).value == 0);
+      //std::cout << get_balance(bob_id, EDC_ASSET) << std::endl;
+      {
+         const std::tuple<share_type, fc::time_point_sec>& dep_info = db.get_user_deposits_info(bob_id, EDC_ASSET);
+         BOOST_CHECK(std::get<0>(dep_info).value == 0);
+      }
 
       {
          fund_deposit_operation fdo;
@@ -992,7 +999,11 @@ BOOST_AUTO_TEST_CASE( funds_payments_limit_test )
          PUSH_TX(db, trx, ~0);
          trx.clear();
       }
-      BOOST_CHECK(db.get_user_deposits_sum(bob_id, EDC_ASSET).value == 1000000000);
+
+      {
+         const std::tuple<share_type, fc::time_point_sec>& dep_info = db.get_user_deposits_info(bob_id, EDC_ASSET);
+         BOOST_CHECK(std::get<0>(dep_info).value == 1000000000);
+      }
 
    } FC_LOG_AND_RETHROW()
 }

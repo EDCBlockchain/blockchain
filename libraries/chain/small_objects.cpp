@@ -190,6 +190,13 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::settings_object,
    (rank1_edc_transfer_fee_percent)
    (rank2_edc_transfer_fee_percent)
    (rank3_edc_transfer_fee_percent)
+   (referral_payments_enabled)
+   (referral_level1_percent)
+   (referral_level2_percent)
+   (referral_level3_percent)
+   (referral_min_limit_edc_level1)
+   (referral_min_limit_edc_level2)
+   (referral_min_limit_edc_level3)
 )
 
 FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::witnesses_info_object,

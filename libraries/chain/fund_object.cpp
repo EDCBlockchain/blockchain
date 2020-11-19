@@ -106,7 +106,6 @@ void fund_object::process(database& db) const
    h_item.create_datetime = db.head_block_time();
 
    const auto& users_idx = db.get_index_type<account_index>().indices().get<by_id>();
-   std::vector<fund_deposit_id_type> deps_to_remove;
 
    // find own fund deposits
    auto range = db.get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(id);
@@ -209,15 +208,20 @@ void fund_object::process(database& db) const
                         }
                         dep.datetime_end = db.get_dynamic_global_properties().last_budget_time + (86400 * dep.period);
                      });
-                  };
+                  }
                }
             }
 
             if (dep_was_overdue)
             {
-               // remove deposit
-               deps_to_remove.emplace_back(dep.get_id());
+               // disable deposit
+               db.modify(dep, [&](chain::fund_deposit_object& obj)
+               {
+                  obj.enabled = false;
+                  obj.finished = true;
+               });
 
+               // withdraw deposit amount
                if ( (db.head_block_time() <= HARDFORK_628_TIME)
                     || ((db.head_block_time() > HARDFORK_628_TIME) && (dep.amount.amount > 0))
                     || (db.head_block_time() > HARDFORK_634_TIME) )
@@ -245,13 +249,6 @@ void fund_object::process(database& db) const
                      });
                   }
                }
-
-               // disable deposit
-               db.modify(dep, [&](chain::fund_deposit_object& f)
-               {
-                  f.enabled = false;
-                  f.finished = true;
-               });
             }
          }
       }

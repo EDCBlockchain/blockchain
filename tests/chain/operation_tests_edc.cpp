@@ -557,7 +557,7 @@ BOOST_AUTO_TEST_CASE(witness_fee_payments_test)
          generate_block();
       }
 
-      const account_object& acc_init0 = get_account("init0");
+      const account_object& acc_init0 = get_account_by_name("init0");
 
       BOOST_CHECK(get_balance(acc_init0.get_id(), EDC_ASSET) == 1);
    }

@@ -57,8 +57,8 @@ class database_api_impl : public std::enable_shared_from_this<database_api_impl>
       optional<account_object> get_account_by_name( string name ) const;
       optional<account_object> get_account_by_name_or_id(const string& name_or_id) const;
       optional<account_object> get_account_by_vote_id(const vote_id_type& v_id) const;
-      Unit get_referrals( optional<account_object> account ) const;
-      ref_info get_referrals_by_id( optional<account_object> account ) const;
+      Unit get_referrals(optional<account_object> account) const;
+      ref_info get_referrals2(optional<account_object> account) const;
       vector<SimpleUnit> get_accounts_info(vector<optional<account_object>> accounts);
       fc::variant_object get_user_count_by_ranks() const;
       int64_t get_user_count_with_balances(fc::time_point_sec start, fc::time_point_sec end) const;

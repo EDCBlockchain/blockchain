@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  */
 
+#include <functional>
 #include <fc/uint128.hpp>
 
 #include <graphene/protocol/market.hpp>
@@ -911,6 +912,10 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
 
    const settings_object& settings = *find(settings_id_type(0));
 
+   if (head_block_time() > HARDFORK_637_TIME) {
+      form_referral_map();
+   }
+
    if (head_block_time() > HARDFORK_627_TIME) {
       process_accounts();
    }
@@ -933,8 +938,10 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
       process_cheques();
    }
 
-   if (head_block_time() > HARDFORK_620_TIME) {
-      issue_bonuses(); // for all assets except EDC
+   if (head_block_time() > HARDFORK_620_TIME)
+   {
+      // for all assets except EDC (because backend doesn't have maturity functional for EDC)
+      issue_bonuses();
    } else if (head_block_time() > HARDFORK_617_TIME) {
       issue_bonuses_before_620();
    } else if (head_block_time() > HARDFORK_616_TIME) {
@@ -1003,10 +1010,20 @@ void database::clear_old_entities()
       }
       // deposit objects
       {
-         auto history_index = get_index_type<fund_deposit_index>().indices().get<by_datetime_end>().lower_bound(tp);
-         auto begin_iter = get_index_type<fund_deposit_index>().indices().get<by_datetime_end>().begin();
-         while (begin_iter != history_index) {
-            remove(*begin_iter++);
+         std::vector<fund_deposit_id_type> to_remove;
+         const auto& idx_deposits = get_index_type<fund_deposit_index>().indices().get<by_id>();
+         for (const fund_deposit_object& obj: idx_deposits)
+         {
+            if ((obj.datetime_end < tp) && obj.finished) {
+               to_remove.push_back(obj.get_id());
+            }
+         }
+         for (const fund_deposit_id_type& obj_id: to_remove)
+         {
+            auto itr = get_index_type<fund_deposit_index>().indices().get<by_id>().find(obj_id);
+            if (itr != get_index_type<fund_deposit_index>().indices().get<by_id>().end()) {
+               remove(*itr);
+            }
          }
       }
    }
@@ -1020,29 +1037,254 @@ void database::clear_old_entities()
    }
 }
 
+void database::form_referral_map()
+{
+   const settings_object& settings = *find(settings_id_type(0));
+   if (!settings.referral_payments_enabled) { return; }
+
+   tree<leaf_info2>::iterator root = referral_tree_v2.insert(referral_tree_v2.begin(), leaf_info2{});
+
+   std::function<tree<leaf_info2>::iterator(
+      tree<leaf_info2>::iterator
+      , const account_object&
+      , const account_multi_index_type::index<by_id>::type&
+      , std::map<account_id_type, tree<leaf_info2>::iterator>&
+      , tree<leaf_info2>&)> create_leaf = [&](
+         tree<leaf_info2>::iterator root
+         , const account_object& acc
+         , const account_multi_index_type::index<by_id>::type& idx
+         , std::map<account_id_type, tree<leaf_info2>::iterator>& ref_map
+         , tree<leaf_info2>& ref_tree)
+   {
+      tree<leaf_info2>::iterator referrer = root;
+
+      auto referrer_from_map = referral_map_v2.find(acc.referrer);
+      if (referrer_from_map == referral_map_v2.end())
+      {
+         auto itr = idx.find(acc.referrer);
+         if (itr != idx.end())
+         {
+            const account_object& ref_acc = *itr;
+            if (acc.referrer != ref_acc.referrer) {
+               referrer = create_leaf(root, ref_acc, idx, ref_map, ref_tree);
+            }
+         }
+      }
+      else {
+         referrer = referrer_from_map->second;
+      }
+
+      leaf_info2 leaf;
+      leaf.account_id = acc.get_id();
+      leaf.referral_payments_enabled = acc.referral_payments_enabled;
+      leaf.name = acc.name;
+      leaf.daily_deposits = acc.edc_in_deposits_daily;
+      leaf.active_deposits = acc.edc_in_deposits;
+      leaf.active_deposits_count = acc.edc_active_deposits_count;
+      leaf.nearest_return_datetime = acc.edc_deposit_nearest_dt;
+
+      auto account_pos = referral_tree_v2.append_child(referrer, std::move(leaf));
+      referral_map_v2.emplace(acc.get_id(), account_pos);
+
+      return account_pos;
+   };
+
+   const account_multi_index_type::index<by_id>::type& idx = get_index_type<account_index>().indices().get<by_id>();
+   for (auto itr = ++idx.begin(); itr != idx.end(); ++itr)
+   {
+      const account_object& acc = *itr;
+      if (acc.is_market_account) { continue; }
+
+      create_leaf(root, acc, idx, referral_map_v2, referral_tree_v2);
+   }
+
+   for (tree<leaf_info2>::iterator tree_item = referral_tree_v2.begin();
+        tree_item != referral_tree_v2.end(); ++tree_item)
+   {
+      int level = 0;
+      for (tree<leaf_info2>::iterator current_node = tree_item;; ++level)
+      {
+         auto parent_node = referral_tree_v2.parent(current_node);
+         if ((parent_node == nullptr) || (level > 2)) { break; }
+
+         leaf_info2& parent_account = *parent_node;
+         leaf_info2& current_account = *current_node;
+
+         parent_account.active_deposits_sum += current_account.active_deposits;
+         parent_account.active_deposits_count_sum += current_account.active_deposits_count;
+
+         if ( ((parent_account.nearest_return_datetime.sec_since_epoch() == 0)
+               || (parent_account.nearest_return_datetime.sec_since_epoch() > current_account.nearest_return_datetime.sec_since_epoch()))
+              && (current_account.nearest_return_datetime >= head_block_time()) ) {
+            parent_account.nearest_return_datetime = current_account.nearest_return_datetime;
+         }
+
+         // level 1
+         if (level == 0)
+         {
+            if ( (current_account.level == level)
+                 && (current_account.active_deposits >= settings.referral_min_limit_edc_level1.second)
+                 && (parent_account.active_deposits >= settings.referral_min_limit_edc_level1.first) )
+            {
+               ++parent_account.level1_valid_referrals_count;
+               if (parent_account.level1_valid_referrals_count == 3) {
+                  parent_account.level = 1;
+               }
+            }
+            if (current_account.daily_deposits > 0)
+            {
+               const share_type& amnt = std::round(current_account.daily_deposits.value * get_percent(settings.referral_level1_percent));
+               if (amnt > 0) {
+                  parent_account.level1_payment += amnt;
+               }
+            }
+         }
+         // level 2
+         else if (level == 1)
+         {
+            if ( (current_account.level == level)
+                 && (current_account.active_deposits >= settings.referral_min_limit_edc_level2.second)
+                 && (parent_account.active_deposits >= settings.referral_min_limit_edc_level2.first) )
+            {
+               ++parent_account.level2_valid_referrals_count;
+               if (parent_account.level2_valid_referrals_count == 3) {
+                  parent_account.level = 2;
+               }
+            }
+            if (current_account.daily_deposits > 0)
+            {
+               const share_type& amnt = std::round(current_account.daily_deposits.value * get_percent(settings.referral_level2_percent));
+               if (amnt > 0) {
+                  parent_account.level2_payment += amnt;
+               }
+            }
+         }
+         // level 3
+         else if (level == 2)
+         {
+            if ( (current_account.level == level)
+                 && (current_account.active_deposits >= settings.referral_min_limit_edc_level3.second)
+                 && (parent_account.active_deposits >= settings.referral_min_limit_edc_level3.first) )
+            {
+               ++parent_account.level3_valid_referrals_count;
+               if (parent_account.level3_valid_referrals_count == 3) {
+                  parent_account.level = 3;
+               }
+            }
+            if (current_account.daily_deposits > 0)
+            {
+               const share_type& amnt = std::round(current_account.daily_deposits.value * get_percent(settings.referral_level3_percent));
+               if (amnt > 0) {
+                  parent_account.level3_payment += amnt;
+               }
+            }
+         }
+
+         current_node = parent_node;
+      }
+   }
+}
+
 void database::process_accounts()
 {
    const settings_object& settings = *find(settings_id_type(0));
+   const chain::asset_object& edc_asset = (const chain::asset_object&)get(EDC_ASSET);
    share_type supply_reducer = 0;
 
    const auto& idx = get_index_type<account_index>().indices().get<by_id>();
    for (const account_object& acc_obj: idx)
    {
-      if (acc_obj.edc_transfers_amount_counter > 0)
+      /*********** ranks ***********/
+
+      e_account_rank new_rank = acc_obj.rank;
+      if (head_block_time() >= HARDFORK_636_TIME)
       {
-         modify(acc_obj, [&](account_object& obj)
-         {
-            obj.edc_transfers_amount_counter = 0;
-            obj.edc_cheques_amount_counter = 0;
-            obj.edc_transfers_daily_count = obj.edc_transfers_count;
-            obj.edc_transfers_count = 0;
-         });
+         // rank3
+         if (acc_obj.edc_burnt >= settings.rank3_edc_amount) {
+            new_rank = e_account_rank::_3;
+         }
+         // rank2
+         else if (acc_obj.edc_burnt >= settings.rank2_edc_amount) {
+            new_rank = e_account_rank::_2;
+         }
+         // rank1
+         else if (acc_obj.edc_burnt >= settings.rank1_edc_amount) {
+            new_rank = e_account_rank::_1;
+         }
       }
 
-      // ranks
-      if (head_block_time() >= HARDFORK_636_TIME) {
-         update_user_rank(acc_obj);
+      /********** referrals *********/
+
+      uint16_t referral_level = acc_obj.referral_level;
+      share_type referral_group_edc_turnover = acc_obj.referral_group_edc_turnover;
+      share_type referral_edc_payments_from_partners = acc_obj.referral_edc_payments_from_partners;
+      uint16_t referral_deposits_count = acc_obj.referral_deposits_count;
+      fc::time_point_sec referral_nearest_return_datetime = acc_obj.referral_nearest_return_datetime;
+
+      share_type amnt = 0;
+      if (head_block_time() > HARDFORK_637_TIME)
+      {
+         auto idx = referral_map_v2.find(acc_obj.get_id());
+         if (idx != referral_map_v2.end())
+         {
+            const leaf_info2& acc_from_map = *idx->second;
+
+            if ( (acc_from_map.level > 0) && acc_from_map.referral_payments_enabled)
+            {
+               if (acc_from_map.level1_payment > 0) {
+                  amnt += acc_from_map.level1_payment;
+               }
+               if ((acc_from_map.level > 1) && (acc_from_map.level2_payment > 0)) {
+                  amnt += acc_from_map.level2_payment;
+               }
+               if ((acc_from_map.level > 2) && (acc_from_map.level3_payment > 0)) {
+                  amnt += acc_from_map.level3_payment;
+               }
+               amnt = check_supply_overflow(asset(amnt, EDC_ASSET)).amount;
+               if (amnt > 0)
+               {
+                  asset_issue_operation op;
+                  op.issuer = edc_asset.issuer;
+                  op.asset_to_issue = asset(amnt, EDC_ASSET);
+                  op.issue_to_account = acc_from_map.account_id;
+                  op.extensions.insert(e_asset_issue_type::_referral_payment);
+                  transaction_evaluation_state eval(this);
+                  apply_operation(eval, op);
+               }
+            }
+
+            referral_level = acc_from_map.level;
+            referral_group_edc_turnover = acc_obj.edc_in_deposits + acc_from_map.active_deposits_sum;
+            referral_edc_payments_from_partners = amnt;
+            referral_deposits_count = acc_obj.edc_active_deposits_count + acc_from_map.active_deposits_count_sum;
+            referral_nearest_return_datetime = acc_from_map.nearest_return_datetime;
+         }
       }
+
+      modify(acc_obj, [&](account_object& obj)
+      {
+         obj.edc_transfers_amount_counter = 0;
+         obj.edc_cheques_amount_counter = 0;
+         obj.edc_transfers_daily_count = obj.edc_transfers_count;
+         obj.edc_transfers_count = 0;
+         obj.edc_in_deposits_daily = 0;
+         obj.edc_deposit_payments_daily = 0;
+
+         // ranks
+         if (head_block_time() >= HARDFORK_636_TIME) {
+            obj.rank = new_rank;
+         }
+
+         // referrals
+         if (head_block_time() > HARDFORK_637_TIME)
+         {
+            obj.referral_level = referral_level;
+            obj.referral_group_edc_turnover = referral_group_edc_turnover;
+            obj.referral_edc_payments_from_partners = referral_edc_payments_from_partners;
+            obj.referral_deposits_count = referral_deposits_count;
+            obj.referral_nearest_return_datetime = referral_nearest_return_datetime;
+         }
+      });
 
       // reduce balance according to denomination
       if (settings.make_denominate && (head_block_time() > HARDFORK_635_TIME))
@@ -1058,6 +1300,12 @@ void database::process_accounts()
             }
          }
       }
+   }
+
+   if (head_block_time() > HARDFORK_637_TIME)
+   {
+      referral_map_v2.clear();
+      referral_tree_v2.clear();
    }
 
    if ((supply_reducer > 0) && (head_block_time() > HARDFORK_635_TIME))
@@ -1158,7 +1406,7 @@ void database::denominate_funds()
       std::for_each(range.first, range.second, [&](const fund_deposit_object& dep)
       {
          auto user_ptr = idx_users.find(dep.account_id);
-         if ( /* we're not using 'enabled' because deposits can be disabled manually */
+         if ( /* we can't use 'enabled' because deposit can be disabled manually */
               !dep.finished && (user_ptr != idx_users.end()) )
          {
             share_type new_amount = dep.amount.amount / settings.denominate_coef;
@@ -1179,13 +1427,16 @@ void database::denominate_funds()
             // statistics
             modify(*user_ptr, [&](account_object& obj)
             {
-               auto itr = obj.deposit_sums.find(fund.get_id());
-               if (itr != obj.deposit_sums.end() && (itr->second.amount >= delta)) {
-                  itr->second.amount -= delta;
+               auto itr = obj.deposits_info.find(fund.get_id());
+               if (itr != obj.deposits_info.end() && (itr->second.sum.amount >= delta)) {
+                  itr->second.sum.amount -= delta;
                }
-
-               if (fund.asset_id == EDC_ASSET) {
-                  obj.edc_in_deposits = get_user_deposits_sum(user_ptr->get_id(), EDC_ASSET);
+               update_user_nearest_active_deposit_dt(user_ptr->get_id(), fund);
+               if (fund.asset_id == EDC_ASSET)
+               {
+                  const std::tuple<share_type, fc::time_point_sec>& dep_info = get_user_deposits_info(user_ptr->get_id(), EDC_ASSET);
+                  obj.edc_in_deposits = std::get<0>(dep_info);
+                  obj.edc_deposit_nearest_dt = std::get<1>(dep_info);
                }
             });
             // ----------
@@ -1415,7 +1666,10 @@ void database::issue_bonuses()
          }
       });
    });
-   issue_referral();
+
+   if (head_block_time() <= HARDFORK_637_TIME) {
+      issue_referral();
+   }
 
    // applying appropriate bonuses
    idx.inspect_all_objects( [&](const db::object& obj) {

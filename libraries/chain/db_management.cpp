@@ -48,7 +48,7 @@ database::~database()
 
 void database::reindex(fc::path data_dir, const genesis_state_type& initial_allocation)
 { try {
-   enable_referrer_mode();
+   enable_registrar_mode();
 
    ilog( "reindexing blockchain" );
    wipe(data_dir, false);

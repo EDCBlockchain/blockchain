@@ -17,7 +17,8 @@ public:
     child_balance(account_id_type acc_id, uint64_t bal, uint32_t lvl): account_id(acc_id), balance(bal), level(lvl) {};
 };
 
-class leaf_info {
+class leaf_info
+{
 public:
     typedef account_id_type acc_id_type;
     account_id_type account_id = account_id_type();
@@ -61,6 +62,28 @@ public:
             this->mature_balance == other.mature_balance;
     }
 };
+
+struct leaf_info2
+{
+   account_id_type account_id;
+   bool referral_payments_enabled = true;
+   std::string name;
+   uint16_t level = 0;
+   share_type daily_deposits;
+   share_type active_deposits;
+   share_type active_deposits_sum;
+   uint32_t active_deposits_count = 0;
+   uint32_t active_deposits_count_sum = 0;
+   share_type level1_payment;
+   share_type level2_payment;
+   share_type level3_payment;
+   uint32_t level1_valid_referrals_count = 0;
+   uint32_t level2_valid_referrals_count = 0;
+   uint32_t level3_valid_referrals_count = 0;
+   fc::time_point_sec nearest_return_datetime;
+};
+
+
 } } // namespace graphene::chain
 
 FC_REFLECT( graphene::chain::child_balance,

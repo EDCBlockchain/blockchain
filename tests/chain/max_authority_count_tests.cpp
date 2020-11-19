@@ -66,19 +66,19 @@ BOOST_AUTO_TEST_CASE( disallow_more_than_3 )
       upgrade_to_lifetime_member(alice_id);
 
       transaction_evaluation_state eval_state(&db);
-      account_allow_referrals_operation ref_op;
+      account_allow_registrar_operation ref_op;
       ref_op.target = alice_id;
-      ref_op.action = account_allow_referrals_operation::allow;
+      ref_op.action = account_allow_registrar_operation::allow;
 
       db.apply_operation(eval_state, ref_op);
 
-      create_account("stub1", get_account("alice"), get_account("alice"), 
+      create_account("stub1", get_account_by_name("alice"), get_account_by_name("alice"),
                            80, generate_private_key("stub").get_public_key());
-      create_account("stub2", get_account("alice"), get_account("alice"), 
+      create_account("stub2", get_account_by_name("alice"), get_account_by_name("alice"),
                            80, generate_private_key("stub").get_public_key());
-      create_account("stub3", get_account("alice"), get_account("alice"), 
+      create_account("stub3", get_account_by_name("alice"), get_account_by_name("alice"),
                            80, generate_private_key("stub").get_public_key());
-      BOOST_REQUIRE_THROW(create_account("stub", get_account("alice"), get_account("alice"), 
+      BOOST_REQUIRE_THROW(create_account("stub", get_account_by_name("alice"), get_account_by_name("alice"),
                            80, generate_private_key("stub").get_public_key()), fc::exception);
 
    } catch (fc::exception& e) {
@@ -102,8 +102,8 @@ BOOST_AUTO_TEST_CASE( disallow_more_than_3_keys_on_update )
 
       upgrade_to_lifetime_member(alice_id);
 
-      auto acc_alice = get_account("alice");
-      auto acc_bob = get_account("bob");
+      auto acc_alice = get_account_by_name("alice");
+      auto acc_bob = get_account_by_name("bob");
 
       create_account("stub", acc_alice, acc_alice, 
                            80, generate_private_key("abcaa").get_public_key());
@@ -112,10 +112,9 @@ BOOST_AUTO_TEST_CASE( disallow_more_than_3_keys_on_update )
       create_account("stub2", acc_alice, acc_alice, 
                            80, generate_private_key("abcaa2").get_public_key());
                            
-      auto acc1 = get_account("stub");
-      auto acc2 = get_account("stub1");
-      auto acc3 = get_account("stub2");
-      
+      auto acc1 = get_account_by_name("stub");
+      auto acc2 = get_account_by_name("stub1");
+      auto acc3 = get_account_by_name("stub2");
 
       generate_blocks(fc::time_point_sec(HARDFORK_617_TIME));
       generate_blocks(fc::time_point_sec(HARDFORK_617_TIME));

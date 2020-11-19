@@ -264,6 +264,7 @@ vector<operation_detail> wallet_api::get_account_operation_history4(account_id_t
    for (auto& o: current)
    {
       std::stringstream ss;
+      // see operation_printer.cpp
       auto memo = o.op.visit(detail::operation_printer(ss, *my, o.result));
       result.push_back( operation_detail{ memo, ss.str(), o } );
    }
@@ -439,20 +440,18 @@ fc::optional<account_object> wallet_api::get_account_by_vote_id(const vote_id_ty
    return my->_remote_db->get_account_by_vote_id(v_id);
 }
 
-ref_info wallet_api::get_referrals_by_id(string account_name_or_id) const
+Unit wallet_api::get_referrals(const string& account_name_or_id) const {
+   return my->_remote_db->get_referrals(account_name_or_id);
+}
+
+ref_info wallet_api::get_referrals2(const string& account_name_or_id) const
 {
-   return my->_remote_db->get_referrals_by_id(account_name_or_id);
+   return my->_remote_db->get_referrals2(account_name_or_id);
 }
 
 vector<SimpleUnit> wallet_api::get_accounts_info(vector<string> account_names_or_ids) const
 {
    return my->_remote_db->get_accounts_info(account_names_or_ids);
-}
-
-
-Unit wallet_api::get_referrals(string account_name_or_id) const
-{
-   return my->_remote_db->get_referrals(account_name_or_id);
 }
 
 fc::variant_object wallet_api::get_user_count_by_ranks() const
@@ -483,9 +482,8 @@ asset_bitasset_data_object wallet_api::get_bitasset_data(string asset_name_or_id
    return my->get_object(*asset.bitasset_data_id);
 }
 
-account_id_type wallet_api::get_account_id(string account_name_or_id) const
-{
-   return my->get_account_id(account_name_or_id);
+account_id_type wallet_api::get_account_id(string account_name) const {
+   return my->get_account_id(account_name);
 }
 
 asset_id_type wallet_api::get_asset_id(string asset_symbol_or_id) const
@@ -904,6 +902,14 @@ signed_transaction wallet_api::set_witness_exception(
    , const std::vector<account_id_type>& exc_accounts_fees
    , bool exception_enabled) {
    return my->set_witness_exception(exc_accounts_blocks, exc_accounts_fees, exception_enabled);
+}
+
+signed_transaction wallet_api::update_accounts_referrer(const std::vector<account_id_type>& accounts, const string& new_referrer) {
+   return my->update_accounts_referrer(accounts, new_referrer);
+}
+
+signed_transaction wallet_api::enable_account_referral_payments(const string& account_name_or_id, bool enabled) {
+   return my->enable_account_referral_payments(account_name_or_id, enabled);
 }
 
 signed_transaction wallet_api::set_voting_proxy(string account_to_modify,
@@ -1793,13 +1799,13 @@ signed_transaction wallet_api::propose_account_restriction(const string& initiat
    return my->propose_account_restriction(initiator, target, action, expiration_time, broadcast);
 }
 
-signed_transaction wallet_api::propose_account_referrals_permission(
+signed_transaction wallet_api::propose_account_registrar_permission(
    const string& initiator
    , const string& target
-   , account_allow_referrals_operation::account_action action
+   , account_allow_registrar_operation::account_action action
    , fc::time_point_sec expiration_time
    , bool broadcast) {
-   return my->propose_account_referrals_permission(initiator, target, action, expiration_time, broadcast);
+   return my->propose_account_registrar_permission(initiator, target, action, expiration_time, broadcast);
 }
 
 signed_transaction wallet_api::propose_allow_create_asset(const string& initiator, const string& target, bool allow,

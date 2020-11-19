@@ -22,6 +22,10 @@ namespace graphene { namespace chain {
       const settings_object& settings = *d.find(settings_id_type(0));
       cheque_amount = op.payee_amount.amount * op.payee_count;
 
+      if (d.head_block_time() > HARDFORK_637_TIME) {
+         FC_ASSERT((fc::trim(op.code).length() > 0) && (op.code.length() < 30), "Cheque code length must be > 0 and < 30");
+      }
+
       const auto& idx = d.get_index_type<cheque_index>().indices().get<by_code>();
       auto itr = idx.find(op.code);
       FC_ASSERT(itr == idx.end(), "Cheque with this code is already exists!");

@@ -61,7 +61,7 @@ namespace graphene { namespace chain {
 
          struct account_properties
          {
-            bool                   can_be_referrer = false;
+            bool                   can_be_registrar = false;
             uint64_t               usages_count = 0;
             extensions_type        extensions;
          };
@@ -140,8 +140,7 @@ namespace graphene { namespace chain {
    };
 }}
 
-FC_REFLECT( graphene::chain::account_properties_object::account_properties,
-                     (can_be_referrer)(extensions) )
+FC_REFLECT( graphene::chain::account_properties_object::account_properties, (can_be_registrar)(extensions) )
 
 MAP_OBJECT_ID_TO_TYPE(graphene::chain::dynamic_global_property_object)
 MAP_OBJECT_ID_TO_TYPE(graphene::chain::global_property_object)

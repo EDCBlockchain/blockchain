@@ -123,6 +123,7 @@ namespace graphene { namespace chain {
       void_result do_apply(const fund_payment_operation& o);
 
       const asset_dynamic_data_object* asset_dyn_data_ptr = nullptr;
+      const account_object* account_ptr = nullptr;
    };
 
    /////////////////////////////////////////////////////

@@ -1522,10 +1522,10 @@ asset database_api_impl::get_fund_deposits_amount_by_account(fund_id_type fund_i
    FC_ASSERT( fund_ptr, "No such fund '${fund}'!", ("fund", fund_id) );
 
    const account_object& acc = account_id(_db);
-   for (const std::pair<fund_id_type, asset>& item_pair: acc.deposit_sums)
+   for (const std::pair<fund_id_type, dep_info>& item_pair: acc.deposits_info)
    {
       if (item_pair.first == fund_id) {
-         return asset(item_pair.second.amount, fund_ptr->asset_id);
+         return asset(item_pair.second.sum.amount, fund_ptr->asset_id);
       }
    }
 
@@ -2677,13 +2677,42 @@ void database_api_impl::on_applied_block()
             itr->second(fc::variant(item.second, GRAPHENE_NET_MAX_NESTED_OBJECTS));
       }
    });
-}    
-ref_info database_api::get_referrals_by_id(string account_name_or_id) {
-   auto account = get_account_by_name(account_name_or_id);
-   FC_ASSERT(account.valid(), "invalid account");
-   return my->get_referrals_by_id(account);
 }
-ref_info database_api_impl::get_referrals_by_id( optional<account_object> account ) const {
+
+Unit database_api::get_referrals(const std::string& account_name_or_id)
+{
+   auto account = my->get_account_by_name_or_id(account_name_or_id);
+   FC_ASSERT(account.valid(), "invalid account");
+   return my->get_referrals(account);
+}
+
+Unit database_api_impl::get_referrals(optional<account_object> account) const
+{
+   const auto& idx = _db.get_index_type<chain::account_index>();
+   auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
+   Unit result(account->get_id(), account->name, _db.get_balance(account->id, asset->id).amount.value);
+   idx.inspect_all_objects([&](const chain::object& obj)
+   {
+      const account_object& acc = static_cast<const chain::account_object&>(obj);
+      if (acc.referrer == account->get_id())
+      {
+         auto balance = _db.get_balance(acc.id, asset->id).amount.value;
+         auto nElem = Unit(acc.get_id(), acc.name, balance);
+         result.referrals.push_back(std::move(nElem));
+      }
+   });
+   return result;
+}
+
+ref_info database_api::get_referrals2(const std::string& account_name_or_id)
+{
+   auto account = my->get_account_by_name_or_id(account_name_or_id);
+   FC_ASSERT(account.valid(), "invalid account");
+   return my->get_referrals2(account);
+}
+
+ref_info database_api_impl::get_referrals2( optional<account_object> account ) const
+{
     const auto& idx = _db.get_index_type<chain::account_index>();
     auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
     auto& bal_idx = _db.get_index_type<account_balance_index>();
@@ -2691,36 +2720,13 @@ ref_info database_api_impl::get_referrals_by_id( optional<account_object> accoun
     rtree.form_old();
     leaf_info root = *rtree.referral_map.find(account->id)->second;
     ref_info result( root, account->name );
-    for (child_balance e: root.child_balances) {
+    for (child_balance e: root.child_balances)
+    {
         if (e.level == 1) {
             result.level_1.push_back(ref_info(*rtree.referral_map.find(e.account_id)->second, e.account_id(_db).name));
         }
     }
     return result;
-}
-
-Unit database_api::get_referrals(string account_name_or_id) {
-   auto account = get_account_by_name(account_name_or_id);
-   FC_ASSERT(account.valid(), "invalid account");
-   return my->get_referrals(account);
-}
-Unit database_api_impl::get_referrals( optional<account_object> account ) const {
-    const auto& idx = _db.get_index_type<chain::account_index>();
-    auto asset = _db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
-    Unit start(account->get_id(), account->name, _db.get_balance(account->id, asset->id).amount.value);
-    std::map<account_id_type, Unit*> search;
-    search.emplace(account->get_id(), &start);
-    idx.inspect_all_objects( [&](const chain::object& obj){
-        const account_object& ref = static_cast<const chain::account_object&>(obj);
-        auto searchIt = search.find(ref.referrer);
-        if (searchIt != search.end()) {
-            auto balance = _db.get_balance(ref.id, asset->id).amount.value;
-            auto nElem = Unit(ref.get_id(), ref.name, balance);
-//            auto smth = search.emplace(ref.get_id(), nElem);
-            searchIt->second->referrals.push_back(nElem);
-        }
-    });  
-    return start;
 }
 
 vector<SimpleUnit> database_api::get_accounts_info(vector<string> account_names_or_ids)

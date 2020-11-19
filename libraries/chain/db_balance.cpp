@@ -364,19 +364,59 @@ asset database::check_supply_overflow( asset value )
     return value;
 }
 
-share_type database::get_user_deposits_sum(account_id_type acc_id, asset_id_type asset_id)
+void database::update_user_nearest_active_deposit_dt(const account_id_type& acc_id, const fund_object& fund)
 {
-   share_type amount = 0;
+   fc::time_point_sec tp;
 
-   const account_object& acc = acc_id(*this);
-   for (const std::pair<fund_id_type, asset>& item_pair: acc.deposit_sums)
+   const auto& range = get_index_type<fund_deposit_index>().indices().get<by_account_id>().equal_range(acc_id);
+   uint32_t i = 0;
+   for (const fund_deposit_object& item: boost::make_iterator_range(range.first, range.second))
    {
-      if (item_pair.second.asset_id == asset_id) {
-         amount += item_pair.second.amount;
+      if (item.fund_id != fund.get_id()) { continue; }
+      if (item.amount.asset_id != fund.asset_id) { continue; }
+      if (item.finished) { continue; }
+      if (!item.enabled) { continue; }
+
+      if ((i == 0) || (item.datetime_end < tp)) {
+         tp = item.datetime_end;
       }
+      ++i;
    }
 
-   return amount;
+   modify(acc_id(*this), [&](account_object& obj)
+   {
+      auto itr = obj.deposits_info.find(fund.get_id());
+      if (itr != obj.deposits_info.end())
+      {
+         if (tp < itr->second.nearest_deposit_dt) {
+            itr->second.nearest_deposit_dt = tp;
+         }
+      }
+   });
+}
+
+std::tuple<share_type, fc::time_point_sec>
+database::get_user_deposits_info(const account_id_type& acc_id, const asset_id_type& asset_id) const
+{
+   share_type amount;
+   fc::time_point_sec dt;
+
+   const account_object& acc = acc_id(*this);
+   uint32_t i = 0;
+   for (const std::pair<fund_id_type, dep_info>& item_pair: acc.deposits_info)
+   {
+      if (item_pair.second.sum.asset_id == asset_id)
+      {
+         amount += item_pair.second.sum.amount;
+
+         if ( (i == 0) || (dt > item_pair.second.nearest_deposit_dt) ) {
+            dt = item_pair.second.nearest_deposit_dt;
+         }
+      }
+      ++i;
+   }
+
+   return std::make_tuple(amount, dt);
 }
 
 double database::get_percent(uint32_t percent) const {
@@ -434,32 +474,6 @@ void database::rebuild_user_edc_deposit_availability(account_id_type acc_id)
             obj.can_use_percent = can_use_percent;
          });
       }
-   }
-}
-
-void database::update_user_rank(const account_object& acc)
-{
-   const settings_object& settings = *find(settings_id_type(0));
-   e_account_rank rank = acc.rank;
-
-   // rank3
-   if (acc.edc_burnt >= settings.rank3_edc_amount) {
-      rank = e_account_rank::_3;
-   }
-   // rank2
-   else if (acc.edc_burnt >= settings.rank2_edc_amount) {
-      rank = e_account_rank::_2;
-   }
-   // rank1
-   else if (acc.edc_burnt >= settings.rank1_edc_amount) {
-      rank = e_account_rank::_1;
-   }
-
-   if (rank > acc.rank)
-   {
-      modify(acc, [&](account_object& obj) {
-         obj.rank = rank;
-      });
    }
 }
 

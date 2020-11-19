@@ -240,6 +240,13 @@ namespace graphene { namespace chain {
       market_address_id_type get_id() { return id; }
    };
 
+   struct dep_info
+   {
+      fund_id_type fund_id;
+      asset sum; // sum of all deposits
+      fc::time_point_sec nearest_deposit_dt;
+   };
+
    /**
     * @brief This class represents an account on the object graph
     * @ingroup object
@@ -291,6 +298,7 @@ namespace graphene { namespace chain {
       e_account_rank rank = e_account_rank::_default;
 
       bool is_market = false;
+      bool is_market_account = false;
       bool verification_is_required = false;
       bool can_create_and_update_asset = false;
       bool can_create_addresses = true;
@@ -300,6 +308,23 @@ namespace graphene { namespace chain {
       bool deposits_autorenewal_enabled = true;
       // deposits sum amount from all funds (only EDC)
       share_type edc_in_deposits = 0;
+      // count of active deposits
+      uint32_t edc_active_deposits_count = 0;
+      // how much EDC in new deposits (per day)
+      share_type edc_in_deposits_daily;
+      // how much payment amount have user from its deposits per day
+      share_type edc_deposit_payments_daily;
+      // returning datetime of the nearest edc deposit
+      fc::time_point_sec edc_deposit_nearest_dt;
+
+      /********* referrals *********/
+      // enable/disable referral accruals
+      bool referral_payments_enabled = true;
+      uint16_t referral_level = 0;
+      share_type referral_group_edc_turnover;
+      share_type referral_edc_payments_from_partners;
+      uint16_t referral_deposits_count = 0;
+      fc::time_point_sec referral_nearest_return_datetime;
 
       // EDC transfers limit
       bool edc_limit_transfers_enabled = true;
@@ -357,7 +382,6 @@ namespace graphene { namespace chain {
       set<account_id_type> blacklisted_accounts;
       ///@}
 
-
       /**
        * This is a set of all accounts which have 'blacklisted' this account. Blacklisting is only used in core
        * validation for the purpose of forbidding accounts from holding and transacting in whitelisted assets. This
@@ -366,8 +390,8 @@ namespace graphene { namespace chain {
        */
       flat_set<account_id_type> blacklisting_accounts;
 
-      // fund and user's deposit summ made in it
-      flat_map<fund_id_type, asset> deposit_sums;
+      // info of user deposits
+      flat_map<fund_id_type, dep_info> deposits_info;
 
       /**
        * Vesting balance which receives cashback_reward deposits.
@@ -729,12 +753,13 @@ namespace graphene { namespace chain {
 
 FC_REFLECT( graphene::chain::SimpleUnit, (rank)(id)(name)(balance));
 FC_REFLECT( graphene::chain::referral_balance_info, (history)(quantity)(rank) )
-FC_REFLECT( graphene::chain::mature_balances_history, (balance)(real_balance));
-FC_REFLECT_DERIVED( graphene::chain::Unit, (graphene::chain::SimpleUnit), (referrals)(level));
+FC_REFLECT( graphene::chain::mature_balances_history, (balance)(real_balance))
+FC_REFLECT_DERIVED( graphene::chain::Unit, (graphene::chain::SimpleUnit), (referrals)(level))
 FC_REFLECT( graphene::chain::ref_info,
             (level_1)(id)(name)(balance)(level_1_partners)(level_1_sum)(level_2_partners)
             (all_partners)(all_sum)(bonus_percent)(rank) )
-FC_REFLECT( graphene::chain::bonus_balances_object::bonus_balances_info, (bonus_time)(balances)(referral));
+FC_REFLECT( graphene::chain::bonus_balances_object::bonus_balances_info, (bonus_time)(balances)(referral))
+FC_REFLECT( graphene::chain::dep_info, (fund_id)(sum)(nearest_deposit_dt))
 
 FC_REFLECT_ENUM( graphene::chain::e_account_rank, (_default)(_1)(_2)(_3) )
 

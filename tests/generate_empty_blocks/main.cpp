@@ -121,7 +121,7 @@ int main( int argc, char** argv )
 
       database db;
       fc::path db_path = data_dir / "db";
-      db.enable_referrer_mode();
+      db.enable_registrar_mode();
       db.open(db_path, [&]() { return genesis; } );
 
       uint32_t slot = 1;

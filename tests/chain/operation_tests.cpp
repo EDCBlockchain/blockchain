@@ -686,7 +686,7 @@ BOOST_AUTO_TEST_CASE( update_mia )
       {
          asset_publish_feed_operation pop;
          pop.asset_id = bit_usd.get_id();
-         pop.publisher = get_account("init0").get_id();
+         pop.publisher = get_account_by_name("init0").get_id();
          price_feed feed;
          feed.settlement_price = feed.core_exchange_rate = price(bit_usd.amount(5), bit_usd.amount(5));
          REQUIRE_THROW_WITH_VALUE(pop, feed, feed);
@@ -936,7 +936,7 @@ BOOST_AUTO_TEST_CASE( create_buy_uia_multiple_match_new )
    INVOKE( issue_uia );
    const asset_object&   core_asset     = get_asset( "TEST" );
    const asset_object&   test_asset     = get_asset( GRAPHENE_SYMBOL );
-   const account_object& nathan_account = get_account( "nathan" );
+   const account_object& nathan_account = get_account_by_name( "nathan" );
    const account_object& buyer_account  = create_account( "buyer" );
    const account_object& seller_account = create_account( "seller" );
 
@@ -979,7 +979,7 @@ BOOST_AUTO_TEST_CASE( create_buy_exact_match_uia )
    INVOKE( issue_uia );
    const asset_object&   test_asset     = get_asset( "TEST" );
    const asset_object&   core_asset     = get_asset( GRAPHENE_SYMBOL );
-   const account_object& nathan_account = get_account( "nathan" );
+   const account_object& nathan_account = get_account_by_name( "nathan" );
    const account_object& buyer_account  = create_account( "buyer" );
    const account_object& seller_account = create_account( "seller" );
 
@@ -1023,7 +1023,7 @@ BOOST_AUTO_TEST_CASE( create_buy_uia_multiple_match_new_reverse )
    INVOKE( issue_uia );
    const asset_object&   test_asset     = get_asset( "TEST" );
    const asset_object&   core_asset     = get_asset( GRAPHENE_SYMBOL );
-   const account_object& nathan_account = get_account( "nathan" );
+   const account_object& nathan_account = get_account_by_name( "nathan" );
    const account_object& buyer_account  = create_account( "buyer" );
    const account_object& seller_account = create_account( "seller" );
 
@@ -1066,7 +1066,7 @@ BOOST_AUTO_TEST_CASE( create_buy_uia_multiple_match_new_reverse_fract )
    INVOKE( issue_uia );
    const asset_object&   test_asset     = get_asset( "TEST" );
    const asset_object&   core_asset     = get_asset( GRAPHENE_SYMBOL );
-   const account_object& nathan_account = get_account( "nathan" );
+   const account_object& nathan_account = get_account_by_name( "nathan" );
    const account_object& buyer_account  = create_account( "buyer" );
    const account_object& seller_account = create_account( "seller" );
 
@@ -1117,7 +1117,7 @@ BOOST_AUTO_TEST_CASE( uia_fees )
 
       const asset_object& test_asset = get_asset("TEST");
       const asset_dynamic_data_object& asset_dynamic = test_asset.dynamic_asset_data_id(db);
-      const account_object& nathan_account = get_account("nathan");
+      const account_object& nathan_account = get_account_by_name("nathan");
       const account_object& committee_account = account_id_type()(db);
       const share_type prec = asset::scaled_precision( CORE_ASSET(db).precision );
 
@@ -1280,7 +1280,7 @@ BOOST_AUTO_TEST_CASE( trade_amount_equals_zero )
       const asset_object& test = get_asset( "TEST" );
       const asset_object& core = get_asset( GRAPHENE_SYMBOL );
       const account_object& core_seller = create_account( "shorter1" );
-      const account_object& core_buyer = get_account("nathan");
+      const account_object& core_buyer = get_account_by_name("nathan");
 
       transfer( committee_account(db), core_seller, asset( 100000000 ) );
 
@@ -1310,7 +1310,7 @@ BOOST_AUTO_TEST_CASE( limit_order_fill_or_kill )
    BOOST_TEST_MESSAGE( "=== limit_order_fill_or_kill ===" );
 
    INVOKE(issue_uia);
-   const account_object& nathan = get_account("nathan");
+   const account_object& nathan = get_account_by_name("nathan");
    const asset_object& test = get_asset("TEST");
    const asset_object& core = CORE_ASSET(db);
 
@@ -1349,8 +1349,8 @@ BOOST_AUTO_TEST_CASE( witness_pay_test )
 
    // Make an account and upgrade it to prime, so that witnesses get some pay
    create_account("nathan", init_account_pub_key);
-   transfer(account_id_type()(db), get_account("nathan"), asset(20000*prec));
-   transfer(account_id_type()(db), get_account("init3"), asset(20*prec));
+   transfer(account_id_type()(db), get_account_by_name("nathan"), asset(20000*prec));
+   transfer(account_id_type()(db), get_account_by_name("init3"), asset(20*prec));
    generate_block();
 
    auto last_witness_vbo_balance = [&]() -> share_type
@@ -1363,7 +1363,7 @@ BOOST_AUTO_TEST_CASE( witness_pay_test )
 
    const uint8_t block_interval = db.get_global_properties().parameters.block_interval;
    const asset_object* core = &CORE_ASSET(db);
-   const account_object* nathan = &get_account("nathan");
+   const account_object* nathan = &get_account_by_name("nathan");
    enable_fees();
    BOOST_CHECK_GT(db.current_fee_schedule().get<account_upgrade_operation>().membership_lifetime_fee, 0u);
    // Based on the size of the reserve fund later in the test, the witness budget will be set to this value
@@ -1403,7 +1403,7 @@ BOOST_AUTO_TEST_CASE( witness_pay_test )
    BOOST_CHECK( get_balance(*nathan, *core) == 20000*prec - account_upgrade_operation::fee_parameters_type().membership_lifetime_fee );
 
    generate_block();
-   //nathan = &get_account("nathan");
+   //nathan = &get_account_by_name("nathan");
    //core = &CORE_ASSET(db);
    BOOST_CHECK_EQUAL( last_witness_vbo_balance().value, 0 );
 

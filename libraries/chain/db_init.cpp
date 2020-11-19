@@ -186,7 +186,7 @@ void database::initialize_evaluators()
    register_evaluator<asset_claim_fees_evaluator>();
    register_evaluator<denominate_evaluator>();
    register_evaluator<account_restrict_evaluator>();
-   register_evaluator<account_allow_referrals_evaluator>();
+   register_evaluator<account_allow_registrar_evaluator>();
    register_evaluator<set_online_time_evaluator>();
    register_evaluator<set_verification_is_required_evaluator>();
    register_evaluator<asset_update2_evaluator>();
@@ -219,6 +219,9 @@ void database::initialize_evaluators()
    register_evaluator<fund_deposit_update2_evaluator>();
    register_evaluator<fund_deposit_reduce_evaluator>();
    register_evaluator<witnesses_info_evaluator>();
+   register_evaluator<referral_settings_evaluator>();
+   register_evaluator<update_accounts_referrer_evaluator>();
+   register_evaluator<enable_account_referral_payments_evaluator>();
 }
 
 void database::initialize_indexes()

@@ -55,6 +55,16 @@ namespace graphene { namespace chain {
       int64_t rank2_edc_transfer_fee_percent = 2000;
       int64_t rank3_edc_transfer_fee_percent = 0;
 
+      // referral system
+      bool referral_payments_enabled = false;
+      uint32_t referral_level1_percent = 0;
+      uint32_t referral_level2_percent = 0;
+      uint32_t referral_level3_percent = 0;
+      // first: owner, second: referral
+      std::pair<share_type, share_type> referral_min_limit_edc_level1;
+      std::pair<share_type, share_type> referral_min_limit_edc_level2;
+      std::pair<share_type, share_type> referral_min_limit_edc_level3;
+
       settings_id_type get_id() { return id; }
    };
 

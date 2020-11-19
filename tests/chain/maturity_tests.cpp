@@ -67,8 +67,8 @@ BOOST_AUTO_TEST_CASE( maturity_test )
       db.modify( db.get_dynamic_global_properties(), [&]( dynamic_global_property_object& dgpo ) {
          dgpo.next_maintenance_time = db.head_block_time() + fc::hours( 24 );
       });
-      const account_object& nathan = get_account( "nathan" );
-      const account_object& test1 = get_account( "test1" );
+      const account_object& nathan = get_account_by_name( "nathan" );
+      const account_object& test1 = get_account_by_name( "test1" );
 
       issue_uia( account_id_type(), asset( 3000000, asset_id_type( 1 ) ) );
       generate_blocks( db.head_block_time() + fc::hours( 6 ) );

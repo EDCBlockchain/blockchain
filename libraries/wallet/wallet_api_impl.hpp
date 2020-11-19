@@ -80,8 +80,8 @@ public:
       const string& target, account_restrict_operation::account_action action,
       fc::time_point_sec expiration_time, bool broadcast = true);
    
-   signed_transaction propose_account_referrals_permission(const string& initiator,
-      const string& target, account_allow_referrals_operation::account_action action,
+   signed_transaction propose_account_registrar_permission(const string& initiator,
+      const string& target, account_allow_registrar_operation::account_action action,
       fc::time_point_sec expiration_time, bool broadcast = true);
    
    signed_transaction propose_allow_create_asset(const string& initiator, const string& target, bool allow,
@@ -153,6 +153,9 @@ public:
       , const std::vector<account_id_type>& exc_accounts_fees
       , bool exception_enabled);
    
+   signed_transaction update_accounts_referrer(const std::vector<account_id_type>& accounts, const string& new_referrer);
+   signed_transaction enable_account_referral_payments(const string& account_id_or_name, bool enabled);
+   
    /***
     * @brief encrypt the keys
     * This is normally done before saving the wallet file
@@ -206,8 +209,8 @@ public:
    dynamic_global_property_object get_dynamic_global_properties() const;
    
    account_object get_account(account_id_type id) const;
-   account_object get_account(string account_name_or_id) const;
-   account_id_type get_account_id(string account_name_or_id) const;
+   account_object get_account(const string& account_name_or_id) const;
+   account_id_type get_account_id(const string& account_name_or_id) const;
    
    optional<asset_object> find_asset(asset_id_type id)const;
    optional<asset_object> find_asset(string asset_symbol_or_id)const;

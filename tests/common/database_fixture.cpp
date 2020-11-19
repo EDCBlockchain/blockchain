@@ -441,10 +441,18 @@ const asset_object& database_fixture::get_asset( const string& symbol )const
    return *itr;
 }
 
-const account_object& database_fixture::get_account( const string& name )const
+const account_object& database_fixture::get_account_by_name( const string& name )const
 {
    const auto& idx = db.get_index_type<account_index>().indices().get<by_name>();
    const auto itr = idx.find(name);
+   assert( itr != idx.end() );
+   return *itr;
+}
+
+const account_object& database_fixture::get_account_by_id( const account_id_type& id )const
+{
+   const auto& idx = db.get_index_type<account_index>().indices().get<by_id>();
+   const auto itr = idx.find(id);
    assert( itr != idx.end() );
    return *itr;
 }

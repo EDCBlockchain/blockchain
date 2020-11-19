@@ -286,7 +286,7 @@ namespace graphene { namespace protocol {
         }
     };
 
-    struct account_allow_referrals_operation: public base_operation
+    struct account_allow_registrar_operation: public base_operation
     {
         struct fee_parameters_type { uint64_t fee = 0; };
 
@@ -484,13 +484,41 @@ namespace graphene { namespace protocol {
       void            validate() const { };
    };
 
+   struct update_accounts_referrer_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset fee;
+
+      std::vector<account_id_type> accounts;
+      account_id_type new_referrer;
+
+      extensions_type extensions;
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+   };
+
+   struct enable_account_referral_payments_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset fee;
+
+      account_id_type account_id;
+      bool enabled = true;
+
+      extensions_type extensions;
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+   };
+
 } } // graphene::protocol
 
 FC_REFLECT_ENUM( graphene::protocol::account_whitelist_operation::account_listing,
                  (no_listing)(white_listed)(black_listed)(white_and_black_listed))
 FC_REFLECT_ENUM( graphene::protocol::account_restrict_operation::account_action,
                  (restore)(restrict_in)(restrict_out)(restrict_all))
-FC_REFLECT_ENUM( graphene::protocol::account_allow_referrals_operation::account_action,
+FC_REFLECT_ENUM( graphene::protocol::account_allow_registrar_operation::account_action,
                  (allow)(disallow))
 
 FC_REFLECT_TYPENAME( graphene::protocol::address_ext_type )
@@ -507,7 +535,7 @@ FC_REFLECT( graphene::protocol::add_address_operation::fee_parameters_type, (fee
 FC_REFLECT( graphene::protocol::account_create_operation::fee_parameters_type, (basic_fee)(premium_fee)(price_per_kbyte) )
 FC_REFLECT( graphene::protocol::account_whitelist_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::account_restrict_operation::fee_parameters_type, (fee) )
-FC_REFLECT( graphene::protocol::account_allow_referrals_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::protocol::account_allow_registrar_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::set_online_time_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::set_verification_is_required_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::account_update_operation::fee_parameters_type, (fee)(price_per_kbyte) )
@@ -521,6 +549,8 @@ FC_REFLECT( graphene::protocol::asset_update_exchange_rate_operation::fee_parame
 FC_REFLECT( graphene::protocol::set_market_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::create_market_address_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::account_edc_limit_daily_volume_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::protocol::update_accounts_referrer_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::protocol::enable_account_referral_payments_operation::fee_parameters_type, (fee) )
 
 FC_REFLECT( graphene::protocol::account_create_operation,
             (fee)(registrar)
@@ -535,7 +565,7 @@ FC_REFLECT( graphene::protocol::account_upgrade_operation,
             (fee)(account_to_upgrade)(upgrade_to_lifetime_member)(extensions) )
 FC_REFLECT( graphene::protocol::account_whitelist_operation, (fee)(authorizing_account)(account_to_list)(new_listing)(extensions))
 FC_REFLECT( graphene::protocol::account_restrict_operation, (fee)(target)(action)(extensions))
-FC_REFLECT( graphene::protocol::account_allow_referrals_operation, (fee)(target)(action)(extensions))
+FC_REFLECT( graphene::protocol::account_allow_registrar_operation, (fee)(target)(action)(extensions))
 FC_REFLECT( graphene::protocol::set_online_time_operation, (fee)(online_info)(extensions))
 FC_REFLECT( graphene::protocol::set_verification_is_required_operation, (fee)(target)(verification_is_required)(extensions))
 FC_REFLECT( graphene::protocol::account_transfer_operation, (fee)(account_id)(new_owner)(extensions) )
@@ -546,6 +576,8 @@ FC_REFLECT( graphene::protocol::asset_update_exchange_rate_operation, (fee)(asse
 FC_REFLECT( graphene::protocol::set_market_operation, (fee)(to_account)(enabled)(extensions) )
 FC_REFLECT( graphene::protocol::create_market_address_operation, (fee)(market_account_id)(notes)(extensions) )
 FC_REFLECT( graphene::protocol::account_edc_limit_daily_volume_operation, (fee)(account_id)(limit_transfers_enabled)(extensions) )
+FC_REFLECT( graphene::protocol::update_accounts_referrer_operation, (fee)(accounts)(new_referrer)(extensions) )
+FC_REFLECT( graphene::protocol::enable_account_referral_payments_operation, (fee)(account_id)(enabled)(extensions) )
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_options )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::limit_daily_ext_info )
@@ -554,7 +586,7 @@ GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::add_address_operati
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_create_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_whitelist_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_restrict_operation::fee_parameters_type )
-GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_allow_referrals_operation::fee_parameters_type )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_allow_registrar_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::set_online_time_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::set_verification_is_required_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_update_operation::fee_parameters_type )
@@ -568,6 +600,8 @@ GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::asset_update_exchan
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::set_market_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::create_market_address_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_edc_limit_daily_volume_operation::fee_parameters_type )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::update_accounts_referrer_operation::fee_parameters_type )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::enable_account_referral_payments_operation::fee_parameters_type )
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_create_operation )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_update_operation )
@@ -576,7 +610,7 @@ GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::add_address_operati
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_upgrade_operation )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_whitelist_operation )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_restrict_operation )
-GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_allow_referrals_operation )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_allow_registrar_operation )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::set_online_time_operation )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::set_verification_is_required_operation )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_transfer_operation )
@@ -587,3 +621,5 @@ GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::asset_update_exchan
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::set_market_operation )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::create_market_address_operation )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::account_edc_limit_daily_volume_operation )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::update_accounts_referrer_operation )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::enable_account_referral_payments_operation )

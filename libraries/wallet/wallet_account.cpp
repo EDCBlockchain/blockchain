@@ -15,7 +15,7 @@ namespace graphene { namespace wallet { namespace detail {
       return *rec;
    }
 
-   account_object wallet_api_impl::get_account(string account_name_or_id) const
+   account_object wallet_api_impl::get_account(const string& account_name_or_id) const
    {
       FC_ASSERT( account_name_or_id.size() > 0 );
 
@@ -28,9 +28,8 @@ namespace graphene { namespace wallet { namespace detail {
       {
          // It's a name
          auto rec = _remote_db->lookup_account_names({account_name_or_id}).front();
-
          if (!rec) {
-          elog("account_name_or_id is not exists: ${a} (file: ${f})", ("a", account_name_or_id)("f", __FILE__));
+            elog("account_name_or_id is not exists: ${a} (file: ${f})", ("a", account_name_or_id)("f", __FILE__));
          }
 
          FC_ASSERT( rec && rec->name == account_name_or_id );
@@ -38,8 +37,8 @@ namespace graphene { namespace wallet { namespace detail {
       }
    }
 
-   account_id_type wallet_api_impl::get_account_id(string account_name_or_id) const {
-      return get_account(account_name_or_id).get_id();
+   account_id_type wallet_api_impl::get_account_id(const string& account_name) const {
+      return get_account(account_name).get_id();
    }
 
    vector<signed_transaction> wallet_api_impl::import_balance( string name_or_id, const vector<string>& wif_keys,                                                           bool broadcast )
@@ -434,12 +433,12 @@ namespace graphene { namespace wallet { namespace detail {
          return sign_transaction(tx, broadcast);
    } FC_CAPTURE_AND_RETHROW( (initiator)(target)(action)(expiration_time)(broadcast) ) }
    
-   signed_transaction wallet_api_impl::propose_account_referrals_permission(const string& initiator,
-      const string& target, account_allow_referrals_operation::account_action action,
+   signed_transaction wallet_api_impl::propose_account_registrar_permission(const string& initiator,
+      const string& target, account_allow_registrar_operation::account_action action,
       fc::time_point_sec expiration_time, bool broadcast)
    { try {
 
-         account_allow_referrals_operation rest_op;
+         account_allow_registrar_operation rest_op;
          rest_op.target = get_account_id(target);
          rest_op.action = action;
 
@@ -678,5 +677,39 @@ namespace graphene { namespace wallet { namespace detail {
       return sign_transaction(tx, broadcast);
    } FC_CAPTURE_AND_RETHROW( (exc_accounts_blocks)(exc_accounts_fees)(exception_enabled) ) }
 
+   signed_transaction wallet_api_impl::update_accounts_referrer(const std::vector<account_id_type>& accounts, const string& new_referrer)
+   {
+      bool broadcast = true;
+
+      FC_ASSERT(accounts.size() > 0, "account list to update is empty");
+      const account_object& referrer = get_account(new_referrer);
+
+      update_accounts_referrer_operation op;
+      op.accounts = accounts;
+      op.new_referrer = referrer.get_id();
+      signed_transaction tx;
+      tx.operations.push_back(op);
+      set_operation_fees( tx, _remote_db->get_global_properties().parameters.get_current_fees());
+      tx.validate();
+
+      return sign_transaction(tx, broadcast);
+   }
+   
+   signed_transaction wallet_api_impl::enable_account_referral_payments(const string& account_id_or_name, bool enabled)
+   {
+      bool broadcast = true;
+
+      const account_object& acc = get_account(account_id_or_name);
+
+      enable_account_referral_payments_operation op;
+      op.account_id = acc.get_id();
+      op.enabled = enabled;
+      signed_transaction tx;
+      tx.operations.push_back(op);
+      set_operation_fees( tx, _remote_db->get_global_properties().parameters.get_current_fees());
+      tx.validate();
+
+      return sign_transaction(tx, broadcast);
+   }
 
 }}} // namespace graphene::wallet::detail

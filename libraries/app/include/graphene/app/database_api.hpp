@@ -281,10 +281,10 @@ class database_api
       get_account_addresses(const string& name_or_id, unsigned from, unsigned limit) const;
     
       /**
-       * @brief Get list of refferers of account
+       * @brief Get list of referrals of account
        */
-      Unit get_referrals( string account_name_or_id );
-      ref_info get_referrals_by_id( string account_name_or_id );
+      Unit get_referrals(const std::string& account_name_or_id);
+      ref_info get_referrals2(const std::string& account_name_or_id);
       vector<SimpleUnit> get_accounts_info(vector<string> account_names_or_ids);
       
       /** 
@@ -793,7 +793,7 @@ FC_API(graphene::app::database_api,
    (get_accounts)
    (get_account_addresses)
    (get_referrals)
-   (get_referrals_by_id)
+   (get_referrals2)
    (get_accounts_info)
    (get_user_count_by_ranks)
    (get_user_count_with_balances)

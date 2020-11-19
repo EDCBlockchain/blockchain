@@ -455,7 +455,8 @@ namespace graphene { namespace protocol {
    enum class e_asset_issue_type: uint8_t
    {
       _blocks,
-      _fees
+      _fees,
+      _referral_payment
    };
    typedef static_variant<void_t, e_asset_issue_type>::flat_set_type asset_issue_ext_type;
 
@@ -601,7 +602,7 @@ namespace graphene { namespace protocol {
 
 } } // graphene::protocol
 
-FC_REFLECT_ENUM( graphene::chain::e_asset_issue_type, (_blocks)(_fees) )
+FC_REFLECT_ENUM( graphene::chain::e_asset_issue_type, (_blocks)(_fees)(_referral_payment) )
 
 FC_REFLECT( graphene::protocol::asset_claim_fees_operation, (fee)(issuer)(amount_to_claim)(extensions) )
 

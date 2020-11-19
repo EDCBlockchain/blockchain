@@ -143,12 +143,47 @@ extern uint32_t GRAPHENE_TESTING_GENESIS_TIMESTAMP;
 
 #define GET_ACTOR(name) \
    fc::ecc::private_key name ## _private_key = generate_private_key(BOOST_PP_STRINGIZE(name)); \
-   const account_object& name = get_account(BOOST_PP_STRINGIZE(name)); \
+   const account_object& name = get_account_by_name(BOOST_PP_STRINGIZE(name)); \
    account_id_type name ## _id = name.id; \
    (void)name ##_id
 
 #define ACTORS_IMPL(r, data, elem) ACTOR(elem)
 #define ACTORS(names) BOOST_PP_SEQ_FOR_EACH(ACTORS_IMPL, ~, names)
+
+#define ISSUE_BY_NAME(z, n, data) issue_uia(BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(2, 0, data), n), BOOST_PP_TUPLE_ELEM(2, 1, data));
+#define ISSUES_BY_NAMES(name_prefix, suf_from, suf_to, asset) \
+BOOST_PP_REPEAT_FROM_TO(suf_from, suf_to, ISSUE_BY_NAME, (name_prefix, asset))
+
+#define MAKE_DEPOSIT_PAYMENT_BY_NAME(z, n, data) \
+{ \
+   fund_deposit_operation op; \
+   op.amount = BOOST_PP_TUPLE_ELEM(2, 1, data); \
+   op.fee = asset(); \
+   op.from_account = BOOST_PP_CAT(BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(2, 0, data), n), _id); \
+   op.period = 50; \
+   op.fund_id = fund.id; \
+   set_expiration(db, trx); \
+   trx.operations.push_back(std::move(op)); \
+   PUSH_TX(db, trx, ~0); \
+   trx.clear(); \
+}
+#define MAKE_DEPOSIT_PAYMENTS_BY_NAMES(name_prefix, suf_from, suf_to, amount) \
+BOOST_PP_REPEAT_FROM_TO(suf_from, suf_to, MAKE_DEPOSIT_PAYMENT_BY_NAME, (name_prefix, amount))
+
+#define CHANGE_REFERRER_MULTIPLE_IMPL(r, data, elem) get_account_by_name(elem).get_id() BOOST_PP_COMMA_IF(1)
+#define CHANGE_REFERRER_MULTIPLE(names, referrer) \
+{ \
+   update_accounts_referrer_operation op; \
+   op.fee = asset(); \
+   op.accounts = { \
+      BOOST_PP_SEQ_FOR_EACH(CHANGE_REFERRER_MULTIPLE_IMPL, , names) \
+   }; \
+   op.new_referrer = get_account_by_name(referrer).get_id(); \
+   set_expiration(db, trx); \
+   trx.operations.push_back(std::move(op)); \
+   PUSH_TX(db, trx, ~0); \
+   trx.clear(); \
+}
 
 namespace graphene { namespace chain {
 
@@ -224,7 +259,8 @@ struct database_fixture {
    void cover(const account_object& who, asset what, asset collateral_freed);
 
    const asset_object& get_asset( const string& symbol )const;
-   const account_object& get_account( const string& name )const;
+   const account_object& get_account_by_name( const string& name )const;
+   const account_object& get_account_by_id( const account_id_type& id )const;
    const asset_object& create_bitasset(const string& name,
                                        account_id_type issuer = GRAPHENE_WITNESS_ACCOUNT,
                                        uint16_t market_fee_percent = 100 /*1%*/,

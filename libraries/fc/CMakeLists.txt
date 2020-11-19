@@ -340,9 +340,14 @@ target_include_directories(fc
 IF(NOT WIN32)
   set(LINK_USR_LOCAL_LIB -L/usr/local/lib)
 ENDIF()
-target_link_libraries( fc PUBLIC ${LINK_USR_LOCAL_LIB}  ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARIES} ${Boost_LIBRARIES}
-                                 ${PLATFORM_SPECIFIC_LIBS} ${RPCRT4} ${CMAKE_DL_LIBS} ${rt_library}
-                                 ${editline_libraries} secp256k1 ${CMAKE_REQUIRED_LIBRARIES} )
+
+#target_link_libraries( fc PUBLIC ${LINK_USR_LOCAL_LIB}  ${OPENSSL_LIBRARIES} ${ZLIB_LIBRARIES} ${Boost_LIBRARIES}
+#                                 ${PLATFORM_SPECIFIC_LIBS} ${RPCRT4} ${CMAKE_DL_LIBS} ${rt_library}
+#                                 ${editline_libraries} secp256k1 ${CMAKE_REQUIRED_LIBRARIES} )
+
+target_link_libraries( fc PUBLIC ${LINK_USR_LOCAL_LIB}  ${OPENSSL_ROOT_DIR}/libssl.a ${OPENSSL_ROOT_DIR}/libcrypto.a ${ZLIB_LIBRARIES} ${Boost_LIBRARIES}
+        ${PLATFORM_SPECIFIC_LIBS} ${RPCRT4} ${CMAKE_DL_LIBS} ${rt_library}
+        ${editline_libraries} secp256k1 ${CMAKE_REQUIRED_LIBRARIES} )
 
 if(WIN32 AND MSVC)
     set_source_files_properties( src/network/http/websocket.cpp PROPERTIES COMPILE_FLAGS "/bigobj" )

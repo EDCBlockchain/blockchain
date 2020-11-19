@@ -223,7 +223,7 @@ BOOST_AUTO_TEST_CASE(hf_627_transfers_limit_max_sum_test)
          generate_block();
       }
 
-      auto acc_bob = get_account("bob");
+      auto acc_bob = get_account_by_name("bob");
       BOOST_CHECK(acc_bob.edc_limit_transfers_enabled == false);
 
       for (int i = 0; i < 2; ++i)
@@ -375,9 +375,9 @@ BOOST_AUTO_TEST_CASE(fund_deposit_update_operation_test)
       {
          asset asst;
          const account_object& acc = bob_id(db);
-         const auto& itr = acc.deposit_sums.find(fund.get_id());
-         if (itr != acc.deposit_sums.end()) {
-            asst = itr->second;
+         const auto& itr = acc.deposits_info.find(fund.get_id());
+         if (itr != acc.deposits_info.end()) {
+            asst = itr->second.sum;
          }
          BOOST_CHECK(asst.amount == 0);
       }
@@ -385,9 +385,9 @@ BOOST_AUTO_TEST_CASE(fund_deposit_update_operation_test)
       {
          asset asst;
          const account_object& acc = alice_id(db);
-         const auto& itr = acc.deposit_sums.find(fund.get_id());
-         if (itr != acc.deposit_sums.end()) {
-            asst = itr->second;
+         const auto& itr = acc.deposits_info.find(fund.get_id());
+         if (itr != acc.deposits_info.end()) {
+            asst = itr->second.sum;
          }
          BOOST_CHECK(asst.amount == 10000);
       }

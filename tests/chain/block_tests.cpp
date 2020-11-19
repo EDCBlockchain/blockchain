@@ -781,7 +781,7 @@ BOOST_FIXTURE_TEST_CASE( limit_order_expiration, database_fixture )
    generate_blocks(op.expiration, false);
    test = &get_asset("TEST");
    core = &asset_id_type()(db);
-   nathan = &get_account("nathan");
+   nathan = &get_account_by_name("nathan");
    committee = &account_id_type()(db);
 
    BOOST_CHECK(db.find_object(id) == nullptr);
@@ -863,20 +863,20 @@ BOOST_FIXTURE_TEST_CASE( change_block_interval, database_fixture )
    {
       proposal_update_operation uop;
       uop.fee_paying_account = GRAPHENE_TEMP_ACCOUNT;
-      uop.active_approvals_to_add = {get_account("init0").get_id(), get_account("init1").get_id(),
-                                     get_account("init2").get_id(), get_account("init3").get_id(),
-                                     get_account("init4").get_id(), get_account("init5").get_id(),
-                                     get_account("init6").get_id(), get_account("init7").get_id()};
+      uop.active_approvals_to_add = {get_account_by_name("init0").get_id(), get_account_by_name("init1").get_id(),
+                                     get_account_by_name("init2").get_id(), get_account_by_name("init3").get_id(),
+                                     get_account_by_name("init4").get_id(), get_account_by_name("init5").get_id(),
+                                     get_account_by_name("init6").get_id(), get_account_by_name("init7").get_id()};
       trx.operations.push_back(uop);
       sign( trx, init_account_priv_key );
       /*
-      sign( trx, get_account("init1" ).active.get_keys().front(),init_account_priv_key);
-      sign( trx, get_account("init2" ).active.get_keys().front(),init_account_priv_key);
-      sign( trx, get_account("init3" ).active.get_keys().front(),init_account_priv_key);
-      sign( trx, get_account("init4" ).active.get_keys().front(),init_account_priv_key);
-      sign( trx, get_account("init5" ).active.get_keys().front(),init_account_priv_key);
-      sign( trx, get_account("init6" ).active.get_keys().front(),init_account_priv_key);
-      sign( trx, get_account("init7" ).active.get_keys().front(),init_account_priv_key);
+      sign( trx, get_account_by_name("init1" ).active.get_keys().front(),init_account_priv_key);
+      sign( trx, get_account_by_name("init2" ).active.get_keys().front(),init_account_priv_key);
+      sign( trx, get_account_by_name("init3" ).active.get_keys().front(),init_account_priv_key);
+      sign( trx, get_account_by_name("init4" ).active.get_keys().front(),init_account_priv_key);
+      sign( trx, get_account_by_name("init5" ).active.get_keys().front(),init_account_priv_key);
+      sign( trx, get_account_by_name("init6" ).active.get_keys().front(),init_account_priv_key);
+      sign( trx, get_account_by_name("init7" ).active.get_keys().front(),init_account_priv_key);
       */
       db.push_transaction(trx);
       BOOST_CHECK(proposal_id_type()(db).is_authorized_to_execute(db));

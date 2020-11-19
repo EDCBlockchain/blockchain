@@ -246,9 +246,9 @@ BOOST_AUTO_TEST_CASE( transfer_whitelist_uia )
 
       INVOKE(issue_whitelist_uia);
       const asset_object& advanced = get_asset("ADVANCED");
-      const account_object& nathan = get_account("nathan");
+      const account_object& nathan = get_account_by_name("nathan");
       const account_object& dan = create_account("dan");
-      account_id_type izzy_id = get_account("izzy").id;
+      account_id_type izzy_id = get_account_by_name("izzy").id;
       upgrade_to_lifetime_member(dan);
       trx.clear();
 

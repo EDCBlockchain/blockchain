@@ -111,7 +111,7 @@ struct get_impacted_items_visitor
       _impacted_accounts.insert( op.target );
    }
 
-   void operator()( const account_allow_referrals_operation& op ) {
+   void operator()( const account_allow_registrar_operation& op ) {
       _impacted_accounts.insert( op.target );
    }
 
@@ -383,6 +383,16 @@ struct get_impacted_items_visitor
    }
    void operator()( const set_witness_exception_operation& op ) {
       _impacted_accounts.insert(op.fee_payer());
+   }
+   void operator()( const update_referral_settings_operation& op ) { }
+   void operator()( const update_accounts_referrer_operation& op )
+   {
+      for (const account_id_type& id: op.accounts) {
+         _impacted_accounts.insert(id);
+      }
+   }
+   void operator()( const enable_account_referral_payments_operation& op ) {
+      _impacted_accounts.insert(op.account_id);
    }
 };
 

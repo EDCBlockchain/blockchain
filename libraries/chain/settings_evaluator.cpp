@@ -68,5 +68,39 @@ void_result settings_evaluator::do_apply( const update_settings_operation& op )
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
+void_result referral_settings_evaluator::do_evaluate( const update_referral_settings_operation& op )
+{ try {
+
+   database& d = db();
+
+   auto itr = d.find(settings_id_type(0));
+   FC_ASSERT(itr, "can't find settings_object'!");
+
+   settings_ptr = &(*itr);
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+void_result referral_settings_evaluator::do_apply( const update_referral_settings_operation& op )
+{ try {
+
+   database& d = db();
+
+   d.modify(*settings_ptr, [&](settings_object& obj)
+   {
+      obj.referral_payments_enabled = op.referral_payments_enabled;
+      obj.referral_level1_percent = op.referral_level1_percent;
+      obj.referral_level2_percent = op.referral_level2_percent;
+      obj.referral_level3_percent = op.referral_level3_percent;
+      obj.referral_min_limit_edc_level1 = op.referral_min_limit_edc_level1;
+      obj.referral_min_limit_edc_level2 = op.referral_min_limit_edc_level2;
+      obj.referral_min_limit_edc_level3 = op.referral_min_limit_edc_level3;
+   });
+
+   return void_result{};
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
 
 } } // graphene::chain

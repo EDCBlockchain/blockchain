@@ -19,4 +19,16 @@ namespace graphene { namespace chain {
 
    };
 
+   class referral_settings_evaluator: public evaluator<referral_settings_evaluator>
+   {
+   public:
+      typedef update_referral_settings_operation operation_type;
+
+      void_result do_evaluate( const update_referral_settings_operation& o );
+      void_result do_apply( const update_referral_settings_operation& o );
+
+      const settings_object* settings_ptr = nullptr;
+
+   };
+
 } } // graphene::chain

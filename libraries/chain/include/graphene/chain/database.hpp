@@ -54,7 +54,7 @@ namespace graphene { namespace chain {
    class force_settlement_object;
    class limit_order_object;
    class call_order_object;
-
+   class fund_object;
    struct budget_record;
 
    /**
@@ -120,8 +120,8 @@ namespace graphene { namespace chain {
          void close(bool rewind = true);
          void set_history_size(int _history_size) { history_size = _history_size; }
 
-         void enable_referrer_mode() { _referrer_mode_enabled = true; }
-         bool referrer_mode_is_enabled() { return _referrer_mode_enabled; }
+         void enable_registrar_mode() { _registrar_mode_enabled = true; }
+         bool registrar_mode_is_enabled() { return _registrar_mode_enabled; }
 
          //////////////////// db_block.cpp ////////////////////
 
@@ -331,7 +331,9 @@ namespace graphene { namespace chain {
 
          asset check_supply_overflow(asset value);
 
-         share_type get_user_deposits_sum(account_id_type acc_id, asset_id_type asst);
+         void update_user_nearest_active_deposit_dt(const account_id_type& acc_id, const fund_object& fund);
+         std::tuple<share_type, fc::time_point_sec>
+         get_user_deposits_info(const account_id_type& acc_id, const asset_id_type& asset_id) const;
 
          double get_percent(uint32_t percent) const;
 
@@ -343,7 +345,6 @@ namespace graphene { namespace chain {
 
          void rebuild_user_edc_deposit_availability(account_id_type acc_id);
 
-         void update_user_rank(const account_object& acc);
          int64_t get_account_fee_edc_percent_by_rank(const account_object& acc) const;
 
          asset get_burnt_asset(asset_id_type id);
@@ -532,6 +533,7 @@ namespace graphene { namespace chain {
          void update_active_committee_members();
          void update_worker_votes();
 
+         void form_referral_map();
          void process_accounts();
 
          // funds, commission charges
@@ -548,9 +550,12 @@ namespace graphene { namespace chain {
          ///@}
          ///@}
 
+         tree<leaf_info2> referral_tree_v2;
+         std::map<account_id_type, tree<leaf_info2>::iterator> referral_map_v2;
+
          int history_size = 0;
          // any LTM-member can create accounts
-         bool _referrer_mode_enabled = false;
+         bool _registrar_mode_enabled = false;
 
          vector< processed_transaction >        _pending_tx;
          fork_database                          _fork_db;

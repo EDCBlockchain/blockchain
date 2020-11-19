@@ -96,7 +96,7 @@ namespace graphene { namespace wallet { namespace detail {
       chain::asset_parameters new_params,
       bool broadcast)
    { try {
-         fc::optional<asset_object> asset_to_update = find_asset(symbol);
+      fc::optional<asset_object> asset_to_update = find_asset(symbol);
       if (!asset_to_update) {
          FC_THROW("No asset with that symbol exists!");
       }
@@ -106,17 +106,21 @@ namespace graphene { namespace wallet { namespace detail {
          FC_THROW("Current asset issuer can't update asset (restricted by committee)!");
       }
 
-      fc::optional<account_id_type> new_issuer_account_id = false;
+      fc::optional<account_id_type> new_issuer_account_id(account_id_type{});
+      new_issuer_account_id.reset();
       if (new_issuer)
       {
          account_object new_issuer_account = get_account(*new_issuer);
+         FC_ASSERT(new_issuer_account.get_id() != account_id_type(), "Invalid new issuer!");
          new_issuer_account_id = new_issuer_account.id;
       }
 
       asset_update2_operation update_op;
       update_op.issuer = asset_to_update->issuer;
       update_op.asset_to_update = asset_to_update->id;
-      update_op.new_issuer = new_issuer_account_id;
+      if (new_issuer_account_id) {
+         update_op.new_issuer = new_issuer_account_id;
+      }
       update_op.new_options = new_options;
       update_op.new_params = new_params;
 
@@ -126,6 +130,7 @@ namespace graphene { namespace wallet { namespace detail {
       tx.validate();
 
       return sign_transaction( tx, broadcast );
+
    } FC_CAPTURE_AND_RETHROW( (symbol)(new_issuer)(new_options)(new_params)(broadcast) ) }
    
    signed_transaction wallet_api_impl::update_bitasset(string symbol,

@@ -218,8 +218,8 @@ class wallet_api
       fc::optional<account_object>      get_account_by_vote_id(const vote_id_type& v_id) const;
       address                           get_address(int64_t block_num, int64_t transaction_num) const;
     
-      Unit                              get_referrals(string account_name_or_id) const;
-      ref_info                          get_referrals_by_id(string account_name_or_id) const;
+      Unit                              get_referrals(const string& account_name_or_id) const;
+      ref_info                          get_referrals2(const string& account_name_or_id) const;
       vector<SimpleUnit>                get_accounts_info(vector<string> account_names_or_ids) const;
 
       fc::variant_object        get_user_count_by_ranks() const;
@@ -244,10 +244,10 @@ class wallet_api
       asset_bitasset_data_object        get_bitasset_data(string asset_name_or_id)const;
 
       /** Lookup the id of a named account.
-       * @param account_name_or_id the name of the account to look up
+       * @param account_name the name of the account to look up
        * @returns the id of the named account
        */
-      account_id_type                   get_account_id(string account_name_or_id) const;
+      account_id_type                   get_account_id(string account_name) const;
 
       /**
        * Lookup the id of a named asset.
@@ -1394,7 +1394,7 @@ class wallet_api
 
       signed_transaction propose_account_restriction(const string& initiator, const string& target, account_restrict_operation::account_action action,
                                                     fc::time_point_sec expiration_time, bool broadcast = true);
-      signed_transaction propose_account_referrals_permission(const string& initiator, const string& target, account_allow_referrals_operation::account_action action,
+      signed_transaction propose_account_registrar_permission(const string& initiator, const string& target, account_allow_registrar_operation::account_action action,
                                                     fc::time_point_sec expiration_time, bool broadcast = true);
       signed_transaction propose_allow_create_asset(const string& initiator, const string& target, bool allow,
                                                     fc::time_point_sec expiration_time, bool broadcast = true);
@@ -1464,6 +1464,12 @@ class wallet_api
       std::shared_ptr<detail::wallet_api_impl> my;
       bool no_backups = false;
       void encrypt_keys();
+      
+      // update referrer of accounts
+      signed_transaction update_accounts_referrer(const std::vector<account_id_type>& accounts, const string& new_referrer);
+      
+      // enable/disable account's referrer payments
+      signed_transaction enable_account_referral_payments(const string& account_name_or_id, bool enabled);
 
 }; // wallet_api
 
@@ -1533,7 +1539,7 @@ FC_API( graphene::wallet::wallet_api,
         (settle_asset)
         (whitelist_account)
         (propose_account_restriction)
-        (propose_account_referrals_permission)
+        (propose_account_registrar_permission)
         (propose_allow_create_asset)
         (propose_allow_create_addresses)
         (propose_update_account_authorities)
@@ -1565,7 +1571,7 @@ FC_API( graphene::wallet::wallet_api,
         (get_account_by_vote_id)
         (get_address)
         (get_referrals)
-        (get_referrals_by_id)
+        (get_referrals2)
         (get_accounts_info)
         (get_user_count_by_ranks)
         (get_user_count_with_balances)
@@ -1634,4 +1640,6 @@ FC_API( graphene::wallet::wallet_api,
         (generate_market_address)
         (get_cheque_by_code)
         (get_required_fees)
+        (update_accounts_referrer)
+        (enable_account_referral_payments)
       )

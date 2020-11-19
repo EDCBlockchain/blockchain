@@ -180,6 +180,8 @@ void_result transfer_evaluator::do_apply( const transfer_operation& o )
    database& d = db();
    const account_object& to_account = *to_account_ptr;
 
+   // !!! see also evaluator.cpp::convert_fee()
+
    d.adjust_balance(o.from, -o.amount);
 
    // normal accrual
@@ -401,6 +403,8 @@ asset blind_transfer2_evaluator::do_apply( const blind_transfer2_operation& o )
 { try {
    database& d = db();
    const account_object& to_account = *to_account_ptr;
+
+   // !!! see also evaluator.cpp::convert_fee()
 
    // amount
    d.adjust_balance(o.from, -o.amount);

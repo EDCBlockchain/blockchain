@@ -55,6 +55,31 @@ namespace graphene { namespace protocol {
 
    };
 
+   /**
+    * @ingroup operations
+    */
+   struct update_referral_settings_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset fee;
+
+      bool referral_payments_enabled = false;
+      uint32_t referral_level1_percent = 0;
+      uint32_t referral_level2_percent = 0;
+      uint32_t referral_level3_percent = 0;
+      std::pair<share_type, share_type> referral_min_limit_edc_level1;
+      std::pair<share_type, share_type> referral_min_limit_edc_level2;
+      std::pair<share_type, share_type> referral_min_limit_edc_level3;
+
+      extensions_type extensions;
+
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+      share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
+
+   };
+
 } } // graphene::protocol
 
 FC_REFLECT( graphene::protocol::settings_fee, (asset_id)(percent) )
@@ -73,10 +98,33 @@ FC_REFLECT( graphene::protocol::update_settings_operation::ext,
             (block_reward)
             (witness_fees_percent)
             (ranks) )
+
 FC_REFLECT( graphene::protocol::update_settings_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::protocol::update_referral_settings_operation::fee_parameters_type, (fee) )
 
 FC_REFLECT( graphene::protocol::update_settings_operation,
-            (fee)(transfer_fees)(blind_transfer_fees)(blind_transfer_default_fee)(edc_deposit_max_sum)(edc_transfers_daily_limit)(extensions))
+            (fee)
+            (transfer_fees)
+            (blind_transfer_fees)
+            (blind_transfer_default_fee)
+            (edc_deposit_max_sum)
+            (edc_transfers_daily_limit)(extensions)
+          )
+FC_REFLECT( graphene::protocol::update_referral_settings_operation,
+            (fee)
+            (referral_payments_enabled)
+            (referral_level1_percent)
+            (referral_level2_percent)
+            (referral_level3_percent)
+            (referral_min_limit_edc_level1)
+            (referral_min_limit_edc_level2)
+            (referral_min_limit_edc_level3)
+          )
+
+// ! implementations in small_ops.cpp
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::update_settings_operation::fee_parameters_type )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::update_referral_settings_operation::fee_parameters_type )
+
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::update_settings_operation )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::update_referral_settings_operation )

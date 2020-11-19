@@ -165,17 +165,17 @@ void_result account_create_evaluator::do_evaluate( const account_create_operatio
       accs.insert(va.begin(), va.end());
       keys.insert(vk.begin(), vk.end());
 
-      if (!db().referrer_mode_is_enabled()) {
+      if (!db().registrar_mode_is_enabled()) {
          check_accounts_usage(d, accs, keys);
       }
 
-      auto& p = d.get_account_properties();
-      auto prop_itr = p.accounts_properties.find(op.registrar);
-
-      if (!db().referrer_mode_is_enabled())
+      if (!db().registrar_mode_is_enabled())
       {
+         auto& p = d.get_account_properties();
+         auto prop_itr = p.accounts_properties.find(op.registrar);
+
          FC_ASSERT(prop_itr != p.accounts_properties.end());
-         FC_ASSERT(prop_itr->second.can_be_referrer);
+         FC_ASSERT(prop_itr->second.can_be_registrar);
       }
    }
 
@@ -244,15 +244,18 @@ object_id_type account_create_evaluator::do_apply( const account_create_operatio
       obj.lifetime_referrer_fee_percentage = params.lifetime_referrer_percent_of_fee;
       obj.referrer_rewards_percentage = referrer_percent;
 
+      bool is_market_account = std::regex_match(o.name, MARKET_ADDRESS_REGEX);
+
       // verification
       if ( (d.head_block_time() >= HARDFORK_629_TIME) && (d.head_block_time() < HARDFORK_630_TIME) )
       {
          // if it is not a market address then should be verified
-         if (!std::regex_match(o.name, MARKET_ADDRESS_REGEX )) {
+         if (!is_market_account) {
             obj.verification_is_required = true;
          }
       }
 
+      obj.is_market_account = is_market_account;
       obj.name              = o.name;
       obj.register_datetime = d.head_block_time();
       obj.owner             = o.owner;
@@ -355,7 +358,7 @@ void_result account_update_evaluator::do_evaluate( const account_update_operatio
          keys.insert(vk.begin(), vk.end());
       }
 
-      if (!db().referrer_mode_is_enabled()) {
+      if (!db().registrar_mode_is_enabled()) {
          check_accounts_usage(d, accs, keys);
       }
    }
@@ -453,7 +456,7 @@ void_result account_update_authorities_evaluator::do_evaluate(const account_upda
       keys.insert(vk.begin(), vk.end());
    }
 
-   if (!db().referrer_mode_is_enabled()) {
+   if (!db().registrar_mode_is_enabled()) {
       check_accounts_usage(d, accs, keys);
    }
 
@@ -684,7 +687,7 @@ object_id_type account_restrict_evaluator::do_apply(const account_restrict_opera
 
 //////////////////////////////////////////////////////////////////////////////////////
 
-void_result account_allow_referrals_evaluator::do_evaluate(const account_allow_referrals_operation& o)
+void_result account_allow_registrar_evaluator::do_evaluate(const account_allow_registrar_operation& o)
 { try {
    database& d = db();
 
@@ -696,22 +699,20 @@ void_result account_allow_referrals_evaluator::do_evaluate(const account_allow_r
    return void_result();
 } FC_CAPTURE_AND_RETHROW( (o) ) }
 
-object_id_type account_allow_referrals_evaluator::do_apply(const account_allow_referrals_operation& o)
+object_id_type account_allow_registrar_evaluator::do_apply(const account_allow_registrar_operation& o)
 { try {
    database& d = db();
-   const account_properties_object& _apo = d.get_account_properties();
-   d.modify( _apo,[&]( account_properties_object& apo)
+   const account_properties_object& prop = d.get_account_properties();
+   d.modify(prop,[&]( account_properties_object& obj)
    {
-      auto itr = apo.accounts_properties.find(o.target); 
-      if (itr != apo.accounts_properties.end())
+      auto itr = obj.accounts_properties.find(o.target);
+      if (itr != obj.accounts_properties.end())
       {
-         itr->second.can_be_referrer = o.action & o.allow;
+         itr->second.can_be_registrar = o.action & o.allow;
       } else {
-         //aaccounts_properties.insert({o.target, {o.action & o.allow}});
-         //std::pair p = std::make_pair({o.target, {o.action & o.allow}});
          account_properties_object::account_properties po;
-         po.can_be_referrer = o.action & o.allow;
-         apo.accounts_properties.insert(std::make_pair(o.target, po));
+         po.can_be_registrar = o.action & o.allow;
+         obj.accounts_properties.insert(std::make_pair(o.target, po));
       }
    } );
 
@@ -1084,5 +1085,73 @@ void_result account_limit_daily_volume_evaluator::do_apply(const account_edc_lim
 
 } FC_CAPTURE_AND_RETHROW( (op) ) }
 
+//////////////////////////////////////////////////////////////////////////////////////
+
+void_result update_accounts_referrer_evaluator::do_evaluate(const update_accounts_referrer_operation& op)
+{ try {
+   database& d = db();
+
+   const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
+
+   auto itr_ref = idx.find(op.new_referrer);
+   FC_ASSERT(itr_ref != idx.end(), "Referrer-account with ID ${id} not exists!", ("id", op.new_referrer));
+   FC_ASSERT(op.accounts.size() > 0, "Accounts count must be > 0. Current count: ${n}", ("n", op.accounts.size()));
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+void_result update_accounts_referrer_evaluator::do_apply(const update_accounts_referrer_operation& op)
+{ try {
+
+   database& d = db();
+   const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
+
+   for (const account_id_type& acc_id: op.accounts)
+   {
+      auto itr = idx.find(acc_id);
+      if (itr != idx.end())
+      {
+         d.modify<account_object>(*itr, [&](account_object& obj) {
+           obj.referrer = op.new_referrer;
+         });
+      }
+   }
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+//////////////////////////////////////////////////////////////////////////////////////
+
+void_result enable_account_referral_payments_evaluator::do_evaluate(const enable_account_referral_payments_operation& op)
+{ try {
+   database& d = db();
+
+   const auto& idx = d.get_index_type<account_index>().indices().get<by_id>();
+   auto itr = idx.find(op.account_id);
+   FC_ASSERT(itr != idx.end(), "Account with ID ${id} not exists!", ("id", op.account_id));
+
+   account_ptr = &(*itr);
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
+
+void_result enable_account_referral_payments_evaluator::do_apply(const enable_account_referral_payments_operation& op)
+{ try {
+
+   database& d = db();
+
+   if (account_ptr)
+   {
+      d.modify<account_object>(*account_ptr, [&](account_object& obj) {
+         obj.referral_payments_enabled = op.enabled;
+      });
+   }
+
+   return void_result();
+
+} FC_CAPTURE_AND_RETHROW( (op) ) }
 
 } } // graphene::chain

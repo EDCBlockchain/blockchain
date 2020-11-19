@@ -26,16 +26,16 @@ BOOST_AUTO_TEST_CASE( allow_record_test )
       ACTOR(alice);
 
       transaction_evaluation_state evalState(&db);
-      account_allow_referrals_operation ref_op;
+      account_allow_registrar_operation ref_op;
       ref_op.target = alice_id;
-      ref_op.action = account_allow_referrals_operation::allow;
+      ref_op.action = account_allow_registrar_operation::allow;
 
       db.apply_operation(evalState, ref_op);
 
       auto& p = db.get_account_properties();
       auto itr = p.accounts_properties.find(alice_id);
       BOOST_CHECK(itr != p.accounts_properties.end());
-      BOOST_CHECK(itr->second.can_be_referrer);
+      BOOST_CHECK(itr->second.can_be_registrar);
    } catch (fc::exception& e) {
       edump((e.to_detail_string()));
       throw;
@@ -49,9 +49,9 @@ BOOST_AUTO_TEST_CASE( disallow_no_exitant_record_test )
       ACTOR(alice);
 
       transaction_evaluation_state evalState(&db);
-      account_allow_referrals_operation ref_op;
+      account_allow_registrar_operation ref_op;
       ref_op.target = alice_id;
-      ref_op.action = account_allow_referrals_operation::disallow;
+      ref_op.action = account_allow_registrar_operation::disallow;
 
       BOOST_REQUIRE_THROW(db.apply_operation(evalState, ref_op), fc::exception);
    } catch (fc::exception& e) {
@@ -68,20 +68,20 @@ BOOST_AUTO_TEST_CASE( disallow_exitant_record_test )
       ACTOR(alice);
 
       transaction_evaluation_state evalState(&db);
-      account_allow_referrals_operation ref_op;
+      account_allow_registrar_operation ref_op;
       ref_op.target = alice_id;
-      ref_op.action = account_allow_referrals_operation::allow;
+      ref_op.action = account_allow_registrar_operation::allow;
       db.apply_operation(evalState, ref_op);
 
-      account_allow_referrals_operation ref_op_dis;
+      account_allow_registrar_operation ref_op_dis;
       ref_op_dis.target = alice_id;
-      ref_op_dis.action = account_allow_referrals_operation::disallow;
+      ref_op_dis.action = account_allow_registrar_operation::disallow;
       db.apply_operation(evalState, ref_op_dis);
 
       auto& p = db.get_account_properties();
       auto itr = p.accounts_properties.find(alice_id);
       BOOST_CHECK(itr != p.accounts_properties.end());
-      BOOST_CHECK(!itr->second.can_be_referrer);
+      BOOST_CHECK(!itr->second.can_be_registrar);
    } catch (fc::exception& e) {
       edump((e.to_detail_string()));
       throw;
@@ -129,9 +129,9 @@ BOOST_AUTO_TEST_CASE( allow_creation_after_fork_with_permission )
       generate_blocks(fc::time_point_sec(HARDFORK_617_TIME));
 
       transaction_evaluation_state evalState(&db);
-      account_allow_referrals_operation ref_op;
+      account_allow_registrar_operation ref_op;
       ref_op.target = alice_id;
-      ref_op.action = account_allow_referrals_operation::allow;
+      ref_op.action = account_allow_registrar_operation::allow;
 
       db.apply_operation(evalState, ref_op);
 
@@ -139,7 +139,7 @@ BOOST_AUTO_TEST_CASE( allow_creation_after_fork_with_permission )
 
       upgrade_to_lifetime_member(alice_id);
 
-      create_account("stub", get_account("alice"), get_account("alice"), 
+      create_account("stub", get_account_by_name("alice"), get_account_by_name("alice"),
                               80, generate_private_key("stub").get_public_key());
 
    } catch (fc::exception& e) {
@@ -199,19 +199,19 @@ BOOST_AUTO_TEST_CASE( allow_creation_after_fork_with_canceled_permission )
       upgrade_to_lifetime_member(alice_id);
 
       transaction_evaluation_state evalState(&db);
-      account_allow_referrals_operation ref_op;
+      account_allow_registrar_operation ref_op;
       ref_op.target = alice_id;
-      ref_op.action = account_allow_referrals_operation::allow;
+      ref_op.action = account_allow_registrar_operation::allow;
 
 
       db.apply_operation(evalState, ref_op);
 
-      account_allow_referrals_operation ref_op_dis;
+      account_allow_registrar_operation ref_op_dis;
       ref_op_dis.target = alice_id;
-      ref_op_dis.action = account_allow_referrals_operation::disallow;
+      ref_op_dis.action = account_allow_registrar_operation::disallow;
       db.apply_operation(evalState, ref_op_dis);
 
-      BOOST_REQUIRE_THROW(create_account("stub", get_account("alice"), get_account("alice"), 
+      BOOST_REQUIRE_THROW(create_account("stub", get_account_by_name("alice"), get_account_by_name("alice"),
                            80, generate_private_key("stub").get_public_key()), fc::exception);
 
    } catch (fc::exception& e) {

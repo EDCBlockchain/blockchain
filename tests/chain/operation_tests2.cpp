@@ -97,8 +97,8 @@ BOOST_AUTO_TEST_CASE( withdraw_permission_test )
 
    auto nathan_private_key = generate_private_key("nathan");
    auto dan_private_key = generate_private_key("dan");
-   account_id_type nathan_id = get_account("nathan").id;
-   account_id_type dan_id = get_account("dan").id;
+   account_id_type nathan_id = get_account_by_name("nathan").id;
+   account_id_type dan_id = get_account_by_name("dan").id;
    withdraw_permission_id_type permit;
    set_expiration( db, trx );
 
@@ -235,8 +235,8 @@ BOOST_AUTO_TEST_CASE( withdraw_permission_nominal_case )
 
    auto nathan_private_key = generate_private_key("nathan");
    auto dan_private_key = generate_private_key("dan");
-   account_id_type nathan_id = get_account("nathan").id;
-   account_id_type dan_id = get_account("dan").id;
+   account_id_type nathan_id = get_account_by_name("nathan").id;
+   account_id_type dan_id = get_account_by_name("dan").id;
    withdraw_permission_id_type permit;
 
    while(true)
@@ -276,8 +276,8 @@ BOOST_AUTO_TEST_CASE( withdraw_permission_update )
    INVOKE(withdraw_permission_create);
 
    auto nathan_private_key = generate_private_key("nathan");
-   account_id_type nathan_id = get_account("nathan").id;
-   account_id_type dan_id = get_account("dan").id;
+   account_id_type nathan_id = get_account_by_name("nathan").id;
+   account_id_type dan_id = get_account_by_name("dan").id;
    withdraw_permission_id_type permit;
    set_expiration( db, trx );
 
@@ -322,8 +322,8 @@ BOOST_AUTO_TEST_CASE( withdraw_permission_delete )
    INVOKE(withdraw_permission_update);
 
    withdraw_permission_delete_operation op;
-   op.authorized_account = get_account("dan").id;
-   op.withdraw_from_account = get_account("nathan").id;
+   op.authorized_account = get_account_by_name("dan").id;
+   op.withdraw_from_account = get_account_by_name("nathan").id;
    set_expiration( db, trx );
    trx.operations.push_back(op);
    sign( trx, generate_private_key("nathan" ));
@@ -1731,7 +1731,7 @@ BOOST_AUTO_TEST_CASE( hf629_test )
       generate_block();
    }
 
-   db.enable_referrer_mode();
+   db.enable_registrar_mode();
 
    ACTOR(eva)
 
