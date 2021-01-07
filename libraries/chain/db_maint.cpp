@@ -22,7 +22,9 @@
  * THE SOFTWARE.
  */
 
+#include <chrono>
 #include <functional>
+
 #include <fc/uint128.hpp>
 
 #include <graphene/protocol/market.hpp>
@@ -912,12 +914,30 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
 
    const settings_object& settings = *find(settings_id_type(0));
 
-   if (head_block_time() > HARDFORK_637_TIME) {
+   if (head_block_time() > HARDFORK_637_TIME)
+   {
+#ifdef DEBUG_TIMES
+      auto start = std::chrono::high_resolution_clock::now();
+#endif
       form_referral_map();
+#ifdef DEBUG_TIMES
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+      std::cout << "form_referral_map(): " << duration.count() << " seconds" << std::endl;
+#endif
    }
 
-   if (head_block_time() > HARDFORK_627_TIME) {
+   if (head_block_time() > HARDFORK_627_TIME)
+   {
+#ifdef DEBUG_TIMES
+      auto start = std::chrono::high_resolution_clock::now();
+#endif
       process_accounts();
+#ifdef DEBUG_TIMES
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+      std::cout << "process_accounts(): " << duration.count() << " seconds" << std::endl;
+#endif
    }
 
    if (head_block_time() > HARDFORK_622_TIME)
@@ -934,14 +954,43 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
          denominate_cheques();
       }
 
-      process_funds();
-      process_cheques();
+      {
+#ifdef DEBUG_TIMES
+         auto start = std::chrono::high_resolution_clock::now();
+#endif
+         process_funds();
+#ifdef DEBUG_TIMES
+         auto stop = std::chrono::high_resolution_clock::now();
+         auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+         std::cout << "process_funds(): " << duration.count() << " seconds" << std::endl;
+#endif
+      }
+
+      {
+#ifdef DEBUG_TIMES
+         auto start = std::chrono::high_resolution_clock::now();
+#endif
+         process_cheques();
+#ifdef DEBUG_TIMES
+         auto stop = std::chrono::high_resolution_clock::now();
+         auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+         std::cout << "process_cheques(): " << duration.count() << " seconds" << std::endl;
+#endif
+      }
    }
 
    if (head_block_time() > HARDFORK_620_TIME)
    {
       // for all assets except EDC (because backend doesn't have maturity functional for EDC)
+#ifdef DEBUG_TIMES
+      auto start = std::chrono::high_resolution_clock::now();
+#endif
       issue_bonuses();
+#ifdef DEBUG_TIMES
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+      std::cout << "issue_bonuses(): " << duration.count() << " seconds" << std::endl;
+#endif
    } else if (head_block_time() > HARDFORK_617_TIME) {
       issue_bonuses_before_620();
    } else if (head_block_time() > HARDFORK_616_TIME) {
@@ -951,8 +1000,16 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
    // make fee-payments to witnesses
    if (head_block_time() > HARDFORK_633_TIME)
    {
+#ifdef DEBUG_TIMES
+      auto start = std::chrono::high_resolution_clock::now();
+#endif
       make_witness_payments();
       process_witnesses();
+#ifdef DEBUG_TIMES
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+      std::cout << "make_witness_payments() & process_witnesses(): " << duration.count() << " seconds" << std::endl;
+#endif
    }
 
    if (settings.make_denominate && (head_block_time() > HARDFORK_635_TIME))
@@ -962,7 +1019,17 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
       });
    }
 
-   clear_old_entities();
+   {
+#ifdef DEBUG_TIMES
+      auto start = std::chrono::high_resolution_clock::now();
+#endif
+      clear_old_entities();
+#ifdef DEBUG_TIMES
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+      std::cout << "clear_old_entities(): " << duration.count() << " seconds" << std::endl;
+#endif
+   }
 }
 
 void database::clear_old_entities()
@@ -1048,12 +1115,12 @@ void database::form_referral_map()
       tree<leaf_info2>::iterator
       , const account_object&
       , const account_multi_index_type::index<by_id>::type&
-      , std::map<account_id_type, tree<leaf_info2>::iterator>&
+      , std::unordered_map<account_id_type, tree<leaf_info2>::iterator>&
       , tree<leaf_info2>&)> create_leaf = [&](
          tree<leaf_info2>::iterator root
          , const account_object& acc
          , const account_multi_index_type::index<by_id>::type& idx
-         , std::map<account_id_type, tree<leaf_info2>::iterator>& ref_map
+         , std::unordered_map<account_id_type, tree<leaf_info2>::iterator>& ref_map
          , tree<leaf_info2>& ref_tree)
    {
       tree<leaf_info2>::iterator referrer = root;
@@ -1095,7 +1162,15 @@ void database::form_referral_map()
       const account_object& acc = *itr;
       if (acc.is_market_account) { continue; }
 
-      create_leaf(root, acc, idx, referral_map_v2, referral_tree_v2);
+      if (head_block_time() >= HARDFORK_638_TIME)
+      {
+         if (referral_map_v2.find(acc.get_id()) == referral_map_v2.end()) {
+            create_leaf(root, acc, idx, referral_map_v2, referral_tree_v2);
+         }
+      }
+      else {
+         create_leaf(root, acc, idx, referral_map_v2, referral_tree_v2);
+      }
    }
 
    for (tree<leaf_info2>::iterator tree_item = referral_tree_v2.begin();
@@ -1105,7 +1180,7 @@ void database::form_referral_map()
       for (tree<leaf_info2>::iterator current_node = tree_item;; ++level)
       {
          auto parent_node = referral_tree_v2.parent(current_node);
-         if ((parent_node == nullptr) || (level > 2)) { break; }
+         if ((parent_node == nullptr) || (parent_node->account_id == GRAPHENE_COMMITTEE_ACCOUNT) || (level > 2)) { break; }
 
          leaf_info2& parent_account = *parent_node;
          leaf_info2& current_account = *current_node;
@@ -1127,8 +1202,14 @@ void database::form_referral_map()
                  && (parent_account.active_deposits >= settings.referral_min_limit_edc_level1.first) )
             {
                ++parent_account.level1_valid_referrals_count;
-               if (parent_account.level1_valid_referrals_count == 3) {
-                  parent_account.level = 1;
+               if (parent_account.level1_valid_referrals_count == 3)
+               {
+                  if (head_block_time() >= HARDFORK_638_TIME) {
+                     if (parent_account.level < 1)  { parent_account.level = 1; }
+                  }
+                  else {
+                     parent_account.level = 1;
+                  }
                }
             }
             if (current_account.daily_deposits > 0)
@@ -1147,8 +1228,14 @@ void database::form_referral_map()
                  && (parent_account.active_deposits >= settings.referral_min_limit_edc_level2.first) )
             {
                ++parent_account.level2_valid_referrals_count;
-               if (parent_account.level2_valid_referrals_count == 3) {
-                  parent_account.level = 2;
+               if (parent_account.level2_valid_referrals_count == 3)
+               {
+                  if (head_block_time() >= HARDFORK_638_TIME) {
+                     if (parent_account.level < 2)  { parent_account.level = 2; }
+                  }
+                  else {
+                     parent_account.level = 2;
+                  }
                }
             }
             if (current_account.daily_deposits > 0)
@@ -1167,8 +1254,14 @@ void database::form_referral_map()
                  && (parent_account.active_deposits >= settings.referral_min_limit_edc_level3.first) )
             {
                ++parent_account.level3_valid_referrals_count;
-               if (parent_account.level3_valid_referrals_count == 3) {
-                  parent_account.level = 3;
+               if (parent_account.level3_valid_referrals_count == 3)
+               {
+                  if (head_block_time() >= HARDFORK_638_TIME) {
+                     if (parent_account.level < 3)  { parent_account.level = 3; }
+                  }
+                  else {
+                     parent_account.level = 3;
+                  }
                }
             }
             if (current_account.daily_deposits > 0)
@@ -1261,6 +1354,8 @@ void database::process_accounts()
          }
       }
 
+      /******************************/
+
       modify(acc_obj, [&](account_object& obj)
       {
          obj.edc_transfers_amount_counter = 0;
@@ -1304,8 +1399,8 @@ void database::process_accounts()
 
    if (head_block_time() > HARDFORK_637_TIME)
    {
-      referral_map_v2.clear();
       referral_tree_v2.clear();
+      referral_map_v2.clear();
    }
 
    if ((supply_reducer > 0) && (head_block_time() > HARDFORK_635_TIME))

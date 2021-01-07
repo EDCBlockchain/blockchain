@@ -751,6 +751,17 @@ namespace graphene { namespace chain {
 
 }} // namespace graphene::chain
 
+namespace std
+{
+   // for using with std::unordered_map
+   template <> struct hash<graphene::protocol::account_id_type>
+   {
+      size_t operator()(const graphene::protocol::account_id_type& x) const {
+         return std::hash<uint64_t>()(x.instance);
+      }
+   };
+}
+
 FC_REFLECT( graphene::chain::SimpleUnit, (rank)(id)(name)(balance));
 FC_REFLECT( graphene::chain::referral_balance_info, (history)(quantity)(rank) )
 FC_REFLECT( graphene::chain::mature_balances_history, (balance)(real_balance))

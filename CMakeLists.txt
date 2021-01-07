@@ -2,7 +2,7 @@
 project( Graphene )
 cmake_minimum_required( VERSION 3.8 )
 
-set( BLOCKCHAIN_NAME "Graphene" )
+set( BLOCKCHAIN_NAME "EDC" )
 
 set( CMAKE_CXX_STANDARD 14 )
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall" )
@@ -34,37 +34,51 @@ if (USE_PCH)
   include (cotire)
 endif(USE_PCH)
 
-list( APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/libraries/fc/CMakeModules" )
+option(DEBUG_TIMES "For tracking algorithm time execution" OFF)
+if (DEBUG_TIMES)
+    add_definitions(-DDEBUG_TIMES)
+endif(DEBUG_TIMES)
+
+# Use Boost config file from fc
+set(Boost_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libraries/fc/CMakeModules/Boost")
+
 list( APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/libraries/fc/GitVersionGen" )
 include( GetGitRevisionDescription )
 get_git_head_revision( GIT_REFSPEC GIT_SHA2 )
 
 SET(BOOST_COMPONENTS)
 LIST(APPEND BOOST_COMPONENTS thread
-        iostreams
-        date_time
-        system
-        filesystem
-        program_options
-        chrono
-        unit_test_framework
-        context)
+                             iostreams
+                             date_time
+                             system
+                             filesystem
+                             program_options
+                             chrono
+                             unit_test_framework
+                             context
+                             coroutine
+                             regex)
+# boost::endian is also required, but FindBoost can't handle header-only libs
 SET( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
 
-IF( WIN32 )
-  SET(BOOST_ROOT $ENV{BOOST_ROOT})
-  set(Boost_USE_MULTITHREADED ON)
-  set(BOOST_ALL_DYN_LINK OFF) # force dynamic linking for all libraries
+IF(WIN32)
+    if($ENV{BOOST_ROOT})
+        SET(BOOST_ROOT $ENV{BOOST_ROOT})
+    endif($ENV{BOOST_ROOT})
+    set(Boost_USE_MULTITHREADED ON)
+    set(BOOST_ALL_DYN_LINK OFF) # force dynamic linking for all libraries
+    list(APPEND PLATFORM_SPECIFIC_LIBS ws2_32 crypt32 mswsock userenv )
+ELSE( WIN32 )
+    IF( APPLE )
+        set( CMAKE_THREAD_LIBS_INIT "-lpthread" )
+        set( CMAKE_HAVE_THREADS_LIBRARY 1 )
+        set( CMAKE_USE_WIN32_THREADS_INIT 0 )
+        set( CMAKE_USE_PTHREADS_INIT 1 )
+        set( THREADS_PREFER_PTHREAD_FLAG ON )
+    ENDIF( APPLE )
 ENDIF(WIN32)
 
-FIND_PACKAGE(Boost 1.57 REQUIRED COMPONENTS ${BOOST_COMPONENTS})
-# For Boost 1.53 on windows, coroutine was not in BOOST_LIBRARYDIR and do not need it to build,  but if boost versin >= 1.54, find coroutine otherwise will cause link errors
-IF(NOT "${Boost_VERSION}" MATCHES "1.53(.*)")
-   SET(BOOST_LIBRARIES_TEMP ${Boost_LIBRARIES})
-   FIND_PACKAGE(Boost 1.54 REQUIRED COMPONENTS coroutine)
-   LIST(APPEND BOOST_COMPONENTS coroutine)
-   SET(Boost_LIBRARIES ${BOOST_LIBRARIES_TEMP} ${Boost_LIBRARIES})
-ENDIF()
+FIND_PACKAGE(Boost CONFIG REQUIRED COMPONENTS ${BOOST_COMPONENTS})
 
 if( WIN32 )
 

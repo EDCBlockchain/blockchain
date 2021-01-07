@@ -30,13 +30,13 @@ fund_object::get_max_fund_rate(const share_type& amnt) const
    optional<fund_options::fund_rate> result;
    if (fund_rates.size() == 0) return { result };
 
-   // we need nearest (to the fund_balance) and maximum values
+   // we need nearest (to the amnt) and maximum values
 //      // suspicious variant, right?
 //      const auto& iter = std::max_element(fund_rates.begin(), fund_rates.end(),
-//         [&fund_balance](const fund_options::fund_rate& item1, const fund_options::fund_rate& item2) {
-//            return ( (fund_balance < item1.amount) || ((fund_balance >= item2.amount) && (item2.amount > item1.amount)) );
+//         [&amnt](const fund_options::fund_rate& item1, const fund_options::fund_rate& item2) {
+//            return ( (item1.amount > amnt) || ((amnt >= item2.amount) && (item2.amount > item1.amount)) );
 //         });
-//      if ( (iter != fund_rates.end()) && (fund_balance >= iter->amount) ) {
+//      if ( (iter != fund_rates.end()) && (amnt >= iter->amount) ) {
 //         result = *iter;
 //      }
 
@@ -106,16 +106,30 @@ void fund_object::process(database& db) const
    h_item.create_datetime = db.head_block_time();
 
    const auto& users_idx = db.get_index_type<account_index>().indices().get<by_id>();
+   fc::time_point_sec maint_time = dpo.next_maintenance_time - gpo.parameters.maintenance_interval;
 
    // find own fund deposits
    auto range = db.get_index_type<fund_deposit_index>().indices().get<by_fund_id>().equal_range(id);
    std::for_each(range.first, range.second, [&](const fund_deposit_object& dep)
    {
       auto user_ptr = users_idx.find(dep.account_id);
+      const account_object& acc = *user_ptr;
+      bool dep_datetime_end_reached = maint_time >= dep.datetime_end;
+
+      // clear disabled and overdued deposits
+      if ((db.head_block_time() >= HARDFORK_638_TIME) && !dep.enabled && dep_datetime_end_reached)
+      {
+         db.modify(dep, [&](chain::fund_deposit_object& obj) {
+            obj.finished = true;
+         });
+         // reduce fund balance
+         db.modify(*this, [&](chain::fund_object& obj) {
+            obj.balance -= dep.amount.amount;
+         });
+      }
 
       if (dep.enabled && (user_ptr != users_idx.end())) // dep.enabled: important condition for full-history nodes
       {
-         const account_object& acc = *user_ptr;
          const optional<fund_options::payment_rate>& p_rate = get_payment_rate(dep.period);
 
          bool is_valid = (db.head_block_time() >= HARDFORK_626_TIME) ? (dep.daily_payment.value > 0) : p_rate.valid();
@@ -160,59 +174,56 @@ void fund_object::process(database& db) const
             }
          }
 
-         // return deposit amount to user and remove deposit if overdue
-         if ((dpo.next_maintenance_time - gpo.parameters.maintenance_interval) >= dep.datetime_end)
+         // return deposit amount to user and remove deposit if overdued
+         if (dep_datetime_end_reached)
          {
-            bool dep_was_overdue = true;
+            bool dep_was_overdued = true;
 
-            if (db.head_block_time() >= HARDFORK_624_TIME)
+            if (acc.deposits_autorenewal_enabled && (db.head_block_time() >= HARDFORK_624_TIME))
             {
-               if (acc.deposits_autorenewal_enabled)
+               dep_was_overdued = false;
+
+               if (db.head_block_time() > HARDFORK_625_TIME)
                {
-                  dep_was_overdue = false;
+                  chain::deposit_renewal_operation op;
+                  op.account_id = dep.account_id;
+                  op.deposit_id = dep.get_id();
+                  op.percent = dep.percent;
 
-                  if (db.head_block_time() > HARDFORK_625_TIME)
-                  {
-                     chain::deposit_renewal_operation op;
-                     op.account_id = dep.account_id;
-                     op.deposit_id = dep.get_id();
-                     op.percent = dep.percent;
-
-                     // fund may already have new percents, updating...
-                     if (p_rate.valid() && !dep.manual_percent_enabled) {
-                        op.percent = p_rate->percent;
-                     }
-
-                     if (db.head_block_time() >= HARDFORK_626_TIME)
-                     {
-                        op.datetime_end = db.get_dynamic_global_properties().next_maintenance_time
-                                          - db.get_global_properties().parameters.maintenance_interval + (86400 * dep.period);
-                     }
-                     else {
-                        op.datetime_end = dep.datetime_end + (86400 * dep.period);
-                     }
-
-                     try
-                     {
-                        op.validate();
-                        db.apply_operation(eval, op);
-                     } catch (fc::assert_exception& e) { }
+                  // fund may already have new percents, updating...
+                  if (p_rate.valid() && !dep.manual_percent_enabled) {
+                     op.percent = p_rate->percent;
                   }
-                  // last_budget_time - not stable
-                  else
+
+                  if (db.head_block_time() >= HARDFORK_626_TIME)
                   {
-                     db.modify(dep, [&](fund_deposit_object& dep)
-                     {
-                        if (p_rate.valid()) {
-                           dep.percent = p_rate->percent;
-                        }
-                        dep.datetime_end = db.get_dynamic_global_properties().last_budget_time + (86400 * dep.period);
-                     });
+                     op.datetime_end = db.get_dynamic_global_properties().next_maintenance_time
+                                       - db.get_global_properties().parameters.maintenance_interval + (86400 * dep.period);
                   }
+                  else {
+                     op.datetime_end = dep.datetime_end + (86400 * dep.period);
+                  }
+
+                  try
+                  {
+                     op.validate();
+                     db.apply_operation(eval, op);
+                  } catch (fc::assert_exception& e) { }
+               }
+               // last_budget_time - not stable
+               else
+               {
+                  db.modify(dep, [&](fund_deposit_object& dep)
+                  {
+                     if (p_rate.valid()) {
+                        dep.percent = p_rate->percent;
+                     }
+                     dep.datetime_end = db.get_dynamic_global_properties().last_budget_time + (86400 * dep.period);
+                  });
                }
             }
 
-            if (dep_was_overdue)
+            if (dep_was_overdued)
             {
                // disable deposit
                db.modify(dep, [&](chain::fund_deposit_object& obj)

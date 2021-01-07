@@ -232,12 +232,12 @@ struct reflector<graphene::db::object_id<SpaceID,TypeID> >
 
 } // namespace fc
 
-namespace std {
-     template <> struct hash<graphene::db::object_id_type>
-     {
-          size_t operator()(const graphene::db::object_id_type& x) const
-          {
-              return std::hash<uint64_t>()(x.number);
-          }
-     };
+namespace std
+{
+   template <> struct hash<graphene::db::object_id_type>
+   {
+      size_t operator()(const graphene::db::object_id_type& x) const {
+         return std::hash<uint64_t>()(x.number);
+      }
+   };
 }

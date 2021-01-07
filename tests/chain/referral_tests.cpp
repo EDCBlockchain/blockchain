@@ -537,10 +537,14 @@ BOOST_AUTO_TEST_CASE( referrals_test )
       ACTOR(test38)
       ACTOR(test39)
 
-      // bob had been registered after all other accounts
       ACTOR(bob) // id 1.2.57
 
+      ACTOR(test40)
+      ACTOR(test41)
+      ACTOR(test42)
+
       /**
+       * initial tree
        *                                                                                                    alice
        *                                     /                                                                |                                                                   \
        *                                test1                                                               test2                                                                 test3
@@ -610,10 +614,10 @@ BOOST_AUTO_TEST_CASE( referrals_test )
 
       issue_uia(alice_id, asset(100000, EDC_ASSET));
       issue_uia(bob_id, asset(100000, EDC_ASSET));
-      ISSUES_BY_NAMES(test, 1, 40, asset(100000, EDC_ASSET))
-      BOOST_CHECK(get_balance(test39_id, EDC_ASSET) == 100000);
+      ISSUES_BY_NAMES(test, 1, 43, asset(100000, EDC_ASSET))
+      BOOST_CHECK(get_balance(test42_id, EDC_ASSET) == 100000);
 
-      fc::time_point_sec h_time = HARDFORK_637_TIME;
+      fc::time_point_sec h_time = HARDFORK_638_TIME;
       generate_blocks(h_time);
 
       // create fund
@@ -656,7 +660,7 @@ BOOST_AUTO_TEST_CASE( referrals_test )
 
       /********** payments to fund *********/
 
-      //alice
+      // alice
       {
          fund_deposit_operation op;
          op.amount = 10000;
@@ -683,10 +687,10 @@ BOOST_AUTO_TEST_CASE( referrals_test )
          trx.clear();
       }
 
-      MAKE_DEPOSIT_PAYMENTS_BY_NAMES(test, 1, 40, 10000)
+      MAKE_DEPOSIT_PAYMENTS_BY_NAMES(test, 1, 43, 10000)
 
       BOOST_CHECK(get_account_by_name("alice").edc_in_deposits == 10000);
-      BOOST_CHECK(get_account_by_name("test39").edc_in_deposits_daily == 10000);
+      BOOST_CHECK(get_account_by_name("test42").edc_in_deposits_daily == 10000);
 
       h_time = db.head_block_time() + fc::days(1);
       while (db.head_block_time() < h_time) {
@@ -699,16 +703,20 @@ BOOST_AUTO_TEST_CASE( referrals_test )
       //std::cout << "test3.edc_in_deposits_daily: " << get_account_by_name("test3").edc_in_deposits_daily.value << std::endl;
       //std::cout << "test12 balance: " << get_balance(test12_id, EDC_ASSET) << std::endl;
       //std::cout << "test3 balance: " << get_balance(test3_id, EDC_ASSET) << std::endl;
+      //std::cout << "test39 referrer: " << get_account_by_id(get_account_by_id(test39_id).referrer).name << std::endl;
 
       /**
        * 90000(old balance) + 40(fund_payment) + 1500(referral payment)
        * 1500 = 10000(daily_deposits of each referral) * 0.05(referral_level1_percent) * 3(referrals count of test12);
        */
       BOOST_CHECK(get_balance(test12_id, EDC_ASSET) == 91540);
+
       /**
-       * 90000(old balance) + 40(fund_payment) + 2700(referral payment)
+       * 90000(old balance) + 40(fund_payment) + 5100(referral payment)
        *
-       * 2700: (1500(line3) * 3) + (10000(daily_deposits of each referral of level1) * 0.04(referral_level2_percent) * 3(referrals count of level1))
+       * 5100:
+       * 500 * 3 (level 1 users: test10, test11, test12; leaf_info2::level1_payment field)
+       * 400 * 9 (level 0 users: test31, test32, test33, test34, test35, test36, test37, test38, test39; leaf_info2::level2_payment field)
        */
       BOOST_CHECK(get_balance(test3_id, EDC_ASSET) == 95140);
 
@@ -745,6 +753,28 @@ BOOST_AUTO_TEST_CASE( referrals_test )
       BOOST_CHECK(get_account_by_id(get_account_by_name("test39").referrer).name == "bob");
 
       BOOST_CHECK(get_account_by_name("bob").referral_level == 1);
+
+      // test12
+      CHANGE_REFERRER_MULTIPLE(("test37")("test38")("test39"), "test12")
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      BOOST_CHECK(get_account_by_name("test12").referral_level == 1);
+      BOOST_CHECK(get_account_by_name("test3").referral_level == 2);
+
+      // add 0-level users to 2-level user (its level shouldn't be changed)
+      CHANGE_REFERRER_MULTIPLE(("test40")("test41")("test42"), "test3")
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      BOOST_CHECK(get_account_by_name("test3").referral_level == 2);
+
    }
    catch(fc::exception& e)
    {

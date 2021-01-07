@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
             ("help,h", "Print this help message and exit.")
             ("data-dir,d", bpo::value<boost::filesystem::path>()->default_value("witness_node_data_dir"), "Directory containing databases, configuration file, etc.")
             ("key-path,K", bpo::value<boost::filesystem::path>()->default_value(""), "Path to file with EDC owner key")
-            ("fast",  bpo::value<int>(0), "Size of history in days")
+            ("history-days",  bpo::value<int>(0), "Size of history in days")
             ;
 
       bpo::variables_map options;

@@ -551,7 +551,7 @@ namespace graphene { namespace chain {
          ///@}
 
          tree<leaf_info2> referral_tree_v2;
-         std::map<account_id_type, tree<leaf_info2>::iterator> referral_map_v2;
+         std::unordered_map<account_id_type, tree<leaf_info2>::iterator> referral_map_v2;
 
          int history_size = 0;
          // any LTM-member can create accounts

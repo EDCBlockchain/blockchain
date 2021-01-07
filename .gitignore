@@ -29,14 +29,15 @@ tests/performance_test
 doxygen
 
 wallet.json
+genesis.json
 witness_node_data_dir
-data/*
+data
 
 *.wallet
 
 programs/witness_node/object_database/*
 
-object_database/*
+object_database
 
 *.pyc
 *.pyo
@@ -44,4 +45,9 @@ object_database/*
 .idea
 build-debug
 build-release
+build-fc
+build
+debug
 CMakeLists.txt.user
+wallet2.json
+wallet_block.json

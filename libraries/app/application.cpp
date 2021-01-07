@@ -900,8 +900,8 @@ void application::initialize(const fc::path& data_dir, const boost::program_opti
    my->_data_dir = data_dir;
    my->_options = &options;
 
-   if (options.count("fast")) {
-       my->_chain_db->set_history_size(options.at("fast").as<int>());
+   if (options.count("history-days")) {
+       my->_chain_db->set_history_size(options.at("history-days").as<int>());
    }
    if( options.count("create-genesis-json") )
    {

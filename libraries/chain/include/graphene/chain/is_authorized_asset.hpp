@@ -54,7 +54,7 @@ inline bool not_restricted_account(const database& d, const account_object& acct
       return true;
    }
 
-   if (type & *(*itr).restriction_type) {
+   if (itr->restriction_type && (type & *itr->restriction_type)) {
       return false;
    }
 
