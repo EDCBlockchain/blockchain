@@ -1075,22 +1075,25 @@ void database::clear_old_entities()
             remove(*begin_iter++);
          }
       }
-      // deposit objects
+   }
+
+   // overdued deposits
+   {
+      fc::time_point tp = head_block_time() - fc::days(30);
+
+      std::vector<fund_deposit_id_type> to_remove;
+      const auto& idx_deposits = get_index_type<fund_deposit_index>().indices().get<by_id>();
+      for (const fund_deposit_object& obj: idx_deposits)
       {
-         std::vector<fund_deposit_id_type> to_remove;
-         const auto& idx_deposits = get_index_type<fund_deposit_index>().indices().get<by_id>();
-         for (const fund_deposit_object& obj: idx_deposits)
-         {
-            if ((obj.datetime_end < tp) && obj.finished) {
-               to_remove.push_back(obj.get_id());
-            }
+         if ((obj.datetime_end < tp) && obj.finished) {
+            to_remove.push_back(obj.get_id());
          }
-         for (const fund_deposit_id_type& obj_id: to_remove)
-         {
-            auto itr = get_index_type<fund_deposit_index>().indices().get<by_id>().find(obj_id);
-            if (itr != get_index_type<fund_deposit_index>().indices().get<by_id>().end()) {
-               remove(*itr);
-            }
+      }
+      for (const fund_deposit_id_type& obj_id: to_remove)
+      {
+         auto itr = get_index_type<fund_deposit_index>().indices().get<by_id>().find(obj_id);
+         if (itr != get_index_type<fund_deposit_index>().indices().get<by_id>().end()) {
+            remove(*itr);
          }
       }
    }
@@ -1188,10 +1191,13 @@ void database::form_referral_map()
          parent_account.active_deposits_sum += current_account.active_deposits;
          parent_account.active_deposits_count_sum += current_account.active_deposits_count;
 
-         if ( ((parent_account.nearest_return_datetime.sec_since_epoch() == 0)
-               || (parent_account.nearest_return_datetime.sec_since_epoch() > current_account.nearest_return_datetime.sec_since_epoch()))
-              && (current_account.nearest_return_datetime >= head_block_time()) ) {
-            parent_account.nearest_return_datetime = current_account.nearest_return_datetime;
+         if (current_account.nearest_return_datetime >= head_block_time())
+         {
+            if ( (parent_account.nearest_return_datetime.sec_since_epoch() == 0)
+                 || (parent_account.nearest_return_datetime < head_block_time())
+                 || (parent_account.nearest_return_datetime.sec_since_epoch() > current_account.nearest_return_datetime.sec_since_epoch()) ) {
+               parent_account.nearest_return_datetime = current_account.nearest_return_datetime;
+            }
          }
 
          // level 1
