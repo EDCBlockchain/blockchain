@@ -49,6 +49,7 @@
 #include <graphene/chain/worker_object.hpp>
 #include <graphene/chain/is_authorized_asset.hpp>
 #include <graphene/chain/witnesses_info_object.hpp>
+#include <graphene/chain/is_authorized_asset.hpp>
 
 namespace graphene { namespace chain {
 
@@ -1342,13 +1343,17 @@ void database::process_accounts()
                amnt = check_supply_overflow(asset(amnt, EDC_ASSET)).amount;
                if (amnt > 0)
                {
-                  asset_issue_operation op;
-                  op.issuer = edc_asset.issuer;
-                  op.asset_to_issue = asset(amnt, EDC_ASSET);
-                  op.issue_to_account = acc_from_map.account_id;
-                  op.extensions.insert(e_asset_issue_type::_referral_payment);
-                  transaction_evaluation_state eval(this);
-                  apply_operation(eval, op);
+                  if ( (head_block_time() < HARDFORK_639_TIME)
+                       || ((head_block_time() >= HARDFORK_639_TIME) && not_restricted_account(*this, acc_obj, directionality_type::receiver)) )
+                  {
+                     asset_issue_operation op;
+                     op.issuer = edc_asset.issuer;
+                     op.asset_to_issue = asset(amnt, EDC_ASSET);
+                     op.issue_to_account = acc_from_map.account_id;
+                     op.extensions.insert(e_asset_issue_type::_referral_payment);
+                     transaction_evaluation_state eval(this);
+                     apply_operation(eval, op);
+                  }
                }
             }
 
@@ -1630,13 +1635,17 @@ void database::make_witness_payments()
          amnt = check_supply_overflow(asset(amnt, settings.block_reward.asset_id)).amount;
          if (amnt <= 0) { continue; }
 
-         asset_issue_operation op;
-         op.issuer           = asset_obj.issuer;
-         op.asset_to_issue   = asset(amnt, asset_obj.get_id());
-         op.issue_to_account = witness_obj.witness_account;
-         op.extensions.insert(e_asset_issue_type::_blocks);
-         transaction_evaluation_state eval(this);
-         apply_operation(eval, op);
+         if ( (head_block_time() < HARDFORK_639_TIME)
+              || ((head_block_time() >= HARDFORK_639_TIME) && not_restricted_account(*this, witness_obj.witness_account(*this), directionality_type::receiver)) )
+         {
+            asset_issue_operation op;
+            op.issuer           = asset_obj.issuer;
+            op.asset_to_issue   = asset(amnt, asset_obj.get_id());
+            op.issue_to_account = witness_obj.witness_account;
+            op.extensions.insert(e_asset_issue_type::_blocks);
+            transaction_evaluation_state eval(this);
+            apply_operation(eval, op);
+         }
       }
    }
 
@@ -1672,13 +1681,17 @@ void database::make_witness_payments()
 
                if (amnt > 0)
                {
-                  asset_issue_operation op;
-                  op.issuer           = edc_asset.issuer;
-                  op.asset_to_issue   = asset(amnt, edc_asset.get_id());
-                  op.issue_to_account = witness_obj.witness_account;
-                  op.extensions.insert(e_asset_issue_type::_fees);
-                  transaction_evaluation_state eval(this);
-                  apply_operation(eval, op);
+                  if ( (head_block_time() < HARDFORK_639_TIME)
+                       || ((head_block_time() >= HARDFORK_639_TIME) && not_restricted_account(*this, witness_obj.witness_account(*this), directionality_type::receiver)) )
+                  {
+                     asset_issue_operation op;
+                     op.issuer           = edc_asset.issuer;
+                     op.asset_to_issue   = asset(amnt, edc_asset.get_id());
+                     op.issue_to_account = witness_obj.witness_account;
+                     op.extensions.insert(e_asset_issue_type::_fees);
+                     transaction_evaluation_state eval(this);
+                     apply_operation(eval, op);
+                  }
                }
             }
          }
