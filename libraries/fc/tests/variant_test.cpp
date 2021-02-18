@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE( types_edge_cases_test )
    sv::tag_type init_value = 2;
    fc::static_variant< sv::tag_type, std::string, fc::variant > variant_with_tagtype(init_value);
 
-   BOOST_CHECK_EQUAL( variant_with_tagtype.count(), 3 );
+   BOOST_CHECK_EQUAL( (int)variant_with_tagtype.count(), 3 );
    BOOST_CHECK_EQUAL( variant_with_tagtype.which(), 0 );
 
    sv::tag_type current_value = variant_with_tagtype.get<sv::tag_type>();

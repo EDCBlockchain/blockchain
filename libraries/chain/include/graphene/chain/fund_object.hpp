@@ -213,6 +213,7 @@ namespace graphene { namespace chain {
       std::string        description;
       account_id_type    owner;
       asset_id_type      asset_id;       // fund asset id
+      share_type         balance_before_hf640;
       share_type         balance;        // sum of all refill operations and user deposits;
       share_type         owner_balance;  // sum of all owner's refills
       share_type         max_limit_deposits_amount; // maximum amount of deposits sum

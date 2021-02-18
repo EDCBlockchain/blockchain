@@ -1,26 +1,4 @@
-/*
- * Copyright (c) 2015 Cryptonomex, Inc., and contributors.
- *
- * The MIT License
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+// see LICENSE.txt
 
 #include <cstdlib>
 #include <iostream>
@@ -198,7 +176,7 @@ const boost::program_options::variables_map& options,
 egenesis_info& info
 )
 {
-   if( options.count("genesis-json") )
+   if( options.count("genesis-json") > 0 )
    {
       fc::path genesis_json_filename = get_path( options, "genesis-json" );
       std::cerr << "embed_genesis:  Reading genesis from file " << genesis_json_filename.preferred_string() << "\n";
@@ -208,7 +186,7 @@ egenesis_info& info
    else
       info.genesis = graphene::app::detail::create_example_genesis();
 
-   if( options.count("chain-id") )
+   if( options.count("chain-id") > 0 )
    {
       std::string chain_id_str = options["chain-id"].as<std::string>();
       std::cerr << "embed_genesis:  Genesis ID from argument is " << chain_id_str << "\n";
@@ -238,7 +216,7 @@ int main( int argc, char** argv )
          return 1;
       }
 
-      if( options.count("help") )
+      if( options.count("help") > 0 )
       {
          std::cout << cli_options << "\n";
          return 0;

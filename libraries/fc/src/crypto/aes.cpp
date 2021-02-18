@@ -436,10 +436,10 @@ openssl_thread_config::openssl_thread_config()
 }
 openssl_thread_config::~openssl_thread_config()
 {
-    CRYPTO_set_id_callback(NULL);
-    CRYPTO_set_locking_callback(NULL);
-    delete[] openssl_mutexes;
-    openssl_mutexes = nullptr;
+   CRYPTO_set_id_callback(NULL);
+   CRYPTO_set_locking_callback(NULL);
+   delete[] openssl_mutexes;
+   openssl_mutexes = nullptr;
 }
 
 }  // namespace fc

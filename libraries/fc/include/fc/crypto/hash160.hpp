@@ -64,7 +64,7 @@ class hash160
       hash160 result();
 
       private:
-      class impl;
+      struct impl;
       fc::fwd<impl,117> my;
    };
 

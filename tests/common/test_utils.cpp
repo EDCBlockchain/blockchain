@@ -23,7 +23,7 @@ void create_test_account(account_test_in& new_account, database_fixture &db)
 
 void append_children(account_children_in& new_account, database_fixture &db)
 {
-   if (!accounts_map.count(new_account.parent))
+   if (accounts_map.count(new_account.parent) == 0)
       return;
    std::string parent = new_account.parent;
    for (int i = 1; i < new_account.level; ++i) {

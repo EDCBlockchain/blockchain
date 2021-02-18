@@ -102,7 +102,9 @@ inline uint64_t Hash128to64(const uint128_t& x) {
 
 #else
 
+/// @cond IGNORE_WARNING
 #include <byteswap.h>
+/// @endcond
 
 #endif
 

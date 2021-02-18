@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE( tree_create_test )
       result.form_old();
 
       std::for_each( test_accounts.begin(), test_accounts.end(), [&](account_test_in acc_parent_pair) {
-         BOOST_ASSERT(result.referral_map.count(accounts_map[acc_parent_pair.name].id));
+         BOOST_ASSERT(result.referral_map.count(accounts_map[acc_parent_pair.name].id) > 0);
          BOOST_CHECK(result.referral_map[accounts_map[acc_parent_pair.name].id].node->parent->data.account_id
                == accounts_map[acc_parent_pair.parent].id);
       });
@@ -492,7 +492,6 @@ BOOST_AUTO_TEST_CASE( referrals_test )
       BOOST_TEST_MESSAGE( "=== referrals_test ===" );
 
       ACTOR(abcde1) // for needed IDs
-
       ACTOR(alice) // level 3 (id 1.2.17)
 
       ACTOR(test1) //-- id 1.2.18
@@ -658,7 +657,7 @@ BOOST_AUTO_TEST_CASE( referrals_test )
          trx.clear();
       }
 
-      /********** payments to fund *********/
+      /*********** referral payments 1 ***********/
 
       // alice
       {
@@ -774,7 +773,6 @@ BOOST_AUTO_TEST_CASE( referrals_test )
       }
 
       BOOST_CHECK(get_account_by_name("test3").referral_level == 2);
-
    }
    catch(fc::exception& e)
    {
@@ -783,5 +781,178 @@ BOOST_AUTO_TEST_CASE( referrals_test )
    }
 }
 
+BOOST_AUTO_TEST_CASE( referrals_hf639_test )
+{
+   try
+   {
+      BOOST_TEST_MESSAGE( "=== referrals_hf639_test ===" );
+
+      /**
+       *                            alice*
+       *             /               |                 \
+       *          test1*            test2*            test3*
+       *      /     |     \
+       *  test4*  test5*  test6*
+       *
+       *  accounts with '*' have been made deposits
+       */
+
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(test1)
+      ACTOR(test2)
+      ACTOR(test3)
+      ACTOR(test4)
+      ACTOR(test5)
+      ACTOR(test6)
+
+      ACTOR(test7)
+      ACTOR(test8)
+      ACTOR(test9)
+      ACTOR(test10)
+      ACTOR(test11)
+      ACTOR(test12)
+
+      // line 1
+      {
+         CHANGE_REFERRER_MULTIPLE(("test1")("test2")("test3"), "alice")
+         CHANGE_REFERRER_MULTIPLE(("test1"), "alice")
+         BOOST_CHECK(get_account_by_name("test3").referrer == get_account_by_name("alice").get_id());
+      }
+      // line 2
+      {
+         CHANGE_REFERRER_MULTIPLE(("test4")("test5")("test6"), "test1")
+         BOOST_CHECK(get_account_by_name("test6").referrer == get_account_by_name("test1").get_id());
+      }
+
+      // assign privileges for creating_asset_operation
+      SET_ACTOR_CAN_CREATE_ASSET(alice_id)
+
+      create_edc(10000000000, asset(100, CORE_ASSET), asset(1, EDC_ASSET));
+
+      issue_uia(alice_id, asset(100000, EDC_ASSET));
+      ISSUES_BY_NAMES(test, 1, 13, asset(100000, EDC_ASSET))
+      BOOST_CHECK(get_balance(test12_id, EDC_ASSET) == 100000);
+
+      fc::time_point_sec h_time = HARDFORK_640_TIME;
+      generate_blocks(h_time);
+
+      // create fund
+      fund_options::fund_rate fr;
+      fr.amount = 10000;
+      fr.day_percent = 1000;
+      fund_options::payment_rate pr;
+      pr.period = 50;
+      pr.percent = 20000;
+
+      fund_options options;
+      options.period = 100;
+      options.min_deposit = 10000;
+      options.rates_reduction_per_month = 300;
+      options.fund_rates.push_back(std::move(fr));
+      options.payment_rates.push_back(std::move(pr));
+      make_fund("TESTFUND", options, alice_id);
+
+      auto fund_iter = db.get_index_type<fund_index>().indices().get<by_name>().find("TESTFUND");
+      BOOST_CHECK(fund_iter != db.get_index_type<fund_index>().indices().get<by_name>().end());
+      const fund_object& fund = *fund_iter;
+
+      // update referral settings
+      {
+         update_referral_settings_operation op;
+         op.fee = asset();
+         op.referral_payments_enabled = true;
+         op.referral_level1_percent = 5000;
+         op.referral_level2_percent = 4000;
+         op.referral_level3_percent = 3000;
+         op.referral_min_limit_edc_level1 = std::make_pair(10000, 10000);
+         op.referral_min_limit_edc_level2 = std::make_pair(10000, 10000);
+         op.referral_min_limit_edc_level3 = std::make_pair(10000, 10000);
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      /********** referral payments **********/
+
+      // alice
+      {
+         fund_deposit_operation op;
+         op.amount = 10000;
+         op.fee = asset();
+         op.from_account = alice_id;
+         op.period = 50;
+         op.fund_id = fund.id;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      MAKE_DEPOSIT_PAYMENTS_BY_NAMES(test, 1, 7, 10000)
+
+      BOOST_CHECK(get_account_by_name("alice").edc_in_deposits == 10000);
+      BOOST_CHECK(get_account_by_name("test6").edc_in_deposits_daily == 10000);
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      BOOST_CHECK(get_account_by_name("alice").referral_level == 1);
+      BOOST_CHECK(get_account_by_name("test1").referral_level == 1);
+
+      /**
+       * 90000(old balance) + 40(fund_payment) + 1500(referral payments of level 1)
+       * 1500 = 10000(daily_deposits of each referral: test4, test5, test6) * 0.05(referral_level1_percent) * 3(referrals count of test1);
+       */
+      BOOST_CHECK(get_balance(test1_id, EDC_ASSET) == 91540);
+
+      /**
+       * 90000(old balance) + 40(fund_payment) + 427(fund owner payment, residual scheme) + 1500(referral payments of level 1)
+       * 1500 = 10000(daily_deposits of each referral: test1 + test2 + test3) * 0.05(referral_level1_percent) * 3(referrals count of alice);
+       */
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 91967);
+
+      // additional referral payments for alice and test3
+      /**
+       *                              alice
+       *            /                   |                    \
+       *          test1               test2                 test3
+       *     /     |     \       /      |     \        /      |       \
+       *  test4  test5  test6  test7  test8  test9  test10*  test11*  test12*
+       */
+      {
+         CHANGE_REFERRER_MULTIPLE(("test7")("test8")("test9"), "test2")
+      }
+      {
+         CHANGE_REFERRER_MULTIPLE(("test10")("test11")("test12"), "test3")
+      }
+      MAKE_DEPOSIT_PAYMENTS_BY_NAMES(test, 7, 13, 10000)
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      /**
+       * 90040(old balance) + 40(fund_payment) + 1500(referral payments of level 1)
+       * 1500 = 10000(daily_deposits of each referral: test10 - test12) * 0.05(referral_level1_percent) * 3(referrals count of test3)
+       */
+      BOOST_CHECK(get_balance(test3_id, EDC_ASSET) == 91580);
+
+      /**
+       * 91967(old balance) + 40(fund_payment) + 780(fund owner payment, residual scheme) + 2400(referral payments of level 2)
+       * 2400 = 10000(daily_deposits of each referral: test7 - test12) * 0.04(referral_level2_percent) * 6(referrals count of test2 and test3);
+       */
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 95187);
+   }
+   catch(fc::exception& e)
+   {
+      edump((e.to_detail_string()))
+      throw;
+   }
+}
 
 BOOST_AUTO_TEST_SUITE_END()

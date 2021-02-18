@@ -1,5 +1,4 @@
 /**
- *  @file fc/cmt/asio.hpp
  *  @brief defines wrappers for boost::asio functions
  */
 #pragma once

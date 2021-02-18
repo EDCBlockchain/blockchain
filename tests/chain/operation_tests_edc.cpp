@@ -176,18 +176,18 @@ BOOST_AUTO_TEST_CASE(change_asset_fee_test)
       create_edc(10000000000, asset(100, CORE_ASSET), asset(2, EDC_ASSET));
       create_test_asset();
 
-      const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
       const asset_object& test_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find("TEST");
 
       // update test_asset's core_exchange_rate
-      asset_update_exchange_rate_operation ex_upd_op;
-      ex_upd_op.asset_to_update = test_asset.get_id();
-      ex_upd_op.core_exchange_rate = price(asset(100, CORE_ASSET), asset(1, test_asset.get_id()));
-      trx.operations.push_back(ex_upd_op);
-      trx.validate();
-      db.push_transaction(trx, ~0);
-      trx.clear();
-
+      {
+         asset_update_exchange_rate_operation op;
+         op.asset_to_update = test_asset.get_id();
+         op.core_exchange_rate = price(asset(100, CORE_ASSET), asset(1, test_asset.get_id()));
+         trx.operations.push_back(op);
+         trx.validate();
+         db.push_transaction(trx, ~0);
+         trx.clear();
+      }
       issue_uia(alice_id, asset(10000, EDC_ASSET));
       issue_uia(alice_id, asset(10000, test_asset.get_id()));
 
@@ -202,73 +202,78 @@ BOOST_AUTO_TEST_CASE(change_asset_fee_test)
          gpo.parameters.get_mutable_fees().get<transfer_operation>().price_per_kbyte = 0;
       });
 
-      // transfer with fake fee
-      set_expiration( db, trx );
-      transfer_operation trans_fake_op;
-      trans_fake_op.from   = alice_id;
-      trans_fake_op.to     = bob_id;
-      trans_fake_op.amount = asset(1, edc_asset.get_id());
-      trans_fake_op.fee = asset(1, EDC_ASSET); // invalid fee amount
-      trx.operations.push_back(trans_fake_op);
-      sign(trx, alice_private_key );
-      GRAPHENE_REQUIRE_THROW( PUSH_TX( db, trx ), fc::exception );
-      trx.operations.clear();
+      const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
+
+      // transfer with fake fee, must THROW exception
+      {
+         set_expiration(db, trx);
+         transfer_operation op;
+         op.from = alice_id;
+         op.to = bob_id;
+         op.amount = asset(1, edc_asset.get_id());
+         op.fee = asset(1, EDC_ASSET); // invalid fee amount
+         trx.operations.push_back(op);
+         sign(trx, alice_private_key);
+         GRAPHENE_REQUIRE_THROW(PUSH_TX(db, trx), fc::exception);
+         trx.operations.clear();
+      }
 
       // transfer with default commission (its conditions were set on asset creation stage)
-      set_expiration( db, trx );
-      transfer_operation trans_op;
-      trans_op.from   = alice_id;
-      trans_op.to     = bob_id;
-      trans_op.amount = asset(1, edc_asset.get_id());
-      trx.operations.push_back(trans_op);
-      db.current_fee_schedule().set_fee(trx.operations[0], edc_asset.options.core_exchange_rate);
-      trx.validate();
-      db.push_transaction(trx, ~0);
-      verify_asset_supplies(db);
-      trx.operations.clear();
-
+      {
+         set_expiration(db, trx);
+         transfer_operation trans_op;
+         trans_op.from = alice_id;
+         trans_op.to = bob_id;
+         trans_op.amount = asset(1, edc_asset.get_id());
+         trx.operations.push_back(trans_op);
+         db.current_fee_schedule().set_fee(trx.operations[0], edc_asset.options.core_exchange_rate);
+         trx.validate();
+         db.push_transaction(trx, ~0);
+         verify_asset_supplies(db);
+         trx.operations.clear();
+      }
       // 1 EDC of transfer + 2 EDC of commission
       BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 9997);
       BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 1);
 
       // set new fee_payer asset for EDC-transfers
-      set_expiration( db, trx );
-      assets_update_fee_payer_operation payer_upd_op;
-      payer_upd_op.assets_to_update = { edc_asset.get_id() };
-      payer_upd_op.fee_payer_asset = test_asset.get_id();
-      trx.operations.push_back(payer_upd_op);
-      trx.validate();
-      db.push_transaction(trx, ~0);
-      verify_asset_supplies(db);
-      trx.operations.clear();
+      {
+         set_expiration(db, trx);
+         assets_update_fee_payer_operation op;
+         op.assets_to_update = {edc_asset.get_id()};
+         op.fee_payer_asset = test_asset.get_id();
+         trx.operations.push_back(op);
+         trx.validate();
+         db.push_transaction(trx, ~0);
+         verify_asset_supplies(db);
+         trx.operations.clear();
+      }
 
       // another transfer. Now with commission of TEST_ASSET
-      set_expiration( db, trx );
-      transfer_operation trans2_op;
-      trans2_op.from   = alice_id;
-      trans2_op.to     = bob_id;
-      trans2_op.amount = asset(1, edc_asset.get_id());
-      trx.operations.push_back(trans2_op);
-      db.current_fee_schedule().set_fee(trx.operations[0], test_asset.options.core_exchange_rate);
-      trx.validate();
-      db.push_transaction(trx, ~0);
-      verify_asset_supplies(db);
-      trx.operations.clear();
-
-      // 1 EDC transfer + 2 EDC of commission + 1 EDC of transfer
-      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 9996);
-      // 1 TEST of commission
-      BOOST_CHECK(get_balance(alice_id, test_asset.get_id()) == 9999);
-      // now bob has 2 EDC because of two transfers
+      {
+         set_expiration(db, trx);
+         transfer_operation op;
+         op.from = alice_id;
+         op.to = bob_id;
+         op.amount = asset(1, edc_asset.get_id());
+         trx.operations.push_back(op);
+         db.current_fee_schedule().set_fee(trx.operations[0], test_asset.options.core_exchange_rate);
+         trx.validate();
+         db.push_transaction(trx, ~0);
+         verify_asset_supplies(db);
+         trx.operations.clear();
+      }
+      // 1 EDC transfer + 2 EDC of commission
+      BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 9994);
+      BOOST_CHECK(get_balance(alice_id, test_asset.get_id()) == 9994);
+      // now bob has 2 EDC because two transfers were made
       BOOST_CHECK(get_balance(bob_id, EDC_ASSET) == 2);
-
    }
    catch (fc::exception& e)
    {
       edump((e.to_detail_string()));
       throw;
    }
-
 }
 
 BOOST_AUTO_TEST_CASE(blind_transfer2_test)
@@ -284,7 +289,6 @@ BOOST_AUTO_TEST_CASE(blind_transfer2_test)
       create_edc(10000000000, asset(100, CORE_ASSET), asset(2, EDC_ASSET));
       create_test_asset();
 
-      const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
       const settings_object& b_settings = db.get(settings_id_type(0));
 
       issue_uia(alice_id, asset(10000, EDC_ASSET));
@@ -301,7 +305,9 @@ BOOST_AUTO_TEST_CASE(blind_transfer2_test)
 
       BOOST_CHECK(b_settings.blind_transfer_default_fee.amount == 1);
 
+      const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
       const asset_dynamic_data_object& asset_dyn_data = edc_asset.dynamic_asset_data_id(db);
+
       BOOST_CHECK(asset_dyn_data.current_supply.value == 10000);
 
       // make blind_transfer2

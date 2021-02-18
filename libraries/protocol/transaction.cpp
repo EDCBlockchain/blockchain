@@ -1,26 +1,5 @@
-/*
- * Copyright (c) 2015 Cryptonomex, Inc., and contributors.
- *
- * The MIT License
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+// see LICENSE.txt
+
 #include <graphene/protocol/transaction.hpp>
 #include <graphene/protocol/exceptions.hpp>
 #include <graphene/protocol/fee_schedule.hpp>
@@ -251,7 +230,7 @@ void verify_authority( const vector<operation>& ops, const flat_set<public_key_t
                        const std::function<const authority*(account_id_type)>& get_owner,
                        uint32_t max_recursion_depth,
                        bool  allow_committe,
-                       const flat_set<account_id_type>& active_aprovals,
+                       const flat_set<account_id_type>& active_approvals,
                        const flat_set<account_id_type>& owner_approvals )
 { try {
    flat_set<account_id_type> required_active;
@@ -269,7 +248,7 @@ void verify_authority( const vector<operation>& ops, const flat_set<public_key_t
 
    sign_state s(sigs,get_active);
    s.max_recursion = max_recursion_depth;
-   for( auto& id : active_aprovals )
+   for( auto& id : active_approvals )
       s.approved_by.insert( id );
    for( auto& id : owner_approvals )
       s.approved_by.insert( id );

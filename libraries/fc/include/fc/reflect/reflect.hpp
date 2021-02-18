@@ -113,7 +113,7 @@ struct Derivation_reflection_transformer {
 /// Macro to transform reflected fields of a base class to a derived class and concatenate them to a type list
 #define FC_CONCAT_BASE_MEMBER_REFLECTIONS(r, derived, base) \
    ::add_list<typelist::transform<reflector<base>::members, impl::Derivation_reflection_transformer<derived>>>
-/// Macro to concatenate a new @ref field_reflection to a typelist
+/// Macro to concatenate a new @c field_reflection to a typelist
 #define FC_CONCAT_MEMBER_REFLECTION(r, container, idx, member) \
    ::add<typename impl::Reflect_type<container>::template with_field_type<decltype(container::member)> \
                                                ::template at_index<idx> \
@@ -298,6 +298,7 @@ template<> struct get_typename<ENUM>  { static const char* name()  { return BOOS
  *  @brief Specializes fc::reflector for TYPE where
  *         type inherits other reflected classes
  *
+ *  @param TYPE - the type to reflect
  *  @param INHERITS - a sequence of base class names (basea)(baseb)(basec)
  *  @param MEMBERS - a sequence of member names.  (field1)(field2)(field3)
  */
@@ -379,6 +380,7 @@ template<> struct reflector<TYPE> {\
  *  @def FC_REFLECT(TYPE,MEMBERS)
  *  @brief Specializes fc::reflector for TYPE
  *
+ *  @param TYPE - the type to reflect
  *  @param MEMBERS - a sequence of member names.  (field1)(field2)(field3)
  *
  *  @see FC_REFLECT_DERIVED

@@ -475,9 +475,21 @@ namespace fc
    }
 
    /**
-    *  Convert '\t', '\a', '\n', '\\' and '"'  to "\t\a\n\\\""
+    *  @brief Escape a string
     *
-    *  All other characters are printed as UTF8.
+    *  * A quote is added to the beginning and a quote is added to the end
+    *  * The following characters are converted specially:
+    *    @code
+    *      '\b' -> "\b"
+    *      '\f' -> "\f"
+    *      '\n' -> "\n"
+    *      '\r' -> "\r"
+    *      '\t' -> "\t"
+    *      '\\' -> "\\"
+    *      '\"' -> "\""
+    *    @endcode
+    *  * other control characters are printed as UTF8
+    *  * printable characters are printed as is
     */
    void escape_string( const string& str, ostream& os )
    {

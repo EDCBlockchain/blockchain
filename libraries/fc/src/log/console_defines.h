@@ -1,13 +1,16 @@
 #ifndef _MACE_CMT_CONSOLE_DEFINES_H_
 #define _MACE_CMT_CONSOLE_DEFINES_H_
 
-/// @cond INTERNAL_DEV
+
 /**
     @file console_defines.h
     This header contains definitions for console styles and colors.
     @ingroup tconsole
 */
 
+#ifdef COLOR_CONSOLE
+
+#ifndef WIN32
 
 /**
     @defgroup console_styles Console Styles
@@ -18,9 +21,6 @@
     support styled text.
     @{
 */
-#if COLOR_CONSOLE
-
-#ifndef WIN32
 
 /**
     @def CONSOLE_DEFAULT
@@ -269,13 +269,24 @@
 */
 #define CONSOLE_WHITE_BG "\033[47m"
 
+/// @}
 
+#else // if defined WIN32
 
-#else // WIN32
 #include <winsock2.h>
 #include <windows.h>
-//#include <stdlib.h>
 #include <conio.h>
+
+/**
+    @defgroup console_styles Console Styles
+    @brief Defines styles that can be used within text printed to the Console.
+
+    Note that styles will not show up when printing to files (in fact, you will
+    get a lot of garbage characters if you do this). Also, not all consoles
+    support styled text.
+    @{
+*/
+
 
 /**
     @def CONSOLE_DEFAULT
@@ -523,11 +534,13 @@
     (const char*)
 */
 #define CONSOLE_WHITE_BG "\033[47m"
-#endif
-
 
 /// @}
-#else // On Window's no color output WIN32
+
+#endif // WIN32
+
+#else // no COLOR_CONSOLE
+
 #define CONSOLE_DEFAULT ""
 #define CONSOLE_BOLD ""
 #define CONSOLE_HALF_BRIGHT ""
@@ -555,7 +568,8 @@
 #define CONSOLE_CYAN_BG  ""
 #define CONSOLE_WHITE_BG  ""
 
-/// @}
-/// @endcond INTERNAL_DEV
-#endif // NOT DEFINED WIN32
+
+
+#endif // COLOR_CONSOLE
+
 #endif // _BOOST_CMT_CONSOLE_DEFINES_H_

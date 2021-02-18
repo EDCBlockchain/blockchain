@@ -1,26 +1,4 @@
-/*
- * Copyright (c) 2015 Cryptonomex, Inc., and contributors.
- *
- * The MIT License
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+// see LICENSE.txt
 
 #include <chrono>
 #include <functional>
@@ -1177,6 +1155,64 @@ void database::form_referral_map()
       }
    }
 
+   process_referrals(settings);
+
+   // new referral payments
+   if (head_block_time() >= HARDFORK_640_TIME) {
+      process_referral_payments_new(settings);
+   }
+}
+
+void database::process_referral_payments_new(const settings_object& settings)
+{
+   for (tree<leaf_info2>::iterator tree_item = referral_tree_v2.begin();
+        tree_item != referral_tree_v2.end(); ++tree_item)
+   {
+      tree<leaf_info2>::iterator current_node = tree_item;
+      leaf_info2& current_account = *current_node;
+
+      if (current_account.daily_deposits > 0)
+      {
+         auto current_parent_node = referral_tree_v2.parent(current_node);
+         for (int level = 1;; ++level)
+         {
+            if ((current_parent_node == nullptr) || (current_parent_node->account_id == GRAPHENE_COMMITTEE_ACCOUNT) || (level > 3)) { break; }
+            leaf_info2& current_parent = *current_parent_node;
+
+            if (current_parent.level >= level)
+            {
+               if (level == 1)
+               {
+                  const share_type& amnt = std::round(current_account.daily_deposits.value * get_percent(settings.referral_level1_percent));
+                  if (amnt > 0) {
+                     current_parent.level1_payment += amnt;
+                  }
+               }
+               else if (level == 2)
+               {
+                  const share_type& amnt = std::round(current_account.daily_deposits.value * get_percent(settings.referral_level2_percent));
+                  if (amnt > 0) {
+                     current_parent.level2_payment += amnt;
+                  }
+               }
+               else if (level == 3)
+               {
+                  const share_type& amnt = std::round(current_account.daily_deposits.value * get_percent(settings.referral_level3_percent));
+                  if (amnt > 0) {
+                     current_parent.level3_payment += amnt;
+                  }
+               }
+            }
+            else { break; }
+
+            current_parent_node = referral_tree_v2.parent(current_parent_node);
+         }
+      }
+   }
+}
+
+void database::process_referrals(const settings_object& settings)
+{
    for (tree<leaf_info2>::iterator tree_item = referral_tree_v2.begin();
         tree_item != referral_tree_v2.end(); ++tree_item)
    {
@@ -1186,8 +1222,8 @@ void database::form_referral_map()
          auto parent_node = referral_tree_v2.parent(current_node);
          if ((parent_node == nullptr) || (parent_node->account_id == GRAPHENE_COMMITTEE_ACCOUNT) || (level > 2)) { break; }
 
-         leaf_info2& parent_account = *parent_node;
          leaf_info2& current_account = *current_node;
+         leaf_info2& parent_account = *parent_node;
 
          parent_account.active_deposits_sum += current_account.active_deposits;
          parent_account.active_deposits_count_sum += current_account.active_deposits_count;
@@ -1219,7 +1255,7 @@ void database::form_referral_map()
                   }
                }
             }
-            if (current_account.daily_deposits > 0)
+            if ((head_block_time() < HARDFORK_640_TIME) && (current_account.daily_deposits > 0))
             {
                const share_type& amnt = std::round(current_account.daily_deposits.value * get_percent(settings.referral_level1_percent));
                if (amnt > 0) {
@@ -1245,7 +1281,7 @@ void database::form_referral_map()
                   }
                }
             }
-            if (current_account.daily_deposits > 0)
+            if ((head_block_time() < HARDFORK_640_TIME) && (current_account.daily_deposits > 0))
             {
                const share_type& amnt = std::round(current_account.daily_deposits.value * get_percent(settings.referral_level2_percent));
                if (amnt > 0) {
@@ -1271,7 +1307,7 @@ void database::form_referral_map()
                   }
                }
             }
-            if (current_account.daily_deposits > 0)
+            if ((head_block_time() < HARDFORK_640_TIME) && (current_account.daily_deposits > 0))
             {
                const share_type& amnt = std::round(current_account.daily_deposits.value * get_percent(settings.referral_level3_percent));
                if (amnt > 0) {
@@ -1559,10 +1595,17 @@ void database::denominate_funds()
          if (owner_delta > 0)
          {
             obj.balance -= owner_delta;
-            cs_reducer  += owner_delta;
+            if (head_block_time() < HARDFORK_640_TIME) {
+               obj.balance_before_hf640 -= owner_delta;
+            }
+            cs_reducer += owner_delta;
          }
-         if (reducer > 0) {
+         if (reducer > 0)
+         {
             obj.balance -= reducer;
+            if (head_block_time() < HARDFORK_640_TIME) {
+               obj.balance_before_hf640 -= reducer;
+            }
          }
       });
    }
@@ -1757,8 +1800,8 @@ void database::issue_bonuses()
 
          if (quantity < 1) { return; }
 
-         if (  alpha_list.count( account.get_id() ) ) { return; }
-         if ( issuer_list.count( account.get_id() ) ) { return; }
+         if (  alpha_list.count( account.get_id() ) > 0 ) { return; }
+         if ( issuer_list.count( account.get_id() ) > 0 ) { return; }
 
          // for maturing
          if ( asset.params.maturing_bonus_balance ) {
@@ -1818,8 +1861,8 @@ void database::issue_bonuses_before_620()
       uint64_t quantity = 0.0065 * balance.value;
       if (quantity < 1) return;
       
-      if ( alpha_list.count(account.get_id()) ) return;
-      if ( issuer_list.count(account.get_id()) ) return;
+      if ( alpha_list.count(account.get_id()) > 0 ) return;
+      if ( issuer_list.count(account.get_id()) > 0 ) return;
       double online_part = default_online_part;
       if (head_block_time() > HARDFORK_618_TIME && head_block_time() < HARDFORK_619_TIME && default_online_part == 0) {
          try {
@@ -1889,8 +1932,8 @@ void database::issue_bonuses_old() {
    auto& alpha_list = ALPHA_ACCOUNT_ID(*this).blacklisted_accounts;
    auto ops = rtree.scan_old();
    for(auto e : ops) {
-      if ( alpha_list.count(e.to_account_id) ) continue;
-      if ( issuer_list.count(e.to_account_id) ) continue;
+      if ( alpha_list.count(e.to_account_id) > 0 ) continue;
+      if ( issuer_list.count(e.to_account_id) > 0 ) continue;
 
       const auto& stats = e.to_account_id(*this).statistics(*this);
       if (stats.most_recent_op == account_transaction_history_id_type()) continue;
@@ -1933,8 +1976,8 @@ void database::issue_bonuses_old() {
    idx.inspect_all_objects( [this,&asset,&eval,&alpha_list,&issuer_list](const db::object& obj){
       const chain::account_object& account = static_cast<const chain::account_object&>(obj);
 
-      if (alpha_list.count(account.id)) return;
-      if (issuer_list.count(account.id)) return;
+      if (alpha_list.count(account.id) > 0) return;
+      if (issuer_list.count(account.id) > 0) return;
       const auto& stats = account.statistics(*this);
       if (stats.most_recent_op == account_transaction_history_id_type()) return;
 

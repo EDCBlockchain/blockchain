@@ -236,8 +236,12 @@ namespace fc {
       T*       ptr()      { void* v = &_value[0]; return static_cast<T*>(v); }
       const T* ptr()const { const void* v = &_value[0]; return static_cast<const T*>(v); }
 
-      // force alignment... to 8 byte boundaries 
-      double _value[((sizeof(T)+7)/8)];
+      // force alignment... to 16 byte boundaries
+#if defined(_MSC_VER)
+      double _value[((sizeof(T)+7)/8)] __declspec((align(16)));
+#else
+      double _value[((sizeof(T)+7)/8)] __attribute__((aligned(16)));
+#endif
       bool   _valid;
   };
 

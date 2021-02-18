@@ -1,26 +1,4 @@
-/*
- * Copyright (c) 2015 Cryptonomex, Inc., and contributors.
- *
- * The MIT License
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+// see LICENSE.txt
 
 #include <boost/test/unit_test.hpp>
 
@@ -419,8 +397,6 @@ BOOST_AUTO_TEST_CASE( committee_authority )
       p.parameters.committee_proposal_review_period = fc::days(1).to_seconds();
    });
 
-   std::cout << "111" << std::endl;
-
    BOOST_TEST_MESSAGE( "transfering 100000 CORE to nathan, signing with committee key should fail because this requires it to be part of a proposal" );
    transfer_operation top;
    top.to = nathan.id;
@@ -430,8 +406,6 @@ BOOST_AUTO_TEST_CASE( committee_authority )
    GRAPHENE_CHECK_THROW(PUSH_TX( db, trx ), graphene::protocol::invalid_committee_approval );
 //   BOOST_REQUIRE_THROW(db.push_transaction(trx, ~0), graphene::chain::invalid_committee_approval);
 //   trx.clear();
-
-   std::cout << "222" << std::endl;
 
    auto _sign = [&] { trx.signatures.clear(); sign( trx, nathan_key ); };
 

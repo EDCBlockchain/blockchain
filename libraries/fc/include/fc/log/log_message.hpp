@@ -109,6 +109,8 @@ namespace fc
          log_message();
          /**
           *  @param ctx - generally provided using the FC_LOG_CONTEXT(LEVEL) macro
+          *  @param format - the format
+          *  @param args - the arguments
           */
          log_message( log_context ctx, std::string format, variant_object args = variant_object() );
          ~log_message();

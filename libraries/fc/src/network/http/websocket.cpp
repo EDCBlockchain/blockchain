@@ -282,7 +282,7 @@ namespace fc { namespace http {
                   }).wait();
                });
 
-               _server.set_socket_init_handler( [this]( websocketpp::connection_hdl hdl,
+               _server.set_socket_init_handler( []( websocketpp::connection_hdl hdl,
                               typename websocketpp::server<T>::connection_type::socket_type& s ) {
                   boost::asio::ip::tcp::no_delay option(true);
                   s.lowest_layer().set_option(option);
@@ -417,7 +417,7 @@ namespace fc { namespace http {
                                        const std::string& forward_header_key )
                : generic_websocket_server_impl( forward_header_key )
             {
-               _server.set_tls_init_handler( [this,server_pem,ssl_password]( websocketpp::connection_hdl hdl ) {
+               _server.set_tls_init_handler( [server_pem,ssl_password]( websocketpp::connection_hdl hdl ) {
                      context_ptr ctx = websocketpp::lib::make_shared<boost::asio::ssl::context>(
                                              boost::asio::ssl::context::tlsv12 );
                      try {

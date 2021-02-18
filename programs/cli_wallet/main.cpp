@@ -1,26 +1,4 @@
-/*
- * Copyright (c) 2015 Cryptonomex, Inc., and contributors.
- *
- * The MIT License
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+// see LICENSE.txt
 
 #include <iostream>
 
@@ -146,13 +124,13 @@ int main( int argc, char** argv )
 
       bpo::store( bpo::parse_command_line(argc, argv, opts), options );
 
-      if( options.count("help") )
+      if( options.count("help") > 0 )
       {
          std::cout << opts << "\n";
          return 0;
       }
 
-      if ( options.count("io-threads") )
+      if ( options.count("io-threads") > 0 )
       {
          const uint16_t num_threads = options["io-threads"].as<uint16_t>();
          fc::asio::default_io_service_scope::set_num_threads(num_threads);
@@ -180,11 +158,11 @@ int main( int argc, char** argv )
 
       wallet_data wdata;
 
-      fc::path wallet_file( options.count("wallet-file") ? options.at("wallet-file").as<string>() : "wallet.json");
+      fc::path wallet_file( (options.count("wallet-file") > 0) ? options.at("wallet-file").as<string>() : "wallet.json");
       if( fc::exists( wallet_file ) )
       {
          wdata = fc::json::from_file( wallet_file ).as<wallet_data>(GRAPHENE_MAX_NESTED_OBJECTS);
-         if( options.count("chain-id") )
+         if( options.count("chain-id") > 0 )
          {
             // the --chain-id on the CLI must match the chain ID embedded in the wallet file
             if( chain_id_type(options.at("chain-id").as<std::string>()) != wdata.chain_id )
@@ -196,7 +174,7 @@ int main( int argc, char** argv )
       }
       else
       {
-         if( options.count("chain-id") )
+         if( options.count("chain-id") > 0 )
          {
             wdata.chain_id = chain_id_type(options.at("chain-id").as<std::string>());
             std::cout << "Starting a new wallet with chain ID " << wdata.chain_id.str() << " (from CLI)\n";
@@ -209,14 +187,14 @@ int main( int argc, char** argv )
       }
 
       // but allow CLI to override
-      if (options.count("delayed") && options.at("delayed").as<bool>())
+      if ( (options.count("delayed") > 0) && options.at("delayed").as<bool>())
          wdata.ws_server = "wss://127.0.0.1:5909";
-      else if (options.count("server-rpc-endpoint"))
+      else if (options.count("server-rpc-endpoint") > 0)
          wdata.ws_server = options.at("server-rpc-endpoint").as<std::string>();
 
-      if( options.count("server-rpc-user") )
+      if( options.count("server-rpc-user") > 0)
          wdata.ws_user = options.at("server-rpc-user").as<std::string>();
-      if( options.count("server-rpc-password") )
+      if( options.count("server-rpc-password") > 0 )
          wdata.ws_password = options.at("server-rpc-password").as<std::string>();
 
       fc::http::websocket_client client;
@@ -236,7 +214,7 @@ int main( int argc, char** argv )
 
       wapiptr->set_wallet_filename( wallet_file.generic_string() );
       wapiptr->load_wallet_file();
-      if (options.count("no-backups") && options.at("no-backups").as<bool>()) {
+      if ( (options.count("no-backups") > 0) && options.at("no-backups").as<bool>()) {
          wapiptr->disable_backups();
       }
 
@@ -263,7 +241,7 @@ int main( int argc, char** argv )
       }));
 
       std::shared_ptr<fc::http::websocket_server> _websocket_server;
-      if( options.count("rpc-endpoint") )
+      if( options.count("rpc-endpoint") > 0 )
       {
          _websocket_server = std::make_shared<fc::http::websocket_server>("");
          _websocket_server->on_connection([&wapi]( const fc::http::websocket_connection_ptr& c ){
@@ -277,11 +255,11 @@ int main( int argc, char** argv )
       }
 
       string cert_pem = "server.pem";
-      if( options.count( "rpc-tls-certificate" ) )
+      if( options.count( "rpc-tls-certificate" ) > 0 )
          cert_pem = options.at("rpc-tls-certificate").as<string>();
 
       auto _websocket_tls_server = std::make_shared<fc::http::websocket_tls_server>(cert_pem, "", "");
-      if( options.count("rpc-tls-endpoint") )
+      if( options.count("rpc-tls-endpoint") > 0 )
       {
          _websocket_tls_server->on_connection([&wapi]( const fc::http::websocket_connection_ptr& c ){
             auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(c, GRAPHENE_MAX_NESTED_OBJECTS);
@@ -293,7 +271,7 @@ int main( int argc, char** argv )
          _websocket_tls_server->start_accept();
       }
 
-      if( !options.count( "daemon" ) )
+      if( options.count( "daemon" ) == 0 )
       {
          auto wallet_cli = std::make_shared<fc::rpc::cli>( GRAPHENE_MAX_NESTED_OBJECTS );
 

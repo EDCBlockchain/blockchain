@@ -154,9 +154,9 @@ template<std::size_t count>
 using make_sequence = typename impl::make_sequence<count>::type;
 
 /// Template to build typelists using the following syntax:
-/// builder<>::type::add<T1>::add<T2>::add<T3>[...]::finalize
+/// @code builder<>::type::add<T1>::add<T2>::add<T3>[...]::finalize @endcode
 /// Or:
-/// builder<>::type::add_list<list<T1, T2>>::add_list<T3, T4>>[...]::finalize
+/// @code builder<>::type::add_list<list<T1, T2>>::add_list<T3, T4>>[...]::finalize @endcode
 template<typename List = list<>>
 struct builder {
    template<typename NewType> using add = typename builder<typename impl::concat<List, list<NewType>>::type>::type;

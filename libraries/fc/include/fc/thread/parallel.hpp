@@ -92,6 +92,7 @@ namespace fc {
     *  that can be used to wait on the result.
     *
     *  @param f the operation to perform
+    *  @param desc task name
     */
    template<typename Functor>
    auto do_parallel( Functor&& f, const char* desc FC_TASK_NAME_DEFAULT_ARG ) -> fc::future<decltype(f())> {

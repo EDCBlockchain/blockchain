@@ -1,26 +1,4 @@
-/*
- * Copyright (c) 2015 Cryptonomex, Inc., and contributors.
- *
- * The MIT License
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+// see LICENSE.txt
 
 #include <boost/test/unit_test.hpp>
 
@@ -1705,12 +1683,11 @@ BOOST_AUTO_TEST_CASE( hf629_test )
 
    issue_uia(bob_id, asset(100000, EDC_ASSET));
    asset_id_type edc_id = EDC_ASSET(db).get_id();
-   const asset_object& edc_asset = *db.get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
 
    fc::time_point_sec h_time = HARDFORK_629_TIME;
    generate_blocks(h_time - fc::days(1));
 
-   // transfer operation (before hf_629), bob no needs verification
+   // transfer operation (before hf_629), bob doesn't need verification
    {
       transfer_operation op;
       op.fee = asset(0, edc_id);
@@ -1719,7 +1696,6 @@ BOOST_AUTO_TEST_CASE( hf629_test )
       op.amount = asset(1000, edc_id);
       set_expiration(db, trx);
       trx.operations.push_back(std::move(op));
-      db.current_fee_schedule().set_fee(trx.operations[0], edc_asset.options.core_exchange_rate);
       trx.validate();
       PUSH_TX(db, trx, ~0);
       trx.clear();
@@ -1744,7 +1720,6 @@ BOOST_AUTO_TEST_CASE( hf629_test )
       op.amount = asset(1000, edc_id);
       set_expiration(db, trx);
       trx.operations.push_back(std::move(op));
-      db.current_fee_schedule().set_fee(trx.operations[0], edc_asset.options.core_exchange_rate);
       trx.validate();
       PUSH_TX(db, trx, ~0);
       trx.clear();

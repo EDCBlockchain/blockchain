@@ -204,10 +204,13 @@ void_result fund_refill_evaluator::do_apply( const fund_refill_operation& op )
    d.adjust_balance(op.from_account, -asst);
 
    // fund
-   d.modify(fund, [&](chain::fund_object& o)
+   d.modify(fund, [&](chain::fund_object& obj)
    {
-      o.balance       += op.amount;
-      o.owner_balance += op.amount;
+      obj.balance += op.amount;
+      if (d.head_block_time() < HARDFORK_640_TIME) {
+         obj.balance_before_hf640 += op.amount;
+      }
+      obj.owner_balance += op.amount;
    });
 
    return void_result();
@@ -247,7 +250,14 @@ void_result fund_deposit_evaluator::do_evaluate( const fund_deposit_operation& o
 
    if ((d.head_block_time() >= HARDFORK_630_TIME) && (fund_obj_ptr->max_limit_deposits_amount > 0))
    {
-      share_type balance_new = fund_obj_ptr->balance + op.amount;
+      share_type balance_new = 0;
+      if (d.head_block_time() >= HARDFORK_640_TIME) {
+         balance_new = fund_obj_ptr->balance + op.amount;
+      }
+      else {
+         balance_new = fund_obj_ptr->balance_before_hf640 + op.amount;
+      }
+
       FC_ASSERT( fund_obj_ptr->max_limit_deposits_amount >= balance_new,
                  "Maximum sum of deposits is exceeded. Fund: '${f}', fund balance: ${b}, max limit: ${l}",
                  ("f", fund_obj_ptr->name)
@@ -379,8 +389,12 @@ operation_result fund_deposit_evaluator::do_apply( const fund_deposit_operation&
    d.adjust_balance( op.from_account, -asst );
 
    // fund: increasing balance
-   d.modify(fund, [&](chain::fund_object& o) {
-      o.balance += op.amount;
+   d.modify(fund, [&](chain::fund_object& obj)
+   {
+      obj.balance += op.amount;
+      if (d.head_block_time() < HARDFORK_640_TIME) {
+         obj.balance_before_hf640 += op.amount;
+      }
    });
 
    FC_ASSERT(new_fund_deposit.id == next_fund_deposit_id);
@@ -1161,8 +1175,12 @@ asset fund_deposit_reduce_evaluator::do_apply( const fund_deposit_reduce_operati
       result = dep.amount;
    });
    // fund balance
-   d.modify(fund, [&](fund_object& obj) {
+   d.modify(fund, [&](fund_object& obj)
+   {
       obj.balance -= o.amount;
+      if (d.head_block_time() < HARDFORK_640_TIME) {
+         obj.balance_before_hf640 -= o.amount;
+      }
    });
    // current supply of the fund's asset
    d.modify(*asset_dyn_data_ptr, [&](asset_dynamic_data_object& data)

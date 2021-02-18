@@ -93,14 +93,27 @@ void fund_object::process(database& db) const
 
    // all payments to users
    share_type daily_payments_without_owner;
+
    // all user deposits
-   share_type all_deposits = balance - owner_balance;
+   share_type all_deposits = 0;
+   if (db.head_block_time() < HARDFORK_640_TIME) {
+      all_deposits = balance_before_hf640 - owner_balance;
+   }
+   else {
+      all_deposits = balance - owner_balance;
+   }
 
    /**
     * create tmp object, because below will be reducing of fund's balance if deposit is
     * overdued (in deposits loop)
     */
-   share_type old_balance = balance;
+   share_type old_balance = 0;
+   if (db.head_block_time() < HARDFORK_640_TIME) {
+      old_balance = balance_before_hf640;
+   }
+   else {
+      old_balance = balance;
+   }
 
    fund_history_object::history_item h_item;
    h_item.create_datetime = db.head_block_time();
@@ -119,16 +132,37 @@ void fund_object::process(database& db) const
       // clear disabled and overdued deposits
       if ((db.head_block_time() >= HARDFORK_638_TIME) && !dep.enabled && dep_datetime_end_reached)
       {
-         db.modify(dep, [&](chain::fund_deposit_object& obj) {
-            obj.finished = true;
-         });
-         // reduce fund balance
-         db.modify(*this, [&](chain::fund_object& obj) {
-            obj.balance -= dep.amount.amount;
-         });
+         if (db.head_block_time() >= HARDFORK_640_TIME)
+         {
+            if (!dep.finished)
+            {
+               db.modify(dep, [&](chain::fund_deposit_object& obj) {
+                  obj.finished = true;
+               });
+               // reduce fund balance
+               db.modify(*this, [&](chain::fund_object& obj) {
+                  obj.balance -= dep.amount.amount;
+               });
+            }
+         }
+         else
+         {
+            if (!dep.finished)
+            {
+               db.modify(dep, [&](chain::fund_deposit_object& obj) {
+                  obj.finished = true;
+               });
+               db.modify(*this, [&](chain::fund_object& obj) {
+                  obj.balance -= dep.amount.amount;
+               });
+            }
+            db.modify(*this, [&](chain::fund_object& obj) {
+               obj.balance_before_hf640 -= dep.amount.amount;
+            });
+         }
       }
 
-      if (dep.enabled && (user_ptr != users_idx.end())) // dep.enabled: important condition for full-history nodes
+      if (dep.enabled && !dep.finished && (user_ptr != users_idx.end())) // dep.enabled: important condition for full-history nodes
       {
          const optional<fund_options::payment_rate>& p_rate = get_payment_rate(dep.period);
 
@@ -255,8 +289,13 @@ void fund_object::process(database& db) const
                      } catch (fc::assert_exception& e) { }
 
                      // reduce fund balance
-                     db.modify(*this, [&](chain::fund_object& f) {
-                        f.balance -= dep.amount.amount;
+                     db.modify(*this, [&](chain::fund_object& obj)
+                     {
+                        obj.balance -= dep.amount.amount;
+
+                        if (db.head_block_time() < HARDFORK_640_TIME) {
+                           obj.balance_before_hf640 -= dep.amount.amount;
+                        }
                      });
                   }
                }
@@ -552,13 +591,18 @@ void fund_object::finish(database& db) const
    }
 
    // reduce fund balance & disable
-   db.modify(*this, [&](chain::fund_object& f)
+   db.modify(*this, [&](chain::fund_object& obj)
    {
-      if (owner_deps > 0) {
-         f.balance -= owner_deps;
+      if (owner_deps > 0)
+      {
+         obj.balance -= owner_deps;
+
+         if (db.head_block_time() < HARDFORK_640_TIME) {
+            obj.balance_before_hf640 -= owner_deps;
+         }
       }
-      f.owner_balance = 0;
-      f.enabled = false;
+      obj.owner_balance = 0;
+      obj.enabled = false;
    });
 }
 
@@ -605,6 +649,7 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::fund_object,
                     (description)
                     (owner)
                     (asset_id)
+                    (balance_before_hf640)
                     (balance)
                     (owner_balance)
                     (max_limit_deposits_amount)

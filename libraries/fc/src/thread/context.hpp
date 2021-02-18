@@ -122,6 +122,7 @@ namespace fc {
     /**
      *  @todo Have a list of promises so that we can wait for
      *    P1 or P2 and either will unblock instead of requiring both
+     *  @param p - the promise
      *  @param req - require this promise to 'unblock', otherwise try_unblock
      *     will allow it to be one of many that could 'unblock'
      */

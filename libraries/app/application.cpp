@@ -1,26 +1,5 @@
-/*
- * Copyright (c) 2015 Cryptonomex, Inc., and contributors.
- *
- * The MIT License
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+// see LICENSE.txt
+
 #include <graphene/app/api.hpp>
 #include <graphene/app/api_access.hpp>
 #include <graphene/app/application.hpp>
@@ -900,10 +879,10 @@ void application::initialize(const fc::path& data_dir, const boost::program_opti
    my->_data_dir = data_dir;
    my->_options = &options;
 
-   if (options.count("history-days")) {
+   if (options.count("history-days") > 0) {
        my->_chain_db->set_history_size(options.at("history-days").as<int>());
    }
-   if( options.count("create-genesis-json") )
+   if( options.count("create-genesis-json") > 0)
    {
       fc::path genesis_out = options.at("create-genesis-json").as<boost::filesystem::path>();
       genesis_state_type genesis_state = detail::create_example_genesis();
@@ -928,7 +907,7 @@ void application::initialize(const fc::path& data_dir, const boost::program_opti
       std::exit(EXIT_SUCCESS);
    }
 
-   if ( options.count("io-threads") )
+   if ( options.count("io-threads") > 0)
    {
       const uint16_t num_threads = options["io-threads"].as<uint16_t>();
       fc::asio::default_io_service_scope::set_num_threads(num_threads);

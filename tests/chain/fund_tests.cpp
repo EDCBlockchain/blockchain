@@ -345,9 +345,9 @@ BOOST_AUTO_TEST_CASE( fund_make_payments_test )
    {
       BOOST_TEST_MESSAGE( "=== fund_make_payments_test ===" );
 
-      ACTOR(abcde1); // for needed IDs
-      ACTOR(alice);
-      ACTOR(bob);
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(bob)
 
       SET_ACTOR_CAN_CREATE_ASSET(alice_id);
 
@@ -591,11 +591,11 @@ BOOST_AUTO_TEST_CASE( fund_make_autorenewal_test )
    {
       BOOST_TEST_MESSAGE( "=== fund_make_autorenewal_test ===" );
 
-      ACTOR(abcde1); // for needed IDs
-      ACTOR(alice);
-      ACTOR(bob);
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(bob)
 
-      SET_ACTOR_CAN_CREATE_ASSET(alice_id);
+      SET_ACTOR_CAN_CREATE_ASSET(alice_id)
 
       create_edc();
 
@@ -682,11 +682,11 @@ BOOST_AUTO_TEST_CASE( funds_hardfork_626_test )
    {
       BOOST_TEST_MESSAGE( "=== funds_hardfork_626_test ===" );
 
-      ACTOR(abcde1); // for needed IDs
-      ACTOR(alice);
-      ACTOR(bob);
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(bob)
 
-      SET_ACTOR_CAN_CREATE_ASSET(alice_id);
+      SET_ACTOR_CAN_CREATE_ASSET(alice_id)
 
       create_edc();
 

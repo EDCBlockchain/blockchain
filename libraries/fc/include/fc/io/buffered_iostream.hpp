@@ -31,7 +31,7 @@ namespace fc
          *  @pre buf != nullptr
          *  @throws fc::eof if at least 1 byte cannot be read
          **/
-        virtual std::size_t     readsome( char* buf, std::size_t len );
+        virtual size_t          readsome( char* buf, size_t len );
         virtual size_t          readsome( const std::shared_ptr<char>& buf, size_t len, size_t offset );
 
         /**

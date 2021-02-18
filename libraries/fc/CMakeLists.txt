@@ -273,7 +273,7 @@ ELSE()
   SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -Wall")
 
   IF(APPLE)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -Wall")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -Wall -fvisibility-inlines-hidden -fvisibility=hidden")
   ELSE()
     if( NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" )
       target_compile_options(fc PUBLIC -Wall -fnon-call-exceptions)
@@ -346,8 +346,8 @@ ENDIF()
 #                                 ${editline_libraries} secp256k1 ${CMAKE_REQUIRED_LIBRARIES} )
 
 target_link_libraries( fc PUBLIC ${LINK_USR_LOCAL_LIB}  ${OPENSSL_ROOT_DIR}/libssl.a ${OPENSSL_ROOT_DIR}/libcrypto.a ${ZLIB_LIBRARIES} ${Boost_LIBRARIES}
-        ${PLATFORM_SPECIFIC_LIBS} ${RPCRT4} ${CMAKE_DL_LIBS} ${rt_library}
-        ${editline_libraries} secp256k1 ${CMAKE_REQUIRED_LIBRARIES} )
+${PLATFORM_SPECIFIC_LIBS} ${RPCRT4} ${CMAKE_DL_LIBS} ${rt_library}
+${editline_libraries} secp256k1 ${CMAKE_REQUIRED_LIBRARIES} )
 
 if(WIN32 AND MSVC)
     set_source_files_properties( src/network/http/websocket.cpp PROPERTIES COMPILE_FLAGS "/bigobj" )

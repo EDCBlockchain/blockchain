@@ -28,7 +28,8 @@ namespace fc {
   }
 
   /**
-   *  @param  last_context - is set to the next context to get the lock (the next-to-last element of the list)
+   *  @param  list_head - the head of the list
+   *  @param  context_to_unblock - is set to the next context to get the lock (the next-to-last element of the list)
    *  @return the last context (the one with the lock)
    */
   static fc::context* get_tail( fc::context* list_head, fc::context*& context_to_unblock ) {

@@ -1,26 +1,5 @@
-/*
- * Copyright (c) 2015 Cryptonomex, Inc., and contributors.
- *
- * The MIT License
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
+// see LICENSE.txt
+
 #include <sstream>
 #include <iomanip>
 #include <deque>
@@ -831,7 +810,7 @@ namespace graphene { namespace net { namespace detail {
 
         uint32_t handshaking_timeout = _peer_inactivity_timeout;
         fc::time_point handshaking_disconnect_threshold = fc::time_point::now() - fc::seconds(handshaking_timeout);
-        for( const peer_connection_ptr handshaking_peer : _handshaking_connections )
+        for( const peer_connection_ptr& handshaking_peer : _handshaking_connections )
           if( handshaking_peer->connection_initiation_time < handshaking_disconnect_threshold &&
               handshaking_peer->get_last_message_received_time() < handshaking_disconnect_threshold &&
               handshaking_peer->get_last_message_sent_time() < handshaking_disconnect_threshold )
@@ -1195,13 +1174,13 @@ namespace graphene { namespace net { namespace detail {
         dlog("is_already_connected_to_id returning true because the peer is us");
         return true;
       }
-      for (const peer_connection_ptr active_peer : _active_connections)
+      for (const peer_connection_ptr& active_peer : _active_connections)
         if (node_id == active_peer->node_id)
         {
           dlog("is_already_connected_to_id returning true because the peer is already in our active list");
           return true;
         }
-      for (const peer_connection_ptr handshaking_peer : _handshaking_connections)
+      for (const peer_connection_ptr& handshaking_peer : _handshaking_connections)
         if (node_id == handshaking_peer->node_id)
         {
           dlog("is_already_connected_to_id returning true because the peer is already in our handshaking list");
@@ -2364,7 +2343,7 @@ namespace graphene { namespace net { namespace detail {
         item_id advertised_item_id(item_ids_inventory_message_received.item_type, item_hash);
         bool we_advertised_this_item_to_a_peer = false;
         bool we_requested_this_item_from_a_peer = false;
-        for (const peer_connection_ptr peer : _active_connections)
+        for (const peer_connection_ptr& peer : _active_connections)
         {
           if (peer->inventory_advertised_to_peer.find(advertised_item_id) != peer->inventory_advertised_to_peer.end())
           {

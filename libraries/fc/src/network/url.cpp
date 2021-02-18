@@ -101,7 +101,7 @@ namespace fc
       return ss.str();
   }
 
-  url::url( const std::string& u )
+  url::url( const string& u )
   :my( std::make_shared<detail::url_impl>() )
   {
     my->parse(u);
