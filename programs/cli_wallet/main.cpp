@@ -331,20 +331,35 @@ int main( int argc, char** argv )
       }
       else
       {
-        fc::promise<int>::ptr exit_promise = fc::promise<int>::create("UNIX Signal Handler");
-        fc::set_signal_handler([&exit_promise](int signal) {
-           exit_promise->set_value(signal);
-        }, SIGINT);
+         fc::promise<int>::ptr exit_promise = fc::promise<int>::create("UNIX Signal Handler");
 
-        ilog( "Entering Daemon Mode, ^C to exit" );
-        exit_promise->wait();
+         fc::set_signal_handler( [&exit_promise](int signal) {
+            ilog( "Captured SIGINT in daemon mode, exiting" );
+            exit_promise->set_value(signal);
+         }, SIGINT );
+
+         fc::set_signal_handler( [&exit_promise](int signal) {
+            ilog( "Captured SIGTERM in daemon mode, exiting" );
+            exit_promise->set_value(signal);
+         }, SIGTERM );
+#ifdef SIGQUIT
+         fc::set_signal_handler( [&exit_promise](int signal) {
+            ilog( "Captured SIGQUIT in daemon mode, exiting" );
+            exit_promise->set_value(signal);
+         }, SIGQUIT );
+#endif
+         boost::signals2::scoped_connection closed_connection( con->closed.connect( [&exit_promise] {
+            elog( "Server has disconnected us." );
+            exit_promise->set_value(0);
+         }));
+
+         ilog( "Entering Daemon Mode, ^C to exit" );
+         exit_promise->wait();
+
+         closed_connection.disconnect();
       }
 
       wapi->save_wallet_file(wallet_file.generic_string());
-      locked_connection.disconnect();
-      closed_connection.disconnect();
-
-
    }
    catch ( const fc::exception& e )
    {

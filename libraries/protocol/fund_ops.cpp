@@ -71,6 +71,8 @@ GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::deposit_renewal_o
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update_operation::fee_parameters_type )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update2_operation::fee_parameters_type )
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_reduce_operation::fee_parameters_type )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_acceptance_operation::fee_parameters_type )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::hard_enable_autorenewal_deposits_operation::fee_parameters_type )
 
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_create_operation)
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_update_operation)
@@ -87,3 +89,5 @@ GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::deposit_renewal_o
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update_operation)
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update2_operation)
 GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_reduce_operation)
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_acceptance_operation )
+GRAPHENE_IMPLEMENT_EXTERNAL_SERIALIZATION( graphene::protocol::hard_enable_autorenewal_deposits_operation )

@@ -123,6 +123,22 @@ std::string operation_printer::operator()(const fund_deposit_reduce_operation& o
    return fee(op.fee);
 }
 
+std::string operation_printer::operator()(const fund_deposit_acceptance_operation& op) const
+{
+   out << "Fund set acceptance of deposits, fund ID=" << fc::to_string(op.fund_id.space_id) << "." << fc::to_string(op.fund_id.type_id) << "." << op.fund_id.instance.value
+       << ", status '" << std::boolalpha << op.enabled << "'";
+
+   return fee(op.fee);
+}
+
+std::string operation_printer::operator()(const hard_enable_autorenewal_deposits_operation& op) const
+{
+   out << "Hard enable of deposits autorenewal, accounts count=" << fc::to_string(op.accounts.size())
+       << ", enabled='" << std::boolalpha << op.enabled << "'";
+
+   return fee(op.fee);
+}
+
 std::string operation_result_printer::operator()(const void_result& x) const
 {
    return "";

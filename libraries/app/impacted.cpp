@@ -356,6 +356,9 @@ struct get_impacted_items_visitor
          }
       }
    }
+   void operator()( const fund_deposit_acceptance_operation& op ) {
+      _impacted_accounts.insert(ALPHA_ACCOUNT_ID);
+   }
    void operator()( const denominate_operation& op ) {
       _impacted_accounts.insert(op.fee_payer());
    }
@@ -371,6 +374,9 @@ struct get_impacted_items_visitor
    }
    void operator()( const enable_account_referral_payments_operation& op ) {
       _impacted_accounts.insert(op.account_id);
+   }
+   void operator()( const hard_enable_autorenewal_deposits_operation& op ) {
+      _impacted_accounts.insert(ALPHA_ACCOUNT_ID);
    }
 };
 

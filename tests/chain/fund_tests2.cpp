@@ -833,4 +833,190 @@ BOOST_AUTO_TEST_CASE( owner_monthly_payments_test )
    } FC_LOG_AND_RETHROW()
 }
 
+BOOST_AUTO_TEST_CASE( change_deposit_owner_test )
+{
+
+   try {
+
+      BOOST_TEST_MESSAGE( "=== change_deposit_owner_test ===" );
+
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(bob)
+
+      // assign privileges for creating_asset_operation
+      SET_ACTOR_CAN_CREATE_ASSET(alice_id)
+
+      create_edc(1000000000, asset(100, CORE_ASSET), asset(1, EDC_ASSET));
+
+      issue_uia(alice_id, asset(1000000, EDC_ASSET));
+      issue_uia(bob_id, asset(1000000, EDC_ASSET));
+
+      fc::time_point_sec h_time = HARDFORK_627_TIME;
+      generate_blocks(h_time);
+
+      // payments to fund
+      fund_options::fund_rate fr;
+      fr.amount = 1000000;
+      fr.day_percent = 650;
+      // payments to users
+      fund_options::payment_rate pr;
+      pr.period = 90;
+      pr.percent = 24000;
+
+      fund_options options;
+      options.description = "FUND DESCRIPTION";
+      options.period = 540; // fund lifetime, days
+      options.min_deposit = 1000000;
+      options.rates_reduction_per_month = 0;
+      options.fund_rates.push_back(std::move(fr));
+      options.payment_rates.push_back(std::move(pr));
+      make_fund("TESTFUND", options, alice_id);
+
+      auto fund_iter = db.get_index_type<fund_index>().indices().get<by_name>().find("TESTFUND");
+      const fund_object& fund = *fund_iter;
+
+      //std::cout << get_balance(alice_id, EDC_ASSET) << std::endl;
+
+      // bob makes 1st deposit
+      {
+         fund_deposit_operation op;
+         op.amount = 1000000;
+         op.from_account = bob_id;
+         op.period = 90;
+         op.fund_id = fund.id;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      //BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 1003833);
+
+      auto deposit_iter = db.get_index_type<fund_deposit_index>().indices().get<by_account_id>().find(bob_id);
+      BOOST_CHECK(deposit_iter->account_id == bob_id);
+
+      {
+         fund_deposit_update2_operation op;
+         op.deposit_id = deposit_iter->get_id();
+         fund_dep_upd_ext_info ext;
+         ext.account_id = alice_id;
+         op.extensions.insert(ext);
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      deposit_iter = db.get_index_type<fund_deposit_index>().indices().get<by_account_id>().find(bob_id);
+      BOOST_CHECK(deposit_iter == db.get_index_type<fund_deposit_index>().indices().get<by_account_id>().end());
+      deposit_iter = db.get_index_type<fund_deposit_index>().indices().get<by_account_id>().find(alice_id);
+      BOOST_CHECK(deposit_iter->account_id == alice_id);
+
+   } FC_LOG_AND_RETHROW()
+}
+
+BOOST_AUTO_TEST_CASE( deposit_acceptance_test )
+{
+
+   try {
+
+      BOOST_TEST_MESSAGE( "=== deposit_acceptance_test ===" );
+
+      ACTOR(abcde1) // for needed IDs
+      ACTOR(alice)
+      ACTOR(bob)
+
+      // assign privileges for creating_asset_operation
+      SET_ACTOR_CAN_CREATE_ASSET(alice_id)
+
+      create_edc(1000000000, asset(100, CORE_ASSET), asset(1, EDC_ASSET));
+
+      issue_uia(alice_id, asset(1000000, EDC_ASSET));
+      issue_uia(bob_id, asset(1000000, EDC_ASSET));
+
+      fc::time_point_sec h_time = HARDFORK_627_TIME;
+      generate_blocks(h_time);
+
+      // payments to fund
+      fund_options::fund_rate fr;
+      fr.amount = 1000000;
+      fr.day_percent = 650;
+      // payments to users
+      fund_options::payment_rate pr;
+      pr.period = 90;
+      pr.percent = 24000;
+
+      fund_options options;
+      options.description = "FUND DESCRIPTION";
+      options.period = 540; // fund lifetime, days
+      options.min_deposit = 1000000;
+      options.rates_reduction_per_month = 0;
+      options.fund_rates.push_back(std::move(fr));
+      options.payment_rates.push_back(std::move(pr));
+      make_fund("TESTFUND", options, alice_id);
+
+      auto fund_iter = db.get_index_type<fund_index>().indices().get<by_name>().find("TESTFUND");
+      const fund_object& fund = *fund_iter;
+
+      //std::cout << get_balance(alice_id, EDC_ASSET) << std::endl;
+
+      // bob makes 1st deposit
+      {
+         fund_deposit_operation op;
+         op.amount = 1000000;
+         op.from_account = bob_id;
+         op.period = 90;
+         op.fund_id = fund.id;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      h_time = db.head_block_time() + fc::days(1);
+      while (db.head_block_time() < h_time) {
+         generate_block();
+      }
+
+      //BOOST_CHECK(get_balance(alice_id, EDC_ASSET) == 1003833);
+
+      // disable acceptance
+      {
+         fund_deposit_acceptance_operation op;
+         op.fund_id = fund.id;
+         op.enabled = false;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         PUSH_TX(db, trx, ~0);
+         trx.clear();
+      }
+
+      // bob makes 2nd deposit, must throw exception
+      {
+         fund_deposit_operation op;
+         op.amount = 1000000;
+         op.from_account = bob_id;
+         op.period = 90;
+         op.fund_id = fund.id;
+         set_expiration(db, trx);
+         trx.operations.push_back(std::move(op));
+         trx.validate();
+         BOOST_REQUIRE_THROW(db.push_transaction(trx, ~0), fc::assert_exception);
+         trx.clear();
+      }
+
+   } FC_LOG_AND_RETHROW()
+}
+
 BOOST_AUTO_TEST_SUITE_END()

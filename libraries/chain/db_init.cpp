@@ -196,10 +196,12 @@ void database::initialize_evaluators()
    register_evaluator<fund_deposit_update_evaluator>();
    register_evaluator<fund_deposit_update2_evaluator>();
    register_evaluator<fund_deposit_reduce_evaluator>();
+   register_evaluator<fund_deposit_acceptance_evaluator>();
    register_evaluator<witnesses_info_evaluator>();
    register_evaluator<referral_settings_evaluator>();
    register_evaluator<update_accounts_referrer_evaluator>();
    register_evaluator<enable_account_referral_payments_evaluator>();
+   register_evaluator<hard_enable_autorenewal_deposits_evaluator>();
 }
 
 void database::initialize_indexes()

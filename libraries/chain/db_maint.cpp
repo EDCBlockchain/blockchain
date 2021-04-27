@@ -1569,11 +1569,14 @@ void database::denominate_funds()
             // statistics
             modify(*user_ptr, [&](account_object& obj)
             {
-               auto itr = obj.deposits_info.find(fund.get_id());
-               if (itr != obj.deposits_info.end() && (itr->second.sum.amount >= delta)) {
-                  itr->second.sum.amount -= delta;
+               if (head_block_time() < HARDFORK_641_TIME)
+               {
+                  auto itr = obj.deposits_info.find(fund.get_id());
+                  if (itr != obj.deposits_info.end() && (itr->second.sum.amount >= delta)) {
+                     itr->second.sum.amount -= delta;
+                  }
                }
-               update_user_nearest_active_deposit_dt(user_ptr->get_id(), fund);
+               update_user_deposits_info(user_ptr->get_id(), fund);
                if (fund.asset_id == EDC_ASSET)
                {
                   const std::tuple<share_type, fc::time_point_sec>& dep_info = get_user_deposits_info(user_ptr->get_id(), EDC_ASSET);

@@ -229,6 +229,7 @@ namespace graphene { namespace chain {
       fc::time_point_sec datetime_begin; // datetime of creation & start
       fc::time_point_sec datetime_end;   // datetime of fund's finishing
       fc::time_point_sec prev_maintenance_time_on_creation; // previous maintenance time at fund's creation moment
+      bool deposit_acceptance_enabled = true;
 
       // each month fund_rate::day_percent decreasing by this value
       uint16_t rates_reduction_per_month = 0;

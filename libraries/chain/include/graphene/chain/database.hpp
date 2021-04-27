@@ -311,7 +311,7 @@ namespace graphene { namespace chain {
 
          asset check_supply_overflow(asset value);
 
-         void update_user_nearest_active_deposit_dt(const account_id_type& acc_id, const fund_object& fund);
+         void update_user_deposits_info(const account_id_type& acc_id, const fund_object& fund);
          std::tuple<share_type, fc::time_point_sec>
          get_user_deposits_info(const account_id_type& acc_id, const asset_id_type& asset_id) const;
 

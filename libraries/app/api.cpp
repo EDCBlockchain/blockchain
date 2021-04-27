@@ -135,7 +135,10 @@ namespace graphene { namespace app {
     void network_broadcast_api::broadcast_block( const signed_block& b )
     {
        _app.chain_database()->push_block(b);
-       _app.p2p_node()->broadcast( net::block_message( b ));
+
+       if (_app.p2p_node() != nullptr) {
+          _app.p2p_node()->broadcast(net::block_message(b));
+       }
     }
 
     signed_transaction network_broadcast_api::broadcast_bonus(string account_name, string amount)
@@ -209,7 +212,10 @@ namespace graphene { namespace app {
        trx.validate();
        _callbacks[trx.id()] = cb;
        _app.chain_database()->push_transaction(trx);
-       _app.p2p_node()->broadcast_transaction(trx);
+
+       if (_app.p2p_node() != nullptr) {
+          _app.p2p_node()->broadcast_transaction(trx);
+       }
     }
 
     network_node_api::network_node_api( application& a ) : _app( a )

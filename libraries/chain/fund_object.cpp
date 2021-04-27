@@ -665,6 +665,7 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::fund_object,
                     (datetime_begin)
                     (datetime_end)
                     (prev_maintenance_time_on_creation)
+                    (deposit_acceptance_enabled)
                     (rates_reduction_per_month)
                     (period)
                     (min_deposit)

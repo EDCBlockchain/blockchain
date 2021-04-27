@@ -124,7 +124,9 @@ namespace graphene { namespace protocol {
             set_witness_exception_operation,
             update_referral_settings_operation,
             update_accounts_referrer_operation,    // [idx: 88]
-            enable_account_referral_payments_operation
+            enable_account_referral_payments_operation,
+            fund_deposit_acceptance_operation,
+            hard_enable_autorenewal_deposits_operation // [idx: 91]
          > operation;
 
    /// @} // operations group

@@ -258,4 +258,31 @@ namespace graphene { namespace chain {
 
    };
 
+   /////////////////////////////////////////////////////
+
+   class fund_deposit_acceptance_evaluator: public evaluator<fund_deposit_acceptance_evaluator>
+   {
+   public:
+      typedef fund_deposit_acceptance_operation operation_type;
+
+      void_result do_evaluate( const fund_deposit_acceptance_operation& o );
+      void_result do_apply( const fund_deposit_acceptance_operation& o );
+
+      const fund_object* fund_obj_ptr = nullptr;
+
+   };
+
+   /////////////////////////////////////////////////////
+
+   class hard_enable_autorenewal_deposits_evaluator: public evaluator<hard_enable_autorenewal_deposits_evaluator>
+   {
+   public:
+      typedef hard_enable_autorenewal_deposits_operation operation_type;
+
+      void_result do_evaluate(const hard_enable_autorenewal_deposits_operation& o);
+      void_result do_apply(const hard_enable_autorenewal_deposits_operation& o);
+
+   };
+
+
 } } // graphene::chain

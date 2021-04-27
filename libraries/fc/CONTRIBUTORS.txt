@@ -1,0 +1,53 @@
+Contributors to this repository, in descending order by number of commits. Update with
+  head -5 CONTRIBUTORS.txt >contrib.tmp && git shortlog -s -e -n | cut -f 2 >>contrib.tmp && mv contrib.tmp CONTRIBUTORS.txt
+
+==============================================================================
+
+Daniel Larimer <bytemaster@users.noreply.github.com>
+Peter Conrad <conrad@quisquis.de>
+abitmore <abitmore@users.noreply.github.com>
+Eric Frias <efrias@syncad.com>
+John M. Jones <jmjatlanta@gmail.com>
+Vikram Rajkumar <vikramrajkumar@users.noreply.github.com>
+Nathan Hourt <themodprobe@protonmail.com>
+theoreticalbts <theoreticalbts@users.noreply.github.com>
+Dan Notestein <dan@syncad.com>
+vogel76 <wrona@syncad.com>
+Alfredo Garcia <oxarbitrage@gmail.com>
+crypto-ape <43807588+crypto-ape@users.noreply.github.com>
+Valera Cogut <info@valeracogut.com>
+Michael Vandeberg <mvandeberg@users.noreply.github.com>
+Nikolai Mushegian <nikolai.mushegian@gmail.com>
+Qi Xing <cwyyprog@163.com>
+HackFisher <hackfisher@gmail.com>
+Valentine Zavgorodnev <i@valzav.com>
+Anton Autushka <antoninus.liberalis@gmail.com>
+PaulEU <pstudnicki@syncad.com>
+Scott Howard <showard314@gmail.com>
+batmaninpink <batmaninpink@users.noreply.github.com>
+Daniel Brockman <daniel@brockman.se>
+Fabian Schuh <Fabian@chainsquad.com>
+Gandalf-the-Grey <gandalf@storm.pl>
+Nicolas Wack <wackou@gmail.com>
+Tzadik Vanderhoof <tzadik.vanderhoof@gmail.com>
+Yuvaraj Gogoi <yuvarajgogoi@gmail.com>
+arhag <arhag@users.noreply.github.com>
+grzegorzs <gszczepanek@syncad.com>
+Alexey Frolov <alexey.frolov@aetsoft.by>
+BrownBear <->
+Matias Romeo <matias.romeo@gmail.com>
+Wei Yang <richard.weiyang@gmail.com>
+alt <pch957@163.com>
+skchaudhari <roy_sanjayrvce@yahoo.co.in>
+Anonymous <you@example.com>
+BITSG-Jerry <bitsg-jerry@users.noreply.github.com>
+Dmitry Yakovitsky <d.yakovitsky@aetsoft.by>
+Haruka Ma <mrx@hcc.im>
+Karl Semich <0xloem@gmail.com>
+Kevin Heifner <heifnerk@objectcomputing.com>
+Spartucus <spartucus@users.noreply.github.com>
+ioBanker <37595908+ioBanker@users.noreply.github.com>
+kinglaw <58291@qq.com>
+liukunyu <boss.liuky@gmail.com>
+lubos.ilcik <lubos.ilcik@touch4it.com>
+phoenixint <nsharp@phoenix-int.com>

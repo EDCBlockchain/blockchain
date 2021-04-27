@@ -73,17 +73,19 @@ public:
       return "";
    }
 
-   std::string operator()(const transfer_operation& op)const;
-   std::string operator()(const transfer_from_blind_operation& op)const;
-   std::string operator()(const transfer_to_blind_operation& op)const;
-   std::string operator()(const account_create_operation& op)const;
-   std::string operator()(const account_update_operation& op)const;
-   std::string operator()(const account_update_authorities_operation& op)const;
-   std::string operator()(const asset_create_operation& op)const;
-   std::string operator()(const blind_transfer2_operation& op)const;
-   std::string operator()(const fund_payment_operation& op)const;
-   std::string operator()(const fund_deposit_update_operation& op)const;
-   std::string operator()(const fund_deposit_reduce_operation& op)const;
+   std::string operator()(const transfer_operation& op) const;
+   std::string operator()(const transfer_from_blind_operation& op) const;
+   std::string operator()(const transfer_to_blind_operation& op) const;
+   std::string operator()(const account_create_operation& op) const;
+   std::string operator()(const account_update_operation& op) const;
+   std::string operator()(const account_update_authorities_operation& op) const;
+   std::string operator()(const asset_create_operation& op) const;
+   std::string operator()(const blind_transfer2_operation& op) const;
+   std::string operator()(const fund_payment_operation& op) const;
+   std::string operator()(const fund_deposit_update_operation& op) const;
+   std::string operator()(const fund_deposit_reduce_operation& op) const;
+   std::string operator()(const fund_deposit_acceptance_operation& op) const;
+   std::string operator()(const hard_enable_autorenewal_deposits_operation& op) const;
 };    
     
 }}} // namespace graphene::wallet::detail

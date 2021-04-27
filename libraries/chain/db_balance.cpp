@@ -342,9 +342,10 @@ asset database::check_supply_overflow( asset value )
     return value;
 }
 
-void database::update_user_nearest_active_deposit_dt(const account_id_type& acc_id, const fund_object& fund)
+void database::update_user_deposits_info(const account_id_type& acc_id, const fund_object& fund)
 {
    fc::time_point_sec tp;
+   share_type amnt;
 
    const auto& range = get_index_type<fund_deposit_index>().indices().get<by_account_id>().equal_range(acc_id);
    uint32_t i = 0;
@@ -355,6 +356,12 @@ void database::update_user_nearest_active_deposit_dt(const account_id_type& acc_
       if (item.finished) { continue; }
       if (!item.enabled) { continue; }
 
+      // sum of all deposits of fund
+      if (head_block_time() >= HARDFORK_641_TIME) {
+         amnt += item.amount.amount;
+      }
+
+      // nearest datetime of deposit
       if ((i == 0) || (item.datetime_end < tp)) {
          tp = item.datetime_end;
       }
@@ -366,6 +373,9 @@ void database::update_user_nearest_active_deposit_dt(const account_id_type& acc_
       auto itr = obj.deposits_info.find(fund.get_id());
       if (itr != obj.deposits_info.end())
       {
+         if (head_block_time() >= HARDFORK_641_TIME) {
+            itr->second.sum = asset(amnt, fund.asset_id);
+         }
          if (tp < itr->second.nearest_deposit_dt) {
             itr->second.nearest_deposit_dt = tp;
          }
@@ -398,6 +408,9 @@ database::get_user_deposits_info(const account_id_type& acc_id, const asset_id_t
 }
 
 double database::get_percent(uint32_t percent) const {
+   /**
+    * example:
+    * 'percent' must be set as 650 if you want 0.65% */
    return percent / 100000.0;
 }
 

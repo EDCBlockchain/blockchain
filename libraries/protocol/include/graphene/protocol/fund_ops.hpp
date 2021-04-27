@@ -371,6 +371,44 @@ namespace graphene { namespace protocol {
 
    };
 
+   /**
+    * @ingroup operations
+    */
+   struct fund_deposit_acceptance_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset fee;
+
+      fund_id_type fund_id;
+      bool enabled = true;
+
+      extensions_type extensions;
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+      share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
+
+   };
+
+   /**
+    * @ingroup operations
+    */
+   struct hard_enable_autorenewal_deposits_operation: public base_operation
+   {
+      struct fee_parameters_type { uint64_t fee = 0; };
+
+      asset fee;
+
+      vector<account_id_type> accounts;
+      bool enabled = true;
+
+      extensions_type extensions;
+      account_id_type fee_payer() const { return ALPHA_ACCOUNT_ID; }
+      void            validate() const { };
+      share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }
+
+   };
+
 } } // graphene::protocol
 
 FC_REFLECT( graphene::protocol::fund_options::payment_rate,
@@ -405,6 +443,8 @@ FC_REFLECT( graphene::protocol::deposit_renewal_operation::fee_parameters_type, 
 FC_REFLECT( graphene::protocol::fund_deposit_update_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::fund_deposit_update2_operation::fee_parameters_type, (fee) )
 FC_REFLECT( graphene::protocol::fund_deposit_reduce_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::protocol::fund_deposit_acceptance_operation::fee_parameters_type, (fee) )
+FC_REFLECT( graphene::protocol::hard_enable_autorenewal_deposits_operation::fee_parameters_type, (fee) )
 
 FC_REFLECT( graphene::protocol::fund_refill_operation,
             (fee)(from_account)(id)(amount)(extensions) )
@@ -426,6 +466,10 @@ FC_REFLECT( graphene::protocol::enable_autorenewal_deposits_operation,
             (fee)(account_id)(enabled)(extensions) )
 FC_REFLECT( graphene::protocol::deposit_renewal_operation, (fee)(account_id)(deposit_id)(percent)(datetime_end) )
 FC_REFLECT( graphene::protocol::fund_deposit_reduce_operation, (deposit_id)(amount)(extensions) )
+FC_REFLECT( graphene::protocol::fund_deposit_acceptance_operation,
+            (fee)(fund_id)(enabled)(extensions) )
+FC_REFLECT( graphene::protocol::hard_enable_autorenewal_deposits_operation,
+            (fee)(accounts)(enabled)(extensions) )
 
 FC_REFLECT( graphene::protocol::fund_create_operation, (fee)(name)(owner)(asset_id)(options)(extensions) )
 FC_REFLECT( graphene::protocol::fund_update_operation, (fee)(from_account)(id)(options)(extensions) )
@@ -453,6 +497,8 @@ GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::deposit_renewal_ope
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update2_operation::fee_parameters_type )
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_reduce_operation::fee_parameters_type )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_acceptance_operation::fee_parameters_type )
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::hard_enable_autorenewal_deposits_operation::fee_parameters_type )
 
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_create_operation)
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_update_operation)
@@ -469,3 +515,5 @@ GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::deposit_renewal_ope
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update_operation)
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_update2_operation)
 GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_reduce_operation)
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::fund_deposit_acceptance_operation)
+GRAPHENE_DECLARE_EXTERNAL_SERIALIZATION( graphene::protocol::hard_enable_autorenewal_deposits_operation)
