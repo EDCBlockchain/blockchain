@@ -31,7 +31,9 @@ SOFTWARE.
 The following terms apply to third-party code included here. Most have to be published along with binaries of this software.
 Some of the files are only used for building binaries of this software, without becoming an actual part of those binaries. Their respective licenses also do not apply to the binaries.
 
-include/bloom_filter.hpp is copyright Arash Partow and covered by the MIT license. See http://www.opensource.org/licenses/MIT .
+include/fc/bloom_filter.hpp is copyright Arash Partow and covered by the MIT license. See http://www.opensource.org/licenses/MIT .
+
+include/fc/static_variant.hpp is copyright Kenneth Micklas and covered by the MIT license. See licenses/MIT_variant_LICENSE.md .
 
 src/utf8 is copyright Nemanja Trifunovic and covered by the MIT license (Thrift variant). See licenses/MIT_Thrift_LICENSE.md .
 

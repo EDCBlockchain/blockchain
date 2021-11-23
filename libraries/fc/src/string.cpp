@@ -11,7 +11,7 @@
 #include <locale>
 #include <limits>
 
-/**
+/*
  *  Implemented with std::string for now.
  */
 

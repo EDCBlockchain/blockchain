@@ -2,6 +2,11 @@
 #include <fc/fwd.hpp>
 #include <fc/io/iostream.hpp>
 #include <fc/time.hpp>
+#include <fc/asio.hpp>
+#include <fc/thread/future.hpp>
+
+#include <fc/asio.hpp>
+#include <fc/thread/future.hpp>
 
 namespace fc {
   namespace ip { class endpoint; }
@@ -52,14 +57,16 @@ namespace fc {
     private:
       friend class tcp_server;
       class impl;
-      #ifdef _WIN64
-      fc::fwd<impl,0xa8> my;
-      #else
-      fc::fwd<impl,0x60> my;
-      #endif
+      fc::fwd<impl,
+        sizeof(void* /*vtable*/) +
+        sizeof(fc::future<size_t>) +
+        sizeof(fc::future<size_t>) +
+        sizeof(boost::asio::ip::tcp::socket) +
+        sizeof(tcp_socket_io_hooks*)
+      > my;
+
   };
   typedef std::shared_ptr<tcp_socket> tcp_socket_ptr;
-
 
   class tcp_server
   {

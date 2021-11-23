@@ -8,17 +8,17 @@ namespace graphene { namespace wallet { namespace detail {
    wallet_api_impl::get_result_formatters() const
    {
       std::map<string,std::function<string(fc::variant,const fc::variants&)> > m;
-      m["help"] = [](variant result, const fc::variants& a)
+      m["help"] = [](variant result, const fc::variants&)
       {
          return result.get_string();
       };
 
-      m["gethelp"] = [](variant result, const fc::variants& a)
+      m["gethelp"] = [](variant result, const fc::variants&)
       {
          return result.get_string();
       };
 
-       m["get_account_history_part"] = m["get_account_history"] = [this](variant result, const fc::variants& a)
+      m["get_account_history_part"] = m["get_account_history"] = [this](variant result, const fc::variants&)
       {
          auto r = result.as<vector<operation_detail>>( GRAPHENE_MAX_NESTED_OBJECTS );
          std::stringstream ss;
@@ -36,7 +36,7 @@ namespace graphene { namespace wallet { namespace detail {
          return ss.str();
       };
 
-      m["list_account_balances"] = [this](variant result, const fc::variants& a)
+      m["list_account_balances"] = [this](variant result, const fc::variants&)
       {
          auto r = result.as<vector<asset>>(GRAPHENE_MAX_NESTED_OBJECTS);
          vector<asset_object> asset_recs;
@@ -51,7 +51,7 @@ namespace graphene { namespace wallet { namespace detail {
          return ss.str();
       };
 
-      m["get_blind_balances"] = [this](variant result, const fc::variants& a)
+      m["get_blind_balances"] = [this](variant result, const fc::variants&)
       {
          auto r = result.as<vector<asset>>(GRAPHENE_MAX_NESTED_OBJECTS);
          vector<asset_object> asset_recs;
@@ -65,7 +65,7 @@ namespace graphene { namespace wallet { namespace detail {
 
          return ss.str();
       };
-      m["transfer_to_blind"] = [this](variant result, const fc::variants& a)
+      m["transfer_to_blind"] = [this](variant result, const fc::variants&)
       {
          auto r = result.as<blind_confirmation>(GRAPHENE_MAX_NESTED_OBJECTS);
          std::stringstream ss;
@@ -78,7 +78,7 @@ namespace graphene { namespace wallet { namespace detail {
          }
          return ss.str();
       };
-      m["blind_transfer"] = [this](variant result, const fc::variants& a)
+      m["blind_transfer"] = [this](variant result, const fc::variants&)
       {
          auto r = result.as<blind_confirmation>(GRAPHENE_MAX_NESTED_OBJECTS);
          std::stringstream ss;
@@ -91,7 +91,7 @@ namespace graphene { namespace wallet { namespace detail {
          }
          return ss.str();
       };
-      m["receive_blind_transfer"] = [this](variant result, const fc::variants& a)
+      m["receive_blind_transfer"] = [this](variant result, const fc::variants&)
       {
          auto r = result.as<blind_receipt>(GRAPHENE_MAX_NESTED_OBJECTS);
          std::stringstream ss;
@@ -99,7 +99,7 @@ namespace graphene { namespace wallet { namespace detail {
          ss << as.amount_to_pretty_string( r.amount ) << "  " << r.from_label << "  =>  " << r.to_label  << "  " << r.memo <<"\n";
          return ss.str();
       };
-      m["blind_history"] = [this](variant result, const fc::variants& a)
+      m["blind_history"] = [this](variant result, const fc::variants&)
       {
          auto records = result.as<vector<blind_receipt>>(GRAPHENE_MAX_NESTED_OBJECTS);
          std::stringstream ss;
@@ -114,7 +114,7 @@ namespace graphene { namespace wallet { namespace detail {
          }
          return ss.str();
       };
-      m["get_order_book"] = [](variant result, const fc::variants& a)
+      m["get_order_book"] = [](variant result, const fc::variants&)
       {
          auto orders = result.as<order_book>(GRAPHENE_MAX_NESTED_OBJECTS);
          auto bids = orders.bids;

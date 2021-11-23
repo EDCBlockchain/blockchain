@@ -22,6 +22,7 @@ Qi Xing <cwyyprog@163.com>
 HackFisher <hackfisher@gmail.com>
 Valentine Zavgorodnev <i@valzav.com>
 Anton Autushka <antoninus.liberalis@gmail.com>
+Karl Semich <0xloem@gmail.com>
 PaulEU <pstudnicki@syncad.com>
 Scott Howard <showard314@gmail.com>
 batmaninpink <batmaninpink@users.noreply.github.com>
@@ -43,7 +44,6 @@ Anonymous <you@example.com>
 BITSG-Jerry <bitsg-jerry@users.noreply.github.com>
 Dmitry Yakovitsky <d.yakovitsky@aetsoft.by>
 Haruka Ma <mrx@hcc.im>
-Karl Semich <0xloem@gmail.com>
 Kevin Heifner <heifnerk@objectcomputing.com>
 Spartucus <spartucus@users.noreply.github.com>
 ioBanker <37595908+ioBanker@users.noreply.github.com>
@@ -51,3 +51,4 @@ kinglaw <58291@qq.com>
 liukunyu <boss.liuky@gmail.com>
 lubos.ilcik <lubos.ilcik@touch4it.com>
 phoenixint <nsharp@phoenix-int.com>
+sinetek <pitwuu@gmail.com>

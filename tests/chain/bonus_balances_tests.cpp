@@ -26,9 +26,6 @@ BOOST_AUTO_TEST_CASE( create_edc )
 
       BOOST_TEST_MESSAGE( "=== create_edc ===" );
 
-      asset_id_type edc_asset_id = db.get_index<asset_object>().get_next_id();
-      (void)edc_asset_id;
-
       asset_create_operation creator;
       creator.issuer = account_id_type();
       creator.fee = asset();
@@ -237,14 +234,15 @@ BOOST_AUTO_TEST_CASE( test_bonus_balances_merging )
    }
 }
 
-   BOOST_AUTO_TEST_CASE( test_bonus_balances_object_before_after_hf620 )
-   {
-      try {
+BOOST_AUTO_TEST_CASE( test_bonus_balances_object_before_after_hf620 )
+{
+   try {
 
 
-      } catch (fc::exception& e) {
-         edump((e.to_detail_string()));
-         throw;
-      }
+   } catch (fc::exception& e) {
+      edump((e.to_detail_string()));
+      throw;
    }
+}
+
 BOOST_AUTO_TEST_SUITE_END()

@@ -60,8 +60,7 @@ namespace graphene { namespace db {
          return T( *this );
       }
 
-      explicit operator std::string() const
-      {
+      explicit operator std::string() const {
           return fc::to_string(space()) + "." + fc::to_string(type()) + "." + fc::to_string(instance());
       }
 

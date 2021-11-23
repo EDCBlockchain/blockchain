@@ -26,7 +26,12 @@ database::~database()
 
 void database::reindex(fc::path data_dir, const genesis_state_type& initial_allocation)
 { try {
-   enable_registrar_mode();
+   set_registrar_mode(true);
+   enable_replay_process_status(true);
+
+   if (!mt_times_file_created()) {
+      mt_times_read();
+   }
 
    ilog( "reindexing blockchain" );
    wipe(data_dir, false);
@@ -44,6 +49,7 @@ void database::reindex(fc::path data_dir, const genesis_state_type& initial_allo
 
    ilog( "Replaying blocks..." );
    _undo_db.disable();
+
    for( uint32_t i = 1; i <= last_block_num; ++i )
    {
       if( i % 2000 == 0 ) std::cerr << "   " << double(i*100)/last_block_num << "%   "<<i << " of " <<last_block_num<<"   \n";
@@ -75,9 +81,52 @@ void database::reindex(fc::path data_dir, const genesis_state_type& initial_allo
                           skip_authority_check);
    }
    _undo_db.enable();
+   enable_replay_process_status(false);
+
    auto end = fc::time_point::now();
    ilog( "Done reindexing, elapsed time: ${t} sec", ("t",double((end-start).count())/1000000.0 ) );
 } FC_CAPTURE_AND_RETHROW( (data_dir) ) }
+
+void database::mt_times_create_file(const fc::path& data_dir)
+{
+   fc::path p = data_dir / "mt";
+
+   std::ofstream ostrm(std::string(p.string()), std::ios::trunc);
+   if (ostrm.is_open()) {
+      ostrm << "0";
+   }
+}
+
+void database::mt_times_add(uint32_t seconds)
+{
+   if (seconds == 0) { return; }
+
+   fc::path p = get_data_dir() / "mt";
+
+   if (fc::exists(p))
+   {
+      mt_times_read();
+
+      std::ofstream ostrm(std::string(p.string()), std::ios::trunc);
+      if (ostrm.is_open())
+      {
+         int64_t mt_seconds = _mt_seconds + seconds;
+         ostrm << mt_seconds;
+      }
+   }
+}
+
+void database::mt_times_read()
+{
+   fc::path p = get_data_dir() / "mt";
+   if (fc::exists(p))
+   {
+      std::ifstream istrm(std::string(p.string()), std::ofstream::in);
+      if (istrm.is_open()) {
+         istrm >> _mt_seconds;
+      }
+   }
+}
 
 void database::wipe(const fc::path& data_dir, bool include_blocks)
 {
@@ -102,6 +151,8 @@ void database::open(
       object_database::open(data_dir);
 
       _block_id_to_block.open(data_dir / "database" / "block_num_to_block");
+
+      mt_times_read();
 
       if (!find(global_property_id_type())) {
          init_genesis(genesis_loader());

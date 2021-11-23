@@ -59,8 +59,8 @@ namespace detail {
       initial_state.initial_parameters.get_mutable_fees() = fee_schedule::get_default();
       initial_state.initial_active_witnesses = GRAPHENE_DEFAULT_MIN_WITNESS_COUNT;
       initial_state.initial_timestamp = time_point_sec(time_point::now().sec_since_epoch() /
-            initial_state.initial_parameters.block_interval *
-            initial_state.initial_parameters.block_interval);
+         initial_state.initial_parameters.block_interval *
+         initial_state.initial_parameters.block_interval);
       for( uint64_t i = 0; i < initial_state.initial_active_witnesses; ++i )
       {
          auto name = "init"+fc::to_string(i);
@@ -86,13 +86,17 @@ namespace detail {
 #include "application_impl.hxx"
    
 namespace graphene { namespace app { namespace detail {
-   
+
+   application_impl::~application_impl() {
+      //this->shutdown();
+   }
+
    void application_impl::reset_p2p_node(const fc::path& data_dir)
    { try {
       _p2p_network = std::make_shared<net::node>("Graphene Reference Implementation");
 
       _p2p_network->load_configuration(data_dir / "p2p");
-      _p2p_network->set_node_delegate(this);
+      _p2p_network->set_node_delegate(shared_from_this());
 
       if( _options->count("seed-node") )
       {
@@ -160,8 +164,8 @@ namespace graphene { namespace app { namespace detail {
 
       _websocket_server->on_connection([&]( const fc::http::websocket_connection_ptr& c ){
          auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(c, GRAPHENE_NET_MAX_NESTED_OBJECTS);
-         auto login = std::make_shared<graphene::app::login_api>( std::ref(*_self) );
-         auto db_api = std::make_shared<graphene::app::database_api>( std::ref(*_self->chain_database()) );
+         auto login = std::make_shared<graphene::app::login_api>(_self);
+         auto db_api = std::make_shared<graphene::app::database_api>(*_self.chain_database());
          wsc->register_api(fc::api<graphene::app::database_api>(db_api));
          wsc->register_api(fc::api<graphene::app::login_api>(login));
          c->set_session_data( wsc );
@@ -188,8 +192,8 @@ namespace graphene { namespace app { namespace detail {
       _websocket_tls_server->on_connection([&]( const fc::http::websocket_connection_ptr& c )
       {
          auto wsc = std::make_shared<fc::rpc::websocket_api_connection>(c, GRAPHENE_NET_MAX_NESTED_OBJECTS);
-         auto login = std::make_shared<graphene::app::login_api>( std::ref(*_self) );
-         auto db_api = std::make_shared<graphene::app::database_api>( std::ref(*_self->chain_database()) );
+         auto login = std::make_shared<graphene::app::login_api>(_self);
+         auto db_api = std::make_shared<graphene::app::database_api>(*_self.chain_database());
          wsc->register_api(fc::api<graphene::app::database_api>(db_api));
          wsc->register_api(fc::api<graphene::app::login_api>(login));
          c->set_session_data( wsc );
@@ -199,74 +203,133 @@ namespace graphene { namespace app { namespace detail {
       _websocket_tls_server->start_accept();
    } FC_CAPTURE_AND_RETHROW() }
 
-   void application_impl::set_dbg_init_key( genesis_state_type& genesis, const std::string& init_key )
+   void application_impl::initialize(const fc::path& data_dir, shared_ptr<boost::program_options::variables_map> options)
    {
-      flat_set< std::string > initial_witness_names;
-      public_key_type init_pubkey( init_key );
-      for( uint64_t i=0; i<genesis.initial_active_witnesses; i++ )
-         genesis.initial_witness_candidates[i].block_signing_key = init_pubkey;
+      _data_dir = data_dir;
+      _options = options;
+
+      if (options->count("history-days") > 0) {
+         _chain_db->set_history_size(options->at("history-days").as<int>());
+      }
+      if( options->count("create-genesis-json") > 0)
+      {
+         fc::path genesis_out = options->at("create-genesis-json").as<boost::filesystem::path>();
+         genesis_state_type genesis_state = detail::create_example_genesis();
+         if( fc::exists(genesis_out) )
+         {
+            try {
+               genesis_state = fc::json::from_file(genesis_out).as<genesis_state_type>(20);
+            } catch(const fc::exception& e) {
+               std::cerr << "Unable to parse existing genesis file:\n" << e.to_string()
+                         << "\nWould you like to replace it? [y/N] ";
+               char response = std::cin.get();
+               if( toupper(response) != 'Y' )
+                  return;
+            }
+
+            std::cerr << "Updating genesis state in file " << genesis_out.generic_string() << "\n";
+         } else {
+            std::cerr << "Creating example genesis state in file " << genesis_out.generic_string() << "\n";
+         }
+         fc::json::save_to_file(genesis_state, genesis_out);
+
+         std::exit(EXIT_SUCCESS);
+      }
+
+      if ( options->count("io-threads") > 0)
+      {
+         const uint16_t num_threads = options->at("io-threads").as<uint16_t>();
+         fc::asio::default_io_service_scope::set_num_threads(num_threads);
+      }
+
+      if (_options->count("force-validate") > 0)
+      {
+         ilog( "All transaction signatures will be validated" );
+         _force_validate = true;
+      }
+
+      if (_options->count("api-access") > 0) {
+         _apiaccess = fc::json::from_file(_options->at("api-access").as<boost::filesystem::path>()).as<api_access>(20);
+      }
+      else
+      {
+         // TODO:  Remove this generous default access policy
+         // when the UI logs in properly
+         _apiaccess = api_access();
+         api_access_info wild_access;
+         wild_access.password_hash_b64 = "*";
+         wild_access.password_salt_b64 = "*";
+         wild_access.allowed_apis.push_back( "database_api" );
+         wild_access.allowed_apis.push_back( "network_broadcast_api" );
+         wild_access.allowed_apis.push_back( "history_api" );
+         wild_access.allowed_apis.push_back( "crypto_api" );
+         _apiaccess.permission_map["*"] = wild_access;
+      }
+
+      initialize_plugins();
    }
 
-   void application_impl::startup()
+   graphene::chain::genesis_state_type application_impl::initialize_genesis_state() const
+   { try {
+      ilog("Initializing database...");
+      FC_ASSERT(_options->count("genesis-json"), "you must specify genesis-file");
+      if (_options->count("genesis-json") > 0)
+      {
+         const boost::filesystem::path& gfile = _options->at("genesis-json").as<boost::filesystem::path>();
+         FC_ASSERT(fc::exists(gfile), "genesis file '${f}' not exists", ("f", (gfile.string())));
+
+         std::string genesis_str;
+         fc::read_file_contents( gfile, genesis_str );
+         genesis_state_type genesis = fc::json::from_string( genesis_str ).as<genesis_state_type>(20);
+         bool modified_genesis = false;
+         if (_options->count("genesis-timestamp") > 0)
+         {
+            genesis.initial_timestamp = fc::time_point_sec( fc::time_point::now() ) + genesis.initial_parameters.block_interval + _options->at("genesis-timestamp").as<uint32_t>();
+            genesis.initial_timestamp -= genesis.initial_timestamp.sec_since_epoch() % genesis.initial_parameters.block_interval;
+            modified_genesis = true;
+            std::cerr << "Used genesis timestamp:  " << genesis.initial_timestamp.to_iso_string() << " (PLEASE RECORD THIS)\n";
+         }
+         if (_options->count("dbg-init-key") > 0)
+         {
+            std::string init_key = _options->at( "dbg-init-key" ).as<string>();
+            FC_ASSERT( genesis.initial_witness_candidates.size() >= genesis.initial_active_witnesses );
+            genesis.override_witness_signing_keys( init_key );
+            modified_genesis = true;
+            ilog("Set init witness key to ${init_key}", ("init_key", init_key));
+         }
+         if( modified_genesis )
+         {
+            std::cerr << "WARNING:  GENESIS WAS MODIFIED, YOUR CHAIN ID MAY BE DIFFERENT\n";
+            genesis_str += "BOGUS";
+            genesis.initial_chain_id = fc::sha256::hash( genesis_str );
+         }
+         else
+            genesis.initial_chain_id = fc::sha256::hash( genesis_str );
+         return genesis;
+      }
+      else
+      {
+         std::string egenesis_json;
+         graphene::egenesis::compute_egenesis_json( egenesis_json );
+         FC_ASSERT( egenesis_json != "" );
+         FC_ASSERT( graphene::egenesis::get_egenesis_json_hash() == fc::sha256::hash( egenesis_json ) );
+         auto genesis = fc::json::from_string( egenesis_json ).as<genesis_state_type>(20);
+         genesis.initial_chain_id = fc::sha256::hash( egenesis_json );
+         return genesis;
+      }
+   } FC_CAPTURE_AND_RETHROW() }
+
+   void application_impl::open_chain_database() const
    { try {
       bool clean = !fc::exists(_data_dir / "blockchain/dblock");
       fc::create_directories(_data_dir / "blockchain/dblock");
 
-      auto initial_state = [this] {
-         ilog("Initializing database...");
-         FC_ASSERT(_options->count("genesis-json"), "you must specify genesis-file");
-         if( _options->count("genesis-json") )
-         {
-            const boost::filesystem::path& gfile = _options->at("genesis-json").as<boost::filesystem::path>();
-            FC_ASSERT(fc::exists(gfile), "genesis file '${f}' not exists", ("f", (gfile.string())));
-
-            std::string genesis_str;
-            fc::read_file_contents( gfile, genesis_str );
-            genesis_state_type genesis = fc::json::from_string( genesis_str ).as<genesis_state_type>(20);
-            bool modified_genesis = false;
-            if( _options->count("genesis-timestamp") )
-            {
-               genesis.initial_timestamp = fc::time_point_sec( fc::time_point::now() ) + genesis.initial_parameters.block_interval + _options->at("genesis-timestamp").as<uint32_t>();
-               genesis.initial_timestamp -= genesis.initial_timestamp.sec_since_epoch() % genesis.initial_parameters.block_interval;
-               modified_genesis = true;
-               std::cerr << "Used genesis timestamp:  " << genesis.initial_timestamp.to_iso_string() << " (PLEASE RECORD THIS)\n";
-            }
-            if( _options->count("dbg-init-key") )
-            {
-               std::string init_key = _options->at( "dbg-init-key" ).as<string>();
-               FC_ASSERT( genesis.initial_witness_candidates.size() >= genesis.initial_active_witnesses );
-               set_dbg_init_key( genesis, init_key );
-               modified_genesis = true;
-               std::cerr << "Set init witness key to " << init_key << "\n";
-            }
-            if( modified_genesis )
-            {
-               std::cerr << "WARNING:  GENESIS WAS MODIFIED, YOUR CHAIN ID MAY BE DIFFERENT\n";
-               genesis_str += "BOGUS";
-               genesis.initial_chain_id = fc::sha256::hash( genesis_str );
-            }
-            else
-               genesis.initial_chain_id = fc::sha256::hash( genesis_str );
-            return genesis;
-         }
-         else
-         {
-            std::string egenesis_json;
-            graphene::egenesis::compute_egenesis_json( egenesis_json );
-            FC_ASSERT( egenesis_json != "" );
-            FC_ASSERT( graphene::egenesis::get_egenesis_json_hash() == fc::sha256::hash( egenesis_json ) );
-            auto genesis = fc::json::from_string( egenesis_json ).as<genesis_state_type>(20);
-            genesis.initial_chain_id = fc::sha256::hash( egenesis_json );
-            return genesis;
-         }
-      };
-
-      if( _options->count("resync-blockchain") ) {
-       _chain_db->wipe(_data_dir / "blockchain", true);
+      if (_options->count("resync-blockchain") > 0) {
+         _chain_db->wipe(_data_dir / "blockchain", true);
       }
 
       flat_map<uint32_t,block_id_type> loaded_checkpoints;
-      if( _options->count("checkpoint") )
+      if (_options->count("checkpoint") > 0)
       {
          auto cps = _options->at("checkpoint").as<vector<string>>();
          loaded_checkpoints.reserve( cps.size() );
@@ -278,12 +341,24 @@ namespace graphene { namespace app { namespace detail {
       }
       _chain_db->add_checkpoints( loaded_checkpoints );
 
-      if( _options->count("replay-blockchain") )
+      if (_options->count("create-mt-file") > 0)
+      {
+         if (_options->count("replay-blockchain") == 0)
+         {
+            std::cerr << "option '--create-mt-file' is available only with '--replay-blockchain' option." << '\n';
+            exit(0);
+         }
+         _chain_db->mt_times_create_file(_data_dir / "blockchain");
+         _chain_db->enable_mt_times_file_created(true);
+      }
+
+      if (_options->count("replay-blockchain") > 0)
       {
          ilog("Replaying blockchain on user request.");
-         _chain_db->reindex(_data_dir/"blockchain", initial_state());
-      } else if( clean ) {
-
+         _chain_db->reindex(_data_dir/"blockchain", initialize_genesis_state());
+      }
+      else if (clean)
+      {
          auto is_new = [&]() -> bool
          {
             // directory doesn't exist
@@ -308,7 +383,7 @@ namespace graphene { namespace app { namespace detail {
          if( !need_reindex )
          {
             try {
-               _chain_db->open(_data_dir / "blockchain", initial_state);
+               _chain_db->open(_data_dir / "blockchain", [this](){return initialize_genesis_state();});
             }
             catch( const fc::exception& e )
             {
@@ -318,12 +393,12 @@ namespace graphene { namespace app { namespace detail {
             }
          }
 
-         if( need_reindex )
+         if (need_reindex)
          {
             ilog("Replaying blockchain due to ${reason}", ("reason", reindex_reason) );
 
             fc::remove_all( _data_dir / "db_version" );
-            _chain_db->reindex(_data_dir / "blockchain", initial_state());
+            _chain_db->reindex(_data_dir / "blockchain", initialize_genesis_state());
 
             // doing this down here helps ensure that DB will be wiped
             // if any of the above steps were interrupted on a previous run
@@ -331,59 +406,37 @@ namespace graphene { namespace app { namespace detail {
             {
                std::ofstream db_version(
                   (_data_dir / "db_version").generic_string().c_str(),
-                  std::ios::out | std::ios::binary | std::ios::trunc );
+                  std::ios::out | std::ios::binary | std::ios::trunc
+               );
                std::string version_string = GRAPHENE_CURRENT_DB_VERSION;
                db_version.write( version_string.c_str(), version_string.size() );
                db_version.close();
             }
          }
-      } else {
-         wlog("Detected unclean shutdown. Replaying blockchain...");
-         _chain_db->reindex(_data_dir / "blockchain", initial_state());
-      }
-
-      if (!_options->count("genesis-json") &&
-          _chain_db->get_chain_id() != graphene::egenesis::get_egenesis_chain_id()) {
-         elog("Detected old database. Nuking and starting over.");
-         _chain_db->wipe(_data_dir / "blockchain", true);
-         _chain_db.reset();
-         _chain_db = std::make_shared<chain::database>();
-         _chain_db->add_checkpoints(loaded_checkpoints);
-         _chain_db->open(_data_dir / "blockchain", initial_state);
-      }
-
-      if( _options->count("force-validate") )
-      {
-         ilog( "All transaction signatures will be validated" );
-         _force_validate = true;
-      }
-
-      if ( _options->count("api-access") ) {
-         _apiaccess = fc::json::from_file(_options->at("api-access").as<boost::filesystem::path>()).as<api_access>(20);
       }
       else
       {
-         // TODO:  Remove this generous default access policy
-         // when the UI logs in properly
-         _apiaccess = api_access();
-         api_access_info wild_access;
-         wild_access.password_hash_b64 = "*";
-         wild_access.password_salt_b64 = "*";
-         wild_access.allowed_apis.push_back( "database_api" );
-         wild_access.allowed_apis.push_back( "network_broadcast_api" );
-         wild_access.allowed_apis.push_back( "history_api" );
-         wild_access.allowed_apis.push_back( "crypto_api" );
-         _apiaccess.permission_map["*"] = wild_access;
+         wlog("Detected unclean shutdown. Replaying blockchain...");
+         _chain_db->reindex(_data_dir / "blockchain", initialize_genesis_state());
       }
+
+   } FC_LOG_AND_RETHROW() }
+
+   void application_impl::startup()
+   { try {
+
+      open_chain_database();
+
+      startup_plugins();
 
       reset_p2p_node(_data_dir);
       reset_websocket_server();
       reset_websocket_tls_server();
    } FC_LOG_AND_RETHROW() }
 
-   fc::optional< api_access_info > application_impl::get_api_access_info(const string& username)const
+   optional<api_access_info> application_impl::get_api_access_info(const string& username) const
    {
-      fc::optional< api_access_info > result;
+      optional< api_access_info > result;
       auto it = _apiaccess.permission_map.find(username);
       if( it == _apiaccess.permission_map.end() )
       {
@@ -396,6 +449,10 @@ namespace graphene { namespace app { namespace detail {
 
    void application_impl::set_api_access_info(const string& username, api_access_info&& permissions) {
       _apiaccess.permission_map.insert(std::make_pair(username, std::move(permissions)));
+   }
+
+   bool application_impl::is_plugin_enabled(const string& name) const {
+      return !(_active_plugins.find(name) == _active_plugins.end());
    }
 
    /**
@@ -422,7 +479,7 @@ namespace graphene { namespace app { namespace detail {
     * @throws exception if error validating the item, otherwise the item is safe to broadcast on.
     */
    bool application_impl::handle_block(const graphene::net::block_message& blk_msg, bool sync_mode,
-                             std::vector<fc::uint160_t>& contained_transaction_message_ids)
+                                       std::vector<graphene::net::message_hash_type>& contained_transaction_msg_ids)
    { try {
 
       auto latency = fc::time_point::now() - blk_msg.block.timestamp;
@@ -431,9 +488,12 @@ namespace graphene { namespace app { namespace detail {
          const auto& witness = blk_msg.block.witness(*_chain_db);
          const auto& witness_account = witness.witness_account(*_chain_db);
          auto last_irr = _chain_db->get_dynamic_global_properties().last_irreversible_block_num;
-         ilog("Got block: #${n} time: ${t} latency: ${l} ms from: ${w}  irreversible: ${i} (-${d})",
+         ilog("Got block: #${n} ${bid} time: ${t} transaction(s): ${x} "
+              "latency: ${l} ms from: ${w}  irreversible: ${i} (-${d})",
               ("t",blk_msg.block.timestamp)
               ("n", blk_msg.block.block_num())
+              ("bid", blk_msg.block.id())
+              ("x", blk_msg.block.transactions.size())
               ("l", (latency.count()/1000))
               ("w",witness_account.name)
               ("i",last_irr)("d",blk_msg.block.block_num()-last_irr) );
@@ -457,7 +517,7 @@ namespace graphene { namespace app { namespace detail {
             for (const processed_transaction& transaction : blk_msg.block.transactions)
             {
                graphene::net::trx_message transaction_message(transaction);
-               contained_transaction_message_ids.push_back(graphene::net::message(transaction_message).id());
+               contained_transaction_msg_ids.emplace_back(graphene::net::message(transaction_message).id());
             }
          }
 
@@ -474,24 +534,25 @@ namespace graphene { namespace app { namespace detail {
       if( !_is_finished_syncing && !sync_mode )
       {
          _is_finished_syncing = true;
-         _self->syncing_finished();
+         _self.syncing_finished();
       }
+
    } FC_CAPTURE_AND_RETHROW( (blk_msg)(sync_mode) ) }
 
    void application_impl::handle_transaction(const graphene::net::trx_message& transaction_message)
    { try {
-      static fc::time_point last_call;
-      static int trx_count = 0;
-      ++trx_count;
-      auto now = fc::time_point::now();
-      if( now - last_call > fc::seconds(1) ) {
-         ilog("Got ${c} transactions from network", ("c",trx_count) );
-         last_call = now;
-         trx_count = 0;
-      }
+         static fc::time_point last_call;
+         static int trx_count = 0;
+         ++trx_count;
+         auto now = fc::time_point::now();
+         if( now - last_call > fc::seconds(1) ) {
+            ilog("Got ${c} transactions from network", ("c",trx_count) );
+            last_call = now;
+            trx_count = 0;
+         }
 
-      _chain_db->push_transaction( transaction_message.trx );
-   } FC_CAPTURE_AND_RETHROW( (transaction_message) ) }
+         _chain_db->push_transaction( transaction_message.trx );
+      } FC_CAPTURE_AND_RETHROW( (transaction_message) ) }
 
    void application_impl::handle_message(const message& message_to_process)
    {
@@ -501,9 +562,9 @@ namespace graphene { namespace app { namespace detail {
 
    bool application_impl::is_included_block(const block_id_type& block_id)
    {
-     uint32_t block_num = block_header::num_from_id(block_id);
-     block_id_type block_id_in_preferred_chain = _chain_db->get_block_id_for_num(block_num);
-     return block_id == block_id_in_preferred_chain;
+      uint32_t block_num = block_header::num_from_id(block_id);
+      block_id_type block_id_in_preferred_chain = _chain_db->get_block_id_for_num(block_num);
+      return block_id == block_id_in_preferred_chain;
    }
 
    /**
@@ -516,9 +577,9 @@ namespace graphene { namespace app { namespace detail {
     * or 0 if the result contains the last item in the blockchain
     */
    std::vector<item_hash_t> application_impl::get_block_ids(
-      const std::vector<item_hash_t>& blockchain_synopsis,
-      uint32_t& remaining_item_count,
-      uint32_t limit)
+   const std::vector<item_hash_t>& blockchain_synopsis,
+   uint32_t& remaining_item_count,
+   uint32_t limit)
    { try {
       vector<block_id_type> result;
       remaining_item_count = 0;
@@ -531,25 +592,25 @@ namespace graphene { namespace app { namespace detail {
       if (blockchain_synopsis.empty() ||
           (blockchain_synopsis.size() == 1 && blockchain_synopsis[0] == block_id_type()))
       {
-        // peer has sent us an empty synopsis meaning they have no blocks.
-        // A bug in old versions would cause them to send a synopsis containing block 000000000
-        // when they had an empty blockchain, so pretend they sent the right thing here.
+         // peer has sent us an empty synopsis meaning they have no blocks.
+         // A bug in old versions would cause them to send a synopsis containing block 000000000
+         // when they had an empty blockchain, so pretend they sent the right thing here.
 
-        // do nothing, leave last_known_block_id set to zero
+         // do nothing, leave last_known_block_id set to zero
       }
       else
       {
-        bool found_a_block_in_synopsis = false;
-        for (const item_hash_t& block_id_in_synopsis : boost::adaptors::reverse(blockchain_synopsis))
-          if (block_id_in_synopsis == block_id_type() ||
-              (_chain_db->is_known_block(block_id_in_synopsis) && is_included_block(block_id_in_synopsis)))
-          {
-            last_known_block_id = block_id_in_synopsis;
-            found_a_block_in_synopsis = true;
-            break;
-          }
-        if (!found_a_block_in_synopsis)
-          FC_THROW_EXCEPTION(graphene::net::peer_is_on_an_unreachable_fork, "Unable to provide a list of blocks starting at any of the blocks in peer's synopsis");
+         bool found_a_block_in_synopsis = false;
+         for (const item_hash_t& block_id_in_synopsis : boost::adaptors::reverse(blockchain_synopsis))
+            if (block_id_in_synopsis == block_id_type() ||
+                (_chain_db->is_known_block(block_id_in_synopsis) && is_included_block(block_id_in_synopsis)))
+            {
+               last_known_block_id = block_id_in_synopsis;
+               found_a_block_in_synopsis = true;
+               break;
+            }
+         if (!found_a_block_in_synopsis)
+            FC_THROW_EXCEPTION(graphene::net::peer_is_on_an_unreachable_fork, "Unable to provide a list of blocks starting at any of the blocks in peer's synopsis");
       }
       for( uint32_t num = block_header::num_from_id(last_known_block_id);
            num <= _chain_db->head_block_num() && result.size() < limit;
@@ -568,7 +629,7 @@ namespace graphene { namespace app { namespace detail {
     */
    message application_impl::get_item(const item_id& id)
    { try {
-     // ilog("Request for item ${id}", ("id", id));
+      // ilog("Request for item ${id}", ("id", id));
       if( id.item_type == graphene::net::block_message_type )
       {
          auto opt_block = _chain_db->fetch_block_by_id(id.item_hash);
@@ -645,111 +706,111 @@ namespace graphene { namespace app { namespace detail {
     * the main chain.
     */
    std::vector<item_hash_t> application_impl::get_blockchain_synopsis(
-      const item_hash_t& reference_point,
-      uint32_t number_of_blocks_after_reference_point)
+   const item_hash_t& reference_point,
+   uint32_t number_of_blocks_after_reference_point)
    { try {
-       std::vector<item_hash_t> synopsis;
-       synopsis.reserve(30);
-       uint32_t high_block_num;
-       uint32_t non_fork_high_block_num;
-       uint32_t low_block_num = _chain_db->last_non_undoable_block_num();
-       std::vector<block_id_type> fork_history;
+      std::vector<item_hash_t> synopsis;
+      synopsis.reserve(30);
+      uint32_t high_block_num;
+      uint32_t non_fork_high_block_num;
+      uint32_t low_block_num = _chain_db->last_non_undoable_block_num();
+      std::vector<block_id_type> fork_history;
 
-       if (reference_point != item_hash_t())
-       {
+      if (reference_point != item_hash_t())
+      {
          // the node is asking for a summary of the block chain up to a specified
          // block, which may or may not be on a fork
          // for now, assume it's not on a fork
          if (is_included_block(reference_point))
          {
-           // reference_point is a block we know about and is on the main chain
-           uint32_t reference_point_block_num = block_header::num_from_id(reference_point);
-           assert(reference_point_block_num > 0);
-           high_block_num = reference_point_block_num;
-           non_fork_high_block_num = high_block_num;
+            // reference_point is a block we know about and is on the main chain
+            uint32_t reference_point_block_num = block_header::num_from_id(reference_point);
+            assert(reference_point_block_num > 0);
+            high_block_num = reference_point_block_num;
+            non_fork_high_block_num = high_block_num;
 
-           if (reference_point_block_num < low_block_num)
-           {
-             // we're on the same fork (at least as far as reference_point) but we've passed
-             // reference point and could no longer undo that far if we diverged after that
-             // block.  This should probably only happen due to a race condition where
-             // the network thread calls this function, and then immediately pushes a bunch of blocks,
-             // then the main thread finally processes this function.
-             // with the current framework, there's not much we can do to tell the network
-             // thread what our current head block is, so we'll just pretend that
-             // our head is actually the reference point.
-             // this *may* enable us to fetch blocks that we're unable to push, but that should
-             // be a rare case (and correctly handled)
-             low_block_num = reference_point_block_num;
-           }
+            if (reference_point_block_num < low_block_num)
+            {
+               // we're on the same fork (at least as far as reference_point) but we've passed
+               // reference point and could no longer undo that far if we diverged after that
+               // block.  This should probably only happen due to a race condition where
+               // the network thread calls this function, and then immediately pushes a bunch of blocks,
+               // then the main thread finally processes this function.
+               // with the current framework, there's not much we can do to tell the network
+               // thread what our current head block is, so we'll just pretend that
+               // our head is actually the reference point.
+               // this *may* enable us to fetch blocks that we're unable to push, but that should
+               // be a rare case (and correctly handled)
+               low_block_num = reference_point_block_num;
+            }
          }
          else
          {
-           // block is a block we know about, but it is on a fork
-           try
-           {
-             fork_history = _chain_db->get_block_ids_on_fork(reference_point);
-             // returns a vector where the last element is the common ancestor with the preferred chain,
-             // and the first element is the reference point you passed in
-             assert(fork_history.size() >= 2);
+            // block is a block we know about, but it is on a fork
+            try
+            {
+               fork_history = _chain_db->get_block_ids_on_fork(reference_point);
+               // returns a vector where the last element is the common ancestor with the preferred chain,
+               // and the first element is the reference point you passed in
+               assert(fork_history.size() >= 2);
 
-             if( fork_history.front() != reference_point )
-             {
-                edump( (fork_history)(reference_point) );
-                assert(fork_history.front() == reference_point);
-             }
-             block_id_type last_non_fork_block = fork_history.back();
-             fork_history.pop_back();  // remove the common ancestor
-             boost::reverse(fork_history);
+               if( fork_history.front() != reference_point )
+               {
+                  edump( (fork_history)(reference_point) );
+                  assert(fork_history.front() == reference_point);
+               }
+               block_id_type last_non_fork_block = fork_history.back();
+               fork_history.pop_back();  // remove the common ancestor
+               boost::reverse(fork_history);
 
-             if (last_non_fork_block == block_id_type()) // if the fork goes all the way back to genesis (does graphene's fork db allow this?)
-               non_fork_high_block_num = 0;
-             else
-               non_fork_high_block_num = block_header::num_from_id(last_non_fork_block);
+               if (last_non_fork_block == block_id_type()) // if the fork goes all the way back to genesis (does graphene's fork db allow this?)
+                  non_fork_high_block_num = 0;
+               else
+                  non_fork_high_block_num = block_header::num_from_id(last_non_fork_block);
 
-             high_block_num = non_fork_high_block_num + fork_history.size();
-             assert(high_block_num == block_header::num_from_id(fork_history.back()));
-           }
-           catch (const fc::exception& e)
-           {
-             // unable to get fork history for some reason.  maybe not linked?
-             // we can't return a synopsis of its chain
-             elog("Unable to construct a blockchain synopsis for reference hash ${hash}: ${exception}", ("hash", reference_point)("exception", e));
-             throw;
-           }
-           if (non_fork_high_block_num < low_block_num)
-           {
-             wlog("Unable to generate a usable synopsis because the peer we're generating it for forked too long ago "
-                  "(our chains diverge after block #${non_fork_high_block_num} but only undoable to block #${low_block_num})",
-                  ("low_block_num", low_block_num)
-                  ("non_fork_high_block_num", non_fork_high_block_num));
-             FC_THROW_EXCEPTION(graphene::net::block_older_than_undo_history, "Peer is are on a fork I'm unable to switch to");
-           }
+               high_block_num = non_fork_high_block_num + fork_history.size();
+               assert(high_block_num == block_header::num_from_id(fork_history.back()));
+            }
+            catch (const fc::exception& e)
+            {
+               // unable to get fork history for some reason.  maybe not linked?
+               // we can't return a synopsis of its chain
+               elog("Unable to construct a blockchain synopsis for reference hash ${hash}: ${exception}", ("hash", reference_point)("exception", e));
+               throw;
+            }
+            if (non_fork_high_block_num < low_block_num)
+            {
+               wlog("Unable to generate a usable synopsis because the peer we're generating it for forked too long ago "
+                    "(our chains diverge after block #${non_fork_high_block_num} but only undoable to block #${low_block_num})",
+                    ("low_block_num", low_block_num)
+                    ("non_fork_high_block_num", non_fork_high_block_num));
+               FC_THROW_EXCEPTION(graphene::net::block_older_than_undo_history, "Peer is are on a fork I'm unable to switch to");
+            }
          }
-       }
-       else
-       {
+      }
+      else
+      {
          // no reference point specified, summarize the whole block chain
          high_block_num = _chain_db->head_block_num();
          non_fork_high_block_num = high_block_num;
          if (high_block_num == 0)
-           return synopsis; // we have no blocks
-       }
+            return synopsis; // we have no blocks
+      }
 
-       if ( low_block_num == 0) {
-          low_block_num = 1;
-       }
+      if ( low_block_num == 0) {
+         low_block_num = 1;
+      }
 
-       // at this point:
-       // low_block_num is the block before the first block we can undo,
-       // non_fork_high_block_num is the block before the fork (if the peer is on a fork, or otherwise it is the same as high_block_num)
-       // high_block_num is the block number of the reference block, or the end of the chain if no reference provided
+      // at this point:
+      // low_block_num is the block before the first block we can undo,
+      // non_fork_high_block_num is the block before the fork (if the peer is on a fork, or otherwise it is the same as high_block_num)
+      // high_block_num is the block number of the reference block, or the end of the chain if no reference provided
 
-       // true_high_block_num is the ending block number after the network code appends any item ids it
-       // knows about that we don't
-       uint32_t true_high_block_num = high_block_num + number_of_blocks_after_reference_point;
-       do
-       {
+      // true_high_block_num is the ending block number after the network code appends any item ids it
+      // knows about that we don't
+      uint32_t true_high_block_num = high_block_num + number_of_blocks_after_reference_point;
+      do
+      {
          // for each block in the synopsis, figure out where to pull the block id from.
          // if it's <= non_fork_high_block_num, we grab it from the main blockchain;
          // if it's not, we pull it from the fork history
@@ -764,11 +825,11 @@ namespace graphene { namespace app { namespace detail {
             }
          }
          low_block_num += (true_high_block_num - low_block_num + 2) / 2;
-       }
-       while (low_block_num <= high_block_num);
+      }
+      while (low_block_num <= high_block_num);
 
-       idump((synopsis));
-       return synopsis;
+      idump((synopsis));
+      return synopsis;
    } FC_CAPTURE_AND_RETHROW() }
 
    /**
@@ -786,7 +847,7 @@ namespace graphene { namespace app { namespace detail {
     * Call any time the number of connected peers changes.
     */
    void application_impl::connection_count_changed(uint32_t c) {
-     // any status reports to GUI go here
+      // any status reports to GUI go here
    }
 
    uint32_t application_impl::get_block_number(const item_hash_t& block_id)
@@ -821,538 +882,255 @@ namespace graphene { namespace app { namespace detail {
       return _chain_db->get_global_properties().parameters.block_interval;
    }
 
+   void application_impl::shutdown()
+   {
+      ilog( "Shutting down application" );
+      if( _websocket_tls_server )
+         _websocket_tls_server.reset();
+      if( _websocket_server )
+         _websocket_server.reset();
+      // TODO wait until all connections are closed and messages handled?
+
+      // plugins E.G. witness_plugin may send data to p2p network, so shutdown them first
+      ilog( "Shutting down plugins" );
+      shutdown_plugins();
+
+      if( _p2p_network )
+      {
+         ilog( "Disconnecting from P2P network" );
+         // FIXME wait() is called in close() but it doesn't block this thread
+         _p2p_network->close();
+         _p2p_network.reset();
+      }
+      else {
+         ilog( "P2P network is disabled" );
+      }
+
+      if (_chain_db)
+      {
+         ilog( "Closing chain database" );
+         _chain_db->close();
+         _chain_db.reset();
+
+         fc::remove_all(_data_dir / "blockchain/dblock");
+      }
+      else {
+         ilog( "Chain database is not open" );
+      }
+   }
+
+   void application_impl::enable_plugin( const string& name )
+   {
+      FC_ASSERT(_available_plugins[name], "Unknown plugin '" + name + "'");
+      _active_plugins[name] = _available_plugins[name];
+   }
+
+   void application_impl::initialize_plugins() const
+   {
+      for( const auto& entry : _active_plugins )
+      {
+         ilog( "Initializing plugin ${name}", ( "name", entry.second->plugin_name() ) );
+         entry.second->plugin_initialize( *_options );
+         ilog( "Initialized plugin ${name}", ( "name", entry.second->plugin_name() ) );
+      }
+   }
+
+   void application_impl::startup_plugins() const
+   {
+      for( const auto& entry : _active_plugins )
+      {
+         ilog( "Starting plugin ${name}", ( "name", entry.second->plugin_name() ) );
+         entry.second->plugin_startup();
+         ilog( "Started plugin ${name}", ( "name", entry.second->plugin_name() ) );
+      }
+   }
+
+   void application_impl::shutdown_plugins() const
+   {
+      for( const auto& entry : _active_plugins )
+      {
+         ilog( "Stopping plugin ${name}", ( "name", entry.second->plugin_name() ) );
+         entry.second->plugin_shutdown();
+         ilog( "Stopped plugin ${name}", ( "name", entry.second->plugin_name() ) );
+      }
+   }
+
+   void application_impl::add_available_plugin(std::shared_ptr<graphene::app::abstract_plugin> p) {
+      _available_plugins[p->plugin_name()] = p;
+   }
+
+   void application_impl::set_block_production(bool producing_blocks) {
+      _is_block_producer = producing_blocks;
+   }
+
 } } } // namespace graphene::app::detail
 
 namespace graphene { namespace app {
 
-application::application()
-   : my(new detail::application_impl(this)) { }
+   application::application()
+      : my(std::make_shared<detail::application_impl>(*this)) { }
 
-application::~application()
-{
-   if( my->_p2p_network )
+   application::~application()
    {
-      my->_p2p_network->close();
-      my->_p2p_network.reset();
+      ilog("Application quitting");
+      my->shutdown();
    }
-   if( my->_chain_db )
+
+   void application::set_program_options(boost::program_options::options_description& command_line_options,
+                                         boost::program_options::options_description& configuration_file_options) const
    {
-      my->_chain_db->close();
+      configuration_file_options.add_options()
+      ("p2p-endpoint", bpo::value<string>(), "Endpoint for P2P node to listen on")
+      ("seed-node,s", bpo::value<vector<string>>()->composing(), "P2P nodes to connect to on startup (may specify multiple times)")
+      ("checkpoint,c", bpo::value<vector<string>>()->composing(), "Pairs of [BLOCK_NUM,BLOCK_ID] that should be enforced as checkpoints.")
+      ("rpc-endpoint", bpo::value<string>()->implicit_value("127.0.0.1:8090"), "Endpoint for websocket RPC to listen on")
+      ("rpc-tls-endpoint", bpo::value<string>()->implicit_value("127.0.0.1:8089"), "Endpoint for TLS websocket RPC to listen on")
+      ("enable-permessage-deflate", "Enable support for per-message deflate compression in the websocket servers "
+                                    "(--rpc-endpoint and --rpc-tls-endpoint), disabled by default")
+      ("server-pem,p", bpo::value<string>()->implicit_value("server.pem"), "The TLS certificate file for this server")
+      ("server-pem-password,P", bpo::value<string>()->implicit_value(""), "Password for this certificate")
+      ("genesis-json", bpo::value<boost::filesystem::path>(), "File to read Genesis State from")
+      ("dbg-init-key", bpo::value<string>(), "Block signing key to use for init witnesses, overrides genesis file")
+      ("api-access", bpo::value<boost::filesystem::path>(), "JSON file specifying API permissions")
+      ("io-threads", bpo::value<uint16_t>()->implicit_value(0), "Number of IO threads, default to 0 for auto-configuration")
+      ("replay-blockchain", "Rebuild object graph by replaying all blocks")
+      ("create-mt-file", "Creates text file with number of seconds of all processed maintenance times")
+      ;
+      command_line_options.add(configuration_file_options);
+      command_line_options.add_options()
+      ("create-genesis-json", bpo::value<boost::filesystem::path>(),
+       "Path to create a Genesis State at. If a well-formed JSON file exists at the path, it will be parsed and any "
+       "missing fields in a Genesis State will be added, and any unknown fields will be removed. If no file or an "
+       "invalid file is found, it will be replaced with an example Genesis State.")
+      ("resync-blockchain", "Delete all blocks and re-sync with network from scratch")
+      ("force-validate", "Force validation of all transactions")
+      ("genesis-timestamp", bpo::value<uint32_t>(), "Replace timestamp from genesis.json with current time plus this many seconds (experts only!)")
+      ;
+      command_line_options.add(_cli_options);
+      configuration_file_options.add(_cfg_options);
    }
-}
 
-void application::set_program_options(boost::program_options::options_description& command_line_options,
-                                      boost::program_options::options_description& configuration_file_options) const
-{
-   configuration_file_options.add_options()
-         ("p2p-endpoint", bpo::value<string>(), "Endpoint for P2P node to listen on")
-         ("seed-node,s", bpo::value<vector<string>>()->composing(), "P2P nodes to connect to on startup (may specify multiple times)")
-         ("checkpoint,c", bpo::value<vector<string>>()->composing(), "Pairs of [BLOCK_NUM,BLOCK_ID] that should be enforced as checkpoints.")
-         ("rpc-endpoint", bpo::value<string>()->implicit_value("127.0.0.1:8090"), "Endpoint for websocket RPC to listen on")
-         ("rpc-tls-endpoint", bpo::value<string>()->implicit_value("127.0.0.1:8089"), "Endpoint for TLS websocket RPC to listen on")
-         ("enable-permessage-deflate", "Enable support for per-message deflate compression in the websocket servers "
-                                       "(--rpc-endpoint and --rpc-tls-endpoint), disabled by default")
-         ("server-pem,p", bpo::value<string>()->implicit_value("server.pem"), "The TLS certificate file for this server")
-         ("server-pem-password,P", bpo::value<string>()->implicit_value(""), "Password for this certificate")
-         ("genesis-json", bpo::value<boost::filesystem::path>(), "File to read Genesis State from")
-         ("dbg-init-key", bpo::value<string>(), "Block signing key to use for init witnesses, overrides genesis file")
-         ("api-access", bpo::value<boost::filesystem::path>(), "JSON file specifying API permissions")
-         ("io-threads", bpo::value<uint16_t>()->implicit_value(0), "Number of IO threads, default to 0 for auto-configuration")
-         ("replay-blockchain", "Rebuild object graph by replaying all blocks")
-         ;
-   command_line_options.add(configuration_file_options);
-   command_line_options.add_options()
-         ("create-genesis-json", bpo::value<boost::filesystem::path>(),
-          "Path to create a Genesis State at. If a well-formed JSON file exists at the path, it will be parsed and any "
-          "missing fields in a Genesis State will be added, and any unknown fields will be removed. If no file or an "
-          "invalid file is found, it will be replaced with an example Genesis State.")
-         ("resync-blockchain", "Delete all blocks and re-sync with network from scratch")
-         ("force-validate", "Force validation of all transactions")
-         ("genesis-timestamp", bpo::value<uint32_t>(), "Replace timestamp from genesis.json with current time plus this many seconds (experts only!)")
-         ;
-   command_line_options.add(_cli_options);
-   configuration_file_options.add(_cfg_options);
-}
-
-void application::initialize(const fc::path& data_dir, const boost::program_options::variables_map& options)
-{
-   my->_data_dir = data_dir;
-   my->_options = &options;
-
-   if (options.count("history-days") > 0) {
-       my->_chain_db->set_history_size(options.at("history-days").as<int>());
-   }
-   if( options.count("create-genesis-json") > 0)
+   void application::initialize(const fc::path& data_dir, std::shared_ptr<boost::program_options::variables_map> options) const
    {
-      fc::path genesis_out = options.at("create-genesis-json").as<boost::filesystem::path>();
-      genesis_state_type genesis_state = detail::create_example_genesis();
-      if( fc::exists(genesis_out) )
-      {
-         try {
-            genesis_state = fc::json::from_file(genesis_out).as<genesis_state_type>(20);
-         } catch(const fc::exception& e) {
-            std::cerr << "Unable to parse existing genesis file:\n" << e.to_string()
-                      << "\nWould you like to replace it? [y/N] ";
-            char response = std::cin.get();
-            if( toupper(response) != 'Y' )
-               return;
-         }
-
-         std::cerr << "Updating genesis state in file " << genesis_out.generic_string() << "\n";
-      } else {
-         std::cerr << "Creating example genesis state in file " << genesis_out.generic_string() << "\n";
-      }
-      fc::json::save_to_file(genesis_state, genesis_out);
-
-      std::exit(EXIT_SUCCESS);
+      ilog( "Initializing application" );
+      my->initialize( data_dir, options );
+      ilog( "Done initializing application" );
    }
 
-   if ( options.count("io-threads") > 0)
+   void application::startup()
    {
-      const uint16_t num_threads = options["io-threads"].as<uint16_t>();
-      fc::asio::default_io_service_scope::set_num_threads(num_threads);
-   }
-}
-
-void application::startup()
-{
-   try {
-   my->startup();
-   } catch ( const fc::exception& e ) {
-      elog( "${e}", ("e",e.to_detail_string()) );
-      throw;
-   } catch ( ... ) {
-      elog( "unexpected exception" );
-      throw;
-   }
-   if (key_string.empty()) return;
-
-   const auto& edc_asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
-   if (edc_asset != my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().end())
-   {
-      const auto& acc_idx = my->_chain_db->get_index_type<account_index>().indices().get<by_id>();
-      auto itr_acc = acc_idx.find(edc_asset->issuer);
-      if (itr_acc != acc_idx.end())
-      {
-         p_key = graphene::utilities::wif_to_key(key_string);
-         from_account = *itr_acc;
-         bonus_schedule();
+      try {
+         my->startup();
+      } catch ( const fc::exception& e ) {
+         elog( "${e}", ("e",e.to_detail_string()) );
+         throw;
+      } catch ( ... ) {
+         elog( "unexpected exception" );
+         throw;
       }
    }
-}
 
-int minutes(fc::time_point now) {
-    return stoi(string(now).substr(14, 2));
-}
+   std::shared_ptr<abstract_plugin> application::get_plugin(const string& name) const {
+      return my->_active_plugins[name];
+   }
 
-int seconds(fc::time_point now) {
-    return stoi(string(now).substr(17, 2));
-}
+   bool application::is_plugin_enabled(const string& name) const {
+      return my->is_plugin_enabled(name);
+   }
 
-string date_string(fc::time_point now) {
-    return string(now).substr(0, 10);
-}
+   net::node_ptr application::p2p_node() {
+      return my->_p2p_network;
+   }
 
-void application::set_key_from_file(fc::path path)
-{
-    if( path.is_relative() )
-        path = fc::current_path() / path;
-    if( fc::exists(path) ) 		{
-        fc::read_file_contents( path, key_string );
-    }
-}
+   std::shared_ptr<chain::database> application::chain_database() const {
+      return my->_chain_db;
+   }
 
-void application::bonus_schedule()
-{
-    fc::time_point now = fc::time_point::now();
-    int wake_every = 60;
-    auto min = (minutes(now) + 1) % wake_every;
-    fc::time_point next_wakeup( now + fc::minutes(wake_every - min) + fc::seconds(60 - seconds(now)));
-    std::cout << "==========" << std::endl << "NEXT WAKEUP: " << string(next_wakeup) << std::endl << "==========" << std::endl;
-    fc::schedule([this]{bonus_schedule_loop();},
-                 next_wakeup, "Bonus schedule loop");
-}
+   void application::set_block_production(bool producing_blocks) {
+      my->set_block_production(producing_blocks);
+   }
 
-void application::bonus_schedule_loop()
-{
-    bonus_schedule();
-    if (!bonus_storage.empty()) {
-       std::cout << "STILL ISSUING" << std::endl;
-       return;
-    }
-    auto& d = *my->_chain_db;
-    if (get_core_transfers("Daily mining reward").size()) {
-        std::cout << "return1" << std::endl;
-        referrer_bonus();
-        return;
-    }
-    bonus_storage.push_back(op_info(from_account, 1000, "Daily mining reward", true));
-    auto& idx = d.get_index_type<chain::account_index>();
-    const auto asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
-    idx.inspect_all_objects( [&d,this,&asset](const chain::object& obj){
-        const chain::account_object& account = static_cast<const chain::account_object&>(obj);
+   fc::optional<api_access_info> application::get_api_access_info( const string& username) const {
+      return my->get_api_access_info(username);
+   }
 
-        auto balance = d.get_balance(account.id, asset->id).amount;
-        if (balance.value == 0) return;
-        
-        auto bonuses = get_daily_bonus(account.id);
-        if (bonuses.size()) return;
-        
-        uint64_t quantity = 0.0065 * balance.value;
-        if (quantity < 1) return;
-        try {
-            bonus_storage.push_back(op_info(account, quantity, "Daily mining reward"));
-        } catch (...) {}
-    });
-    fc::time_point next_wakeup( fc::time_point::now() + fc::seconds(20));
-    fc::schedule([this]{issue_from_storage();},
-                next_wakeup, "issue_from_storage");
-}
+   void application::set_api_access_info(const string& username, api_access_info&& permissions) {
+      my->set_api_access_info(username, std::move(permissions));
+   }
 
-void application::issue_from_storage() {
-    const auto SEND_STRANSACTION_EVERY = fc::milliseconds(71); //ms
-    if (!bonus_storage.size()) return;
+   bool application::is_finished_syncing() const {
+      return my->_is_finished_syncing;
+   }
 
-    auto asset = *my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
-    auto elem = bonus_storage.back();
-    bonus_storage.pop_back();
-    if (elem.is_core_transfer) {
-        bonus_issued(elem.memo_string);
-    } else {
-    	issue_bonus(elem.to_account, elem.quantity, elem.memo_string);
-    }
-    fc::time_point next_wakeup( fc::time_point::now() + SEND_STRANSACTION_EVERY);
-    fc::schedule([this]{issue_from_storage();},
-                 next_wakeup, "issue_from_storage");
-}
+   void application::enable_plugin(const string& name) const {
+      my->enable_plugin(name);
+   }
 
-void application::referrer_bonus()
-{
- auto& d = *my->_chain_db;
- const auto& idx = d.get_index_type<chain::account_index>();
- if (get_core_transfers("Referral reward").size()) {
-     std::cout << "return2" << std::endl;
-     return;
- }
- bonus_storage.push_back(op_info(from_account, 1000, "Referral reward", true));
- const auto asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
- idx.inspect_all_objects( [&](const chain::object& obj) {
-     const chain::account_object& account = static_cast<const chain::account_object&>(obj);
+   void application::add_available_plugin(std::shared_ptr<graphene::app::abstract_plugin> p) const {
+      my->add_available_plugin(p);
+   }
 
-     const uint64_t balance = d.get_balance(account.id, asset->id).amount.value;
-     if (balance < 200 * PRECISION) return;
-     auto history = get_history(account_id_type(account.id));
-     for( auto h = history.begin(); h < history.end(); h++) {
-         if (h->op.which() == 14) {
-             auto op = h->op.get<asset_issue_operation>();
-             std::string message = op.memo->get_message(*p_key, op.memo->to);
-             if (message.find("Referral reward") != std::string::npos)  {
-                 std::cout << "Referral reward found: " << account.name << std::endl;
-                 return;
-             }
-         }
-     }
-     auto bonuses = get_daily_bonus(account.id);
-     if (!bonuses.size()) return;
+   int minutes(fc::time_point now) {
+       return stoi(string(now).substr(14, 2));
+   }
 
-     uint64_t bonus_value = 0;
-     std::vector<account_object> level_1, level_2, level_3;
-     int level_1_partners = 0, level_2_partners = 0, level_3_partners = 0;
+   int seconds(fc::time_point now) {
+       return stoi(string(now).substr(17, 2));
+   }
 
-     std::tie(level_1, level_1_partners) = get_referrers(account.id);
+   string date_string(fc::time_point now) {
+       return string(now).substr(0, 10);
+   }
 
-     if (level_1_partners < 5) return;
-     std::map<account_id_type, Unit*> search;
-     for (auto& l1: level_1) {
-         search.emplace(l1.get_id(), new Unit(l1.get_id(), l1.name, d.get_balance(l1.id, asset->id).amount.value, 1) );
-     }
-     idx.inspect_all_objects( [&](const chain::object& obj){
-         const account_object& ref = static_cast<const chain::account_object&>(obj);
+   std::tuple<std::vector<account_object>, int> application::get_referrers(account_id_type account_id)
+   {
+       auto& d = *my->_chain_db;
+       const auto& idx = d.get_index_type<chain::account_index>();
+       std::vector<account_object> result;
+       int count = 0;
+       auto asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
+       idx.inspect_all_objects( [&d, &account_id,&result,&asset,&count](const chain::object& obj){
+           const account_object& account = static_cast<const chain::account_object&>(obj);
+           auto balance = d.get_balance(account.id, asset->id).amount.value;
+           if (account.id != account_id &&
+               account.referrer == account_id) {
+               result.push_back(account);
+               if (balance >= 100000)
+                   count++;
+           }
+       });
+       return std::make_tuple(result, count);
+   }
 
-         auto searchIt = search.find(ref.referrer);
-         if (searchIt != search.end()) {
-             auto balance = d.get_balance(ref.id, asset->id).amount.value;
-             if (searchIt->second->level == 1) {
-                 level_2.push_back(ref);
-                 if (balance >= 100 * PRECISION)
-                     level_2_partners++;
-             } else {
-                 level_3.push_back(ref);
-                 if (balance >= 100 * PRECISION)
-                     level_3_partners++;
-             }
-             auto nElem = new Unit(ref.get_id(), ref.name, balance, searchIt->second->level + 1);
-             search.emplace(ref.get_id(), nElem);
-         }
-     });
+   std::vector<asset_issue_operation> application::get_daily_bonus(chain::account_id_type account_id)
+   {
+       auto history = get_history(account_id);
+       std::vector<asset_issue_operation> result;
+       for( auto h = history.begin(); h < history.end(); h++) {
+           if (h->op.which() == 14) {
+               auto op = h->op.get<asset_issue_operation>();
+               if ("Daily mining reward" == op.memo->get_message(*p_key, op.memo->to)) {
+                   result.push_back(op);
+               };
+           }
+       }
+       return result;
+   }
 
-     // for (auto& ref : level_1) {
-     //     std::vector<account_object> refs;
-     //     int partners_count = 0;
-     //     std::tie(refs, partners_count) = get_referrers(ref.id);
-     //     level_2_partners += partners_count;
-     //     level_2.insert(level_2.end(), refs.begin(), refs.end());
-     // }
-     // std::tie(level_3, level_3_partners) = scan_referrers(level_2);
-     std::stringstream ref_s;
-     ref_s << "[";
-     std::string sep = "";
-     if (level_2_partners >= 25) {
-         if (balance < 500 * PRECISION) return;
-         int all_count = level_1_partners + level_2_partners + level_3_partners;
-         double bonus_percent = 0;
-         if (all_count < 125) {
-             bonus_percent = 0.2;
-         } else if (all_count < 625) {
-             if (balance >= 1000 * PRECISION) bonus_percent = 0.15;
-         } else if (all_count < 3125) {
-             if (balance >= 2000 * PRECISION) bonus_percent = 0.10;
-         } else if (all_count < 15625) {
-             if (balance >= 3000 * PRECISION) bonus_percent = 0.05;
-         } else if (all_count < 78125) {
-             if (balance >= 4000 * PRECISION) bonus_percent = 0.0025;
-         } else {
-             if (balance >= 5000 * PRECISION) bonus_percent = 0.0025;
-         }
-         if (bonus_percent == 0) return;
-         for (auto& ref : level_1) {
-             auto bonuses = get_daily_bonus(ref.id);
-             if (bonuses.size()) {
-                 int bonus = bonuses[0].asset_to_issue.amount.value * bonus_percent;
-                 bonus_value += bonus;
-                 ref_s << sep << "{\"i\":" << ref.get_id().instance.value << ",\"l\":1" << ",\"v\":" << bonus << "}";
-                 sep = ",";
-             }
-         }
-         for (auto& ref : level_2) {
-             auto bonuses = get_daily_bonus(ref.id);
-             if (bonuses.size()) {
-                 int bonus = bonuses[0].asset_to_issue.amount.value * bonus_percent;
-                 bonus_value += bonus;
-                 ref_s << sep << "{\"i\":" << ref.get_id().instance.value << ",\"l\":2" << ",\"v\":" << bonus << "}";
-             }
-         }
-         for (auto& ref : level_3) {
-             auto bonuses = get_daily_bonus(ref.id);
-             if (bonuses.size()) {
-                 int bonus = bonuses[0].asset_to_issue.amount.value * bonus_percent;
-                 bonus_value += bonus;
-                 ref_s << sep << "{\"i\":" << ref.get_id().instance.value << ",\"l\":3" << ",\"v\":" << bonus << "}";
-             }
-         }
-     } else {
-         for (auto& ref : level_1) {
-             auto bonuses = get_daily_bonus(ref.id);
-             if (bonuses.size()) {
-                 int bonus = bonuses[0].asset_to_issue.amount.value * 0.25;
-                 bonus_value += bonus;
-                 ref_s << sep << "{\"i\":" << ref.get_id().instance.value << ",\"l\":1" << ",\"v\":" << bonus << "}";
-                 sep = ",";
-             }
-         }
-     }
-     ref_s << "]";
-     std::cout << "issue bonus " << account.name << " " << bonus_value << " level1: " << level_1.size() << " level2: " << level_2.size() << " level3: " << level_3.size() << std::endl;
-     bonus_storage.push_back(op_info(account, bonus_value, "Referral reward " + ref_s.str()));
-     // issue_bonus(account, bonus_value, "Referral reward " + ref_s.str());
- });
- fc::time_point next_wakeup( fc::time_point::now() + fc::seconds(20));
- fc::schedule([this]{issue_from_storage();},
-             next_wakeup, "issue_from_storage");
-}
-void application::bonus_issued(std::string with_memo) {
-    auto exchange = my->_chain_db->get<account_object>(chain::account_id_type(19));
+   vector<operation_history_object> application::get_history(account_id_type account)
+   {
+       auto& db = *my->_chain_db;
+       vector<operation_history_object> result;
+       const auto& stats = account(db).statistics(db);
 
-    chain::transfer_operation op;
-    op.from = from_account.id;
-    op.to = exchange.id;
-    op.amount = asset(1000);
-    
-    op.memo = memo_data();
-    op.memo->from = from_account.options.memo_key;
-    op.memo->to = exchange.options.memo_key;
-    op.memo->set_message(*p_key,exchange.options.memo_key, with_memo);
+       const account_transaction_history_object* node = &stats.most_recent_op(db);
 
-    chain::signed_transaction trx;
-    trx.operations.push_back(op);
-    auto dyn_props = my->_chain_db->get_dynamic_global_properties();
-    trx.set_reference_block( dyn_props.head_block_id );
-    my->_chain_db->current_fee_schedule().set_fee( trx.operations.back() );
-    
-    trx.set_expiration( my->_chain_db->get_slot_time( 120 ) );
-    trx.sign(*p_key, my->_chain_db->get_chain_id());
-    // my->_chain_db->push_transaction(trx);
-    my->_p2p_network->broadcast_transaction(trx);
-}
-    
-std::tuple<std::vector<account_object>, int> application::get_referrers(account_id_type account_id)
-{
-    auto& d = *my->_chain_db;
-    const auto& idx = d.get_index_type<chain::account_index>();
-    std::vector<account_object> result;
-    int count = 0;
-    auto asset = my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
-    idx.inspect_all_objects( [&d, &account_id,&result,&asset,&count](const chain::object& obj){
-        const account_object& account = static_cast<const chain::account_object&>(obj);
-        auto balance = d.get_balance(account.id, asset->id).amount.value;
-        if (account.id != account_id &&
-            account.referrer == account_id) {
-            result.push_back(account);
-            if (balance >= 100000)
-                count++;
-        }
-    });
-    return std::make_tuple(result, count);
-}
-    
-std::vector<asset_issue_operation> application::get_daily_bonus(chain::account_id_type account_id)
-{
-    auto history = get_history(account_id);
-    std::vector<asset_issue_operation> result;
-    for( auto h = history.begin(); h < history.end(); h++) {
-        if (h->op.which() == 14) {
-            auto op = h->op.get<asset_issue_operation>();
-            if ("Daily mining reward" == op.memo->get_message(*p_key, op.memo->to)) {
-                result.push_back(op);
-            };
-        }
-    }
-    return result;
-}
-    
-vector<operation_history_object> application::get_history(account_id_type account)
-{
-    auto& db = *my->_chain_db;
-    vector<operation_history_object> result;
-    const auto& stats = account(db).statistics(db);
-        
-    const account_transaction_history_object* node = &stats.most_recent_op(db);
-    
-    while(date_string(time_point(db.fetch_block_by_number(node->operation_id.operator()(db).block_num)->timestamp)) == date_string(time_point::now() - fc::hours(9))) {
-        result.push_back( node->operation_id(db) );
-        if (node->next == account_transaction_history_id_type()) break;
-        node = &node->next(db);
-    }
-    return result;
-}
-    
-vector<transfer_operation> application::get_core_transfers(std::string with_memo)
-{
-    auto exchange_id = account_id_type(19);
-    account_id_type from = from_account.id;
-    auto& db = *my->_chain_db;
-    vector<transfer_operation> result;
-    const auto& stats = from(db).statistics(db);
-    const account_transaction_history_object* node = &stats.most_recent_op(db);
-    while(date_string(time_point(db.fetch_block_by_number(node->operation_id.operator()(db).block_num)->timestamp)) >= date_string(time_point::now() - fc::hours(9))) {
-       auto op_hist = node->operation_id(db);
-        if (op_hist.op.which() == 0) {
-            auto op = op_hist.op.get<transfer_operation>();
-            if (op.memo.valid() && 
-                op.from == from &&
-                op.to == exchange_id) {
-                auto memo_message = op.memo->get_message(*p_key, op.memo->to);
-                if (memo_message.substr(0, with_memo.size()) == with_memo) {
-                    result.push_back(op);
-                }
-            }
-        }
-        if (node->next == account_transaction_history_id_type()) break;
-        node = &node->next(db);
-    }
-    return result;
-}
-
-void application::issue_bonus(const chain::account_object& to_account, long long quant, std::string with_memo)
-{
-    auto asst = *my->_chain_db->get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
-    
-    chain::signed_transaction trx;
-    chain::asset_issue_operation op;
-    op.issuer = asst.issuer;
-    op.asset_to_issue = asst.amount(quant);
-    op.issue_to_account = to_account.id;
-    
-    op.memo = memo_data();
-    op.memo->from = from_account.options.memo_key;
-    op.memo->to = to_account.options.memo_key;
-    op.memo->set_message(*p_key,to_account.options.memo_key, with_memo);
-    trx.operations.push_back(op);
-    trx.set_expiration( my->_chain_db->get_slot_time( 120 ) );
-    auto dyn_props = my->_chain_db->get_dynamic_global_properties();
-    trx.set_reference_block( dyn_props.head_block_id );
-    my->_chain_db->current_fee_schedule().set_fee( trx.operations.back() );
-    trx.sign(*p_key, my->_chain_db->get_chain_id());
-    // my->_chain_db->push_transaction(trx);
-    my->_p2p_network->broadcast_transaction(trx);
-}
-
-std::shared_ptr<abstract_plugin> application::get_plugin(const string& name) const
-{
-   return my->_plugins[name];
-}
-
-net::node_ptr application::p2p_node()
-{
-   return my->_p2p_network;
-}
-
-std::shared_ptr<chain::database> application::chain_database() const
-{
-   return my->_chain_db;
-}
-
-void application::set_block_production(bool producing_blocks)
-{
-   my->_is_block_producer = producing_blocks;
-}
-
-fc::optional< api_access_info > application::get_api_access_info( const string& username )const
-{
-   return my->get_api_access_info( username );
-}
-
-void application::set_api_access_info(const string& username, api_access_info&& permissions)
-{
-   my->set_api_access_info(username, std::move(permissions));
-}
-
-bool application::is_finished_syncing() const
-{
-   return my->_is_finished_syncing;
-}
-
-void graphene::app::application::add_plugin(const string& name, std::shared_ptr<graphene::app::abstract_plugin> p)
-{
-   my->_plugins[name] = p;
-}
-
-void application::shutdown_plugins()
-{
-   for( auto& entry : my->_plugins )
-      entry.second->plugin_shutdown();
-   return;
-}
-void application::shutdown()
-{
-   if( my->_p2p_network )
-      my->_p2p_network->close();
-   if( my->_chain_db )
-      my->_chain_db->close();
-}
-
-void application::initialize_plugins( const boost::program_options::variables_map& options )
-{
-   for( auto& entry : my->_plugins )
-      entry.second->plugin_initialize( options );
-   return;
-}
-
-void application::startup_plugins()
-{
-   for( auto& entry : my->_plugins )
-      entry.second->plugin_startup();
-   return;
-}
+       while(date_string(time_point(db.fetch_block_by_number(node->operation_id.operator()(db).block_num)->timestamp)) == date_string(time_point::now() - fc::hours(9))) {
+           result.push_back( node->operation_id(db) );
+           if (node->next == account_transaction_history_id_type()) break;
+           node = &node->next(db);
+       }
+       return result;
+   }
 
 } } // namespace graphene::app

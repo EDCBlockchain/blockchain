@@ -14,6 +14,7 @@
 #include <graphene/utilities/tempdir.hpp>
 
 #include <fc/crypto/digest.hpp>
+#include <fc/io/fstream.hpp>
 
 #include "../common/database_fixture.hpp"
 
@@ -1065,9 +1066,6 @@ BOOST_FIXTURE_TEST_CASE( transaction_invalidated_in_cache, database_fixture )
 {
    try
    {
-
-      BOOST_TEST_MESSAGE( "=== transaction_invalidated_in_cache, database_fixture ===" );
-
       ACTORS( (alice)(bob) );
 
       auto generate_block = [&]( database& d, uint32_t skip ) -> signed_block
@@ -1076,19 +1074,26 @@ BOOST_FIXTURE_TEST_CASE( transaction_invalidated_in_cache, database_fixture )
       };
 
       // tx's created by ACTORS() have bogus authority, so we need to
-      // skip_authority_check in the block where they're included
-      signed_block b1 = generate_block(db, database::skip_authority_check);
+      // skip_transaction_signatures in the block where they're included
+      signed_block b1 = generate_block(db, database::skip_transaction_signatures);
 
       fc::temp_directory data_dir2( graphene::utilities::temp_directory_path() );
 
       database db2;
-      db2.open(data_dir2.path(), make_genesis);
+      {
+         std::string genesis_json;
+         fc::read_file_contents( data_dir.path() / "genesis.json", genesis_json );
+         genesis_state_type genesis = fc::json::from_string( genesis_json ).as<genesis_state_type>( 50 );
+         genesis.initial_chain_id = fc::sha256::hash( genesis_json );
+         db2.open(data_dir2.path(), [&genesis] () { return genesis; });
+      }
       BOOST_CHECK( db.get_chain_id() == db2.get_chain_id() );
 
       while( db2.head_block_num() < db.head_block_num() )
       {
-         fc::optional< signed_block > b = db.fetch_block_by_number( db2.head_block_num()+1 );
-         db2.push_block(*b, database::skip_witness_signature);
+         optional< signed_block > b = db.fetch_block_by_number( db2.head_block_num()+1 );
+         db2.push_block(*b, database::skip_witness_signature
+                            |database::skip_transaction_signatures );
       }
       BOOST_CHECK( db2.get( alice_id ).name == "alice" );
       BOOST_CHECK( db2.get( bob_id ).name == "bob" );
@@ -1097,7 +1102,7 @@ BOOST_FIXTURE_TEST_CASE( transaction_invalidated_in_cache, database_fixture )
       transfer( account_id_type(), alice_id, asset( 1000 ) );
       transfer( account_id_type(),   bob_id, asset( 1000 ) );
       // need to skip authority check here as well for same reason as above
-      db2.push_block(generate_block(db, database::skip_authority_check), database::skip_authority_check);
+      db2.push_block(generate_block(db, database::skip_transaction_signatures), database::skip_transaction_signatures);
 
       BOOST_CHECK_EQUAL(db.get_balance(alice_id, asset_id_type()).amount.value, 1000);
       BOOST_CHECK_EQUAL(db.get_balance(  bob_id, asset_id_type()).amount.value, 1000);
@@ -1132,7 +1137,7 @@ BOOST_FIXTURE_TEST_CASE( transaction_invalidated_in_cache, database_fixture )
 
       signed_transaction tx = generate_xfer_tx( alice_id, bob_id, 1000, 2 );
       tx.set_expiration( db.head_block_time() + 2 * db.get_global_properties().parameters.block_interval );
-      tx.signatures.clear();
+      tx.clear_signatures();
       sign( tx, alice_private_key );
       // put the tx in db tx cache
       PUSH_TX( db, tx );

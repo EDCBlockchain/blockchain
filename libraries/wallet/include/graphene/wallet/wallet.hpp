@@ -1096,7 +1096,6 @@ class wallet_api
                                         string block_signing_key,
                                         bool broadcast = false);
 
-
       /**
        * Create a worker object.
        *
@@ -1293,6 +1292,11 @@ class wallet_api
                                                                         uint16_t desired_number_of_witnesses,
                                                                         uint16_t desired_number_of_committee_members,
                                                                         bool broadcast = false);
+      // Dump current active witnesses in file
+      std::string dump_current_active_witnesses(bool only_nicknames = false);
+
+      // Get witnesses with daily missed blocks (in descent order)
+      std::vector<witnesses_with_missed_blocks_info> get_witnesses_with_missed_blocks(bool only_nicknames, uint16_t limit);
 
       /** Signs a transaction.
        *
@@ -1546,6 +1550,8 @@ FC_API( graphene::wallet::wallet_api,
         (set_voting_proxy)
         
         (set_desired_witness_and_committee_member_count)
+        (dump_current_active_witnesses)
+        (get_witnesses_with_missed_blocks)
         (get_account)
         (get_account_by_vote_id)
         (get_address)

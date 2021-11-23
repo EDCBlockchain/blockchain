@@ -25,7 +25,7 @@ namespace graphene { namespace net {
      boost::endian::little_uint32_buf_t msg_type;  // every channel gets a 16 bit message type specifier
   };
 
-  typedef fc::uint160_t message_hash_type;
+  using message_hash_type = fc::ripemd160;
 
   /**
    *  Abstracts the process of packing/unpacking a message for a 
@@ -54,7 +54,7 @@ namespace graphene { namespace net {
         size     = (uint32_t)data.size();
      }
 
-     fc::uint160_t id()const
+     message_hash_type id()const
      {
         return fc::ripemd160::hash( data.data(), (uint32_t)data.size() );
      }

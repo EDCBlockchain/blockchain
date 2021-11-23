@@ -835,8 +835,7 @@ signed_transaction wallet_api::create_worker(
 signed_transaction wallet_api::update_worker_votes(
    string owner_account,
    worker_vote_delta delta,
-   bool broadcast /* = false */)
-{
+   bool broadcast /* = false */) {
    return my->update_worker_votes( owner_account, delta, broadcast );
 }
 
@@ -844,13 +843,11 @@ signed_transaction wallet_api::update_witness(
    string witness_name,
    string url,
    string block_signing_key,
-   bool broadcast /* = false */)
-{
+   bool broadcast /* = false */) {
    return my->update_witness(witness_name, url, block_signing_key, broadcast);
 }
 
-vector< vesting_balance_object_with_info > wallet_api::get_vesting_balances( string account_name )
-{
+vector< vesting_balance_object_with_info > wallet_api::get_vesting_balances( string account_name ) {
    return my->get_vesting_balances( account_name );
 }
 
@@ -858,8 +855,7 @@ signed_transaction wallet_api::withdraw_vesting(
    string witness_name,
    string amount,
    string asset_symbol,
-   bool broadcast /* = false */)
-{
+   bool broadcast /* = false */) {
    return my->withdraw_vesting( witness_name, amount, asset_symbol, broadcast );
 }
 
@@ -870,8 +866,7 @@ signed_transaction wallet_api::vote_for_committee_member(string voting_account, 
 signed_transaction wallet_api::vote_for_witness(string voting_account,
                                                 string witness,
                                                 bool approve,
-                                                bool broadcast /* = false */)
-{
+                                                bool broadcast /* = false */) {
    return my->vote_for_witness(voting_account, witness, approve, broadcast);
 }
 
@@ -892,8 +887,7 @@ signed_transaction wallet_api::enable_account_referral_payments(const string& ac
 
 signed_transaction wallet_api::set_voting_proxy(string account_to_modify,
                                                 fc::optional<string> voting_account,
-                                                bool broadcast /* = false */)
-{
+                                                bool broadcast /* = false */) {
    return my->set_voting_proxy(account_to_modify, voting_account, broadcast);
 }
 
@@ -904,6 +898,14 @@ signed_transaction wallet_api::set_desired_witness_and_committee_member_count(st
 {
    return my->set_desired_witness_and_committee_member_count(account_to_modify, desired_number_of_witnesses,
                                                      desired_number_of_committee_members, broadcast);
+}
+
+std::string wallet_api::dump_current_active_witnesses(bool only_nicknames) {
+   return my->dump_current_active_witnesses(only_nicknames);
+}
+
+std::vector<witnesses_with_missed_blocks_info> wallet_api::get_witnesses_with_missed_blocks(bool only_nicknames, uint16_t limit) {
+   return my->get_witnesses_with_missed_blocks(only_nicknames, limit);
 }
 
 void wallet_api::set_wallet_filename(string wallet_filename) {

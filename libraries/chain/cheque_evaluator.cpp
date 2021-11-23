@@ -34,6 +34,15 @@ namespace graphene { namespace chain {
                 , "Invalid 'expiration_datetime': ${a}. Head block time: ${b}"
                 , ("a", op.expiration_datetime)("b", d.head_block_time()));
 
+      if (op.extensions.size() > 0)
+      {
+         const fc::time_point_sec& dt = op.extensions.begin()->get<fc::time_point_sec>();
+
+         FC_ASSERT(dt < op.expiration_datetime
+                   , "Invalid 'datetime_valid_from': ${a}. Expiration datetime: ${b}"
+                   , ("a", dt)("b", op.expiration_datetime));
+      }
+
       const asset_object& asset_obj  = op.payee_amount.asset_id(d);
 
       int64_t fee_percent = 0;
@@ -110,6 +119,13 @@ namespace graphene { namespace chain {
          o.drawer  = op.account_id;
          o.asset_id = op.payee_amount.asset_id;
          o.datetime_creation   = d.head_block_time();
+
+         if (op.extensions.size() > 0)
+         {
+            const fc::time_point_sec& dt = op.extensions.begin()->get<fc::time_point_sec>();
+            o.datetime_valid_from = dt;
+         }
+
          o.datetime_expiration = op.expiration_datetime;
          o.code   = op.code;
          o.status = cheque_status::cheque_new;
@@ -154,6 +170,10 @@ void_result cheque_use_evaluator::do_evaluate( const cheque_use_operation& op )
    FC_ASSERT((cheque_obj_ptr->status == cheque_status::cheque_new), "Cheque code '${code}' has been already used", ("rcode", op.code));
    FC_ASSERT((op.amount.amount == cheque_obj_ptr->amount_payee), "Cheque amount is invalid!");
    FC_ASSERT((op.amount.asset_id == cheque_obj_ptr->asset_id), "Cheque asset id is invalid!");
+
+   if (cheque_obj_ptr->datetime_valid_from.sec_since_epoch() > 0) {
+      FC_ASSERT(cheque_obj_ptr->datetime_valid_from < d.head_block_time(), "Cheque will be available from: {a}", ("a", cheque_obj_ptr->datetime_valid_from));
+   }
 
    for (const cheque_object::payee_item& item: cheque_obj_ptr->payees)
    {

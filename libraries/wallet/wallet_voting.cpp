@@ -152,7 +152,7 @@ namespace graphene { namespace wallet { namespace detail {
 
       return sign_transaction( tx, broadcast );
    } FC_CAPTURE_AND_RETHROW( (witness_name)(url)(block_signing_key)(broadcast) ) }
-   
+
    signed_transaction wallet_api_impl::create_worker(
       string owner_account,
       time_point_sec work_begin_date,
@@ -382,7 +382,160 @@ namespace graphene { namespace wallet { namespace detail {
 
       return sign_transaction( tx, broadcast );
    } FC_CAPTURE_AND_RETHROW( (account_to_modify)(desired_number_of_witnesses)(desired_number_of_committee_members)(broadcast) ) }
-   
+
+   std::string wallet_api_impl::dump_current_active_witnesses(bool only_nicknames)
+   {
+      auto global_props = get_global_properties();
+
+      std::vector<witness_id_type> witness_ids;
+      witness_ids.reserve(global_props.active_witnesses.size());
+
+      for (const witness_id_type& item: global_props.active_witnesses) {
+         witness_ids.emplace_back(item);
+      }
+
+      const std::vector<optional<witness_object>>& witnesses = _remote_db->get_witnesses(witness_ids);
+      std::vector<account_id_type> account_ids;
+      for (const auto& item: witnesses)
+      {
+         if (item) {
+            account_ids.emplace_back(item->witness_account);
+         }
+      }
+
+      const std::vector<optional<account_object>>& accounts = _remote_db->get_accounts(account_ids);
+
+      std::ostringstream os;
+      int count = 0;
+      for (const auto& w_item: witnesses)
+      {
+         if (w_item)
+         {
+            const witness_object& witness = *w_item;
+
+            auto itr = std::find_if(accounts.begin(), accounts.end(), [&](const optional<account_object>& acc)
+            {
+               if (acc && (acc->id == witness.witness_account)) { return true; }
+               return false;
+            });
+
+            if (itr != accounts.end())
+            {
+               const account_object& acc = *(*itr);
+
+               if (only_nicknames)
+               {
+                  os << acc.name;
+                  if (&w_item != &witnesses.back()) {
+                     os << '\n';
+                  }
+               }
+               else
+               {
+                  os << std::string(witness.id) << ", (" << std::string(acc.id) << ", "
+                     << acc.name << ", " << std::string(witness.vote_id) << ")" << '\n';
+                  ++count;
+               }
+            }
+         }
+      }
+
+      if (!only_nicknames) {
+         os << "Count: " << count;
+      }
+
+      //std::cout << os.str() << std::endl;
+
+      std::string fname = "active_witnesses.txt";
+      std::ofstream ofile{fname};
+      ofile << os.str();
+      ofile.close();
+
+      std::ifstream ifile{fname};
+      if (!ifile.good()) {
+         return ("Not saved: opening file " + fname + " - failed");
+      }
+
+      return ("success. Saved in " + fname);
+   }
+
+   std::vector<witnesses_with_missed_blocks_info> wallet_api_impl::get_witnesses_with_missed_blocks(bool only_nicknames, uint16_t limit) const
+   {
+      if (limit == 0) { FC_THROW("Limit must be greater than 0"); }
+
+      auto global_props = get_global_properties();
+
+      std::vector<witness_id_type> witness_ids;
+      witness_ids.reserve(global_props.active_witnesses.size());
+
+      for (const witness_id_type& item: global_props.active_witnesses) {
+         witness_ids.emplace_back(item);
+      }
+
+      const std::vector<optional<witness_object>>& v = _remote_db->get_witnesses(witness_ids);
+      std::vector<witness_object> witnesses;
+      for (const auto& obj: v)
+      {
+         if (obj && obj->daily_missed > 0) {
+            witnesses.push_back(*obj);
+         }
+      }
+
+      std::sort(witnesses.begin(), witnesses.end(), [](const witness_object& obj1, const witness_object& obj2) {
+         return (obj1.daily_missed > obj2.daily_missed);
+      });
+
+      std::vector<account_id_type> account_ids;
+      for (const auto& item: witnesses) {
+         account_ids.emplace_back(item.witness_account);
+      }
+
+      const std::vector<optional<account_object>>& accounts = _remote_db->get_accounts(account_ids);
+
+      std::vector<witnesses_with_missed_blocks_info> result;
+      std::ostringstream os;
+
+      int i = 0;
+      for (const witness_object& witness: witnesses)
+      {
+         if (i == limit) { break; }
+
+         auto itr = std::find_if(accounts.begin(), accounts.end(), [&](const optional<account_object>& acc)
+         {
+            if (acc && (acc->id == witness.witness_account)) { return true; }
+            return false;
+         });
+
+         if (itr != accounts.end())
+         {
+            const account_object& acc = *(*itr);
+
+            if (only_nicknames) {
+               os << acc.name << '\n';
+            }
+            else
+            {
+               witnesses_with_missed_blocks_info obj;
+               obj.witness_id = witness.id;
+               obj.account_id = acc.id;
+               obj.login      = acc.name;
+               obj.vote_id    = witness.vote_id;
+               obj.daily_missed = witness.daily_missed;
+
+               result.emplace_back(std::move(obj));
+            }
+
+            ++i;
+         }
+      }
+
+      if (only_nicknames) {
+         std::cout << os.str() << std::flush;
+      }
+
+      return result;
+   }
+
    signed_transaction wallet_api_impl::propose_parameter_change(
       const string& proposing_account,
       fc::time_point_sec expiration_time,

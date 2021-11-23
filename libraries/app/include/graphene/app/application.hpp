@@ -34,14 +34,9 @@ namespace graphene { namespace app {
 
          void set_program_options( boost::program_options::options_description& command_line_options,
                                    boost::program_options::options_description& configuration_file_options )const;
-         void initialize(const fc::path& data_dir, const boost::program_options::variables_map&options);
-         void initialize_plugins( const boost::program_options::variables_map& options );
+         void initialize(const fc::path& data_dir, std::shared_ptr<boost::program_options::variables_map> options) const;
          void startup();
-         void shutdown();
-         void startup_plugins();
-         void shutdown_plugins();
-       
-         void set_key_from_file(fc::path);
+
          template<typename PluginType>
          std::shared_ptr<PluginType> register_plugin()
          {
@@ -55,7 +50,8 @@ namespace graphene { namespace app {
             if( !plugin_cfg_options.options().empty() )
                _cfg_options.add(plugin_cfg_options);
 
-            add_plugin( plug->plugin_name(), plug );
+            add_available_plugin(plug);
+
             return plug;
          }
          std::shared_ptr<abstract_plugin> get_plugin( const string& name )const;
@@ -71,7 +67,6 @@ namespace graphene { namespace app {
 
          net::node_ptr                    p2p_node();
          std::shared_ptr<chain::database> chain_database()const;
-
          void set_block_production(bool producing_blocks);
          fc::optional< api_access_info > get_api_access_info( const string& username )const;
          void set_api_access_info(const string& username, api_access_info&& permissions);
@@ -80,23 +75,20 @@ namespace graphene { namespace app {
          /// Emitted when syncing finishes (is_finished_syncing will return true)
          boost::signals2::signal<void()> syncing_finished;
 
+         void enable_plugin(const string& name) const;
+         bool is_plugin_enabled(const string& name) const;
+
       private:
-         void add_plugin( const string& name, std::shared_ptr<abstract_plugin> p );
+         /// Add an available plugin
+         void add_available_plugin( std::shared_ptr<abstract_plugin> p ) const;
+
          std::shared_ptr<detail::application_impl> my;
        
-         fc::string key_string;
          fc::optional<fc::ecc::private_key> p_key;
          std::vector<op_info> bonus_storage;
          chain::account_object from_account;
        
-         void bonus_schedule();
-         void bonus_schedule_loop();
-         void referrer_bonus();
-         void issue_bonus(const chain::account_object& account, long long amount, std::string with_memo);
-         void bonus_issued(std::string with_memo);
-         void issue_from_storage();
          std::vector<chain::operation_history_object> get_history(chain::account_id_type account);
-         std::vector<chain::transfer_operation> get_core_transfers(std::string with_memo);
          std::tuple<std::vector<chain::account_object>,int> get_referrers(chain::account_id_type);
       //    std::tuple<std::vector<chain::account_object>,int> scan_referrers(std::vector<chain::account_object> level_2);
          std::vector<chain::asset_issue_operation> get_daily_bonus(chain::account_id_type);

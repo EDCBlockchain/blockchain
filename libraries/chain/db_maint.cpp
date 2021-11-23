@@ -28,6 +28,7 @@
 #include <graphene/chain/is_authorized_asset.hpp>
 #include <graphene/chain/witnesses_info_object.hpp>
 #include <graphene/chain/is_authorized_asset.hpp>
+#include <graphene/utilities/time_utils.hpp>
 
 namespace graphene { namespace chain {
 
@@ -722,6 +723,8 @@ void deprecate_annual_members( database& db )
 
 void database::perform_chain_maintenance(const signed_block& next_block, const global_property_object& global_props)
 {
+   std::chrono::steady_clock::time_point mt_time_begin = std::chrono::steady_clock::now();
+
    const auto& gpo = get_global_properties();
    start_notify_block_num = head_block_num() + 8;
    distribute_fba_balances(*this);
@@ -887,9 +890,21 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
    //   it needs to know the next_maintenance_time
    process_budget();
 
-   std::cout << "[maintenance time: " << std::string(fc::time_point::now())
-             << ", head_block_time: " << std::string(head_block_time()) << "]"
-             << std::endl;
+   std::ostringstream os;
+   os << "[maintenance time: " << std::string(fc::time_point::now())
+      << ", head_block_time: " << std::string(head_block_time());
+
+   if (replay_in_process() && !mt_times_file_created())
+   {
+      if (_mt_seconds > 0) {
+         os << ", progress " << double(_mt_times_seconds_counter * 100) / _mt_seconds << "% of "
+            << utilities::format_duration(std::chrono::milliseconds(_mt_seconds * 1000)) << " seconds";
+      }
+   }
+
+   os << "]";
+
+   std::cout << os.str() << std::endl;
 
    const settings_object& settings = *find(settings_id_type(0));
 
@@ -1009,6 +1024,17 @@ void database::perform_chain_maintenance(const signed_block& next_block, const g
       std::cout << "clear_old_entities(): " << duration.count() << " seconds" << std::endl;
 #endif
    }
+
+   std::chrono::steady_clock::time_point mt_time_end = std::chrono::steady_clock::now();
+   uint32_t mt_elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(mt_time_end - mt_time_begin).count();
+   std::cout << "[Last MT elapsed time: " << utilities::format_duration(std::chrono::milliseconds(mt_elapsed_time * 1000)) << "]" << std::endl;
+
+   _mt_times_seconds_counter += mt_elapsed_time;
+
+   if (!replay_in_process()
+       || (replay_in_process() && mt_times_file_created()) ) {
+      mt_times_add(mt_elapsed_time);
+   }
 }
 
 void database::clear_old_entities()
@@ -1029,6 +1055,7 @@ void database::clear_old_entities()
             remove(*begin_iter++);
          }
       }
+
       // issue_bonuses_old() depends on account_transaction_history_object
       if (head_block_time() > HARDFORK_617_TIME)
       {
@@ -1038,6 +1065,7 @@ void database::clear_old_entities()
             remove(*begin_iter++);
          }
       }
+
       // reference-objects for fund operations
       {
          auto history_index = get_index_type<fund_transaction_history_index>().indices().get<by_time>().lower_bound(tp);
@@ -1046,6 +1074,7 @@ void database::clear_old_entities()
             remove(*begin_iter++);
          }
       }
+
       // blind transfer objects
       {
          auto history_index = get_index_type<blind_transfer2_index>().indices().get<by_datetime>().lower_bound(tp);
@@ -1068,6 +1097,7 @@ void database::clear_old_entities()
             to_remove.push_back(obj.get_id());
          }
       }
+
       for (const fund_deposit_id_type& obj_id: to_remove)
       {
          auto itr = get_index_type<fund_deposit_index>().indices().get<by_id>().find(obj_id);
@@ -1324,7 +1354,11 @@ void database::process_referrals(const settings_object& settings)
 void database::process_accounts()
 {
    const settings_object& settings = *find(settings_id_type(0));
-   const chain::asset_object& edc_asset = (const chain::asset_object&)get(EDC_ASSET);
+   auto edc_asset_itr = get_index_type<asset_index>().indices().get<by_symbol>().find(EDC_ASSET_SYMBOL);
+   if (edc_asset_itr == get_index_type<asset_index>().indices().get<by_symbol>().end()) { return; }
+   const asset_object& edc_asset = *edc_asset_itr;
+
+   //const chain::asset_object& edc_asset = (const chain::asset_object&)get(EDC_ASSET);
    share_type supply_reducer = 0;
 
    const auto& idx = get_index_type<account_index>().indices().get<by_id>();
@@ -1467,12 +1501,15 @@ void database::process_funds()
    const auto& idx_funds = get_index_type<fund_index>().indices().get<by_id>();
    for (const fund_object& fund_obj: idx_funds)
    {
-      // fund is overdue
-      if ( !fund_obj.enabled || (fund_obj.datetime_end < head_block_time()) ) { continue; }
+      // fund is already finished
+      if ( (head_block_time() >= HARDFORK_642_TIME) && !fund_obj.enabled) { continue; }
+      else if (head_block_time() < HARDFORK_642_TIME) {
+         if ( !fund_obj.enabled || (fund_obj.datetime_end < head_block_time()) ) { continue; }
+      }
 
       fund_obj.process(*this);
 
-      // disable fund if overdue
+      // finish fund if it's not finished yet
       if ((dpo.next_maintenance_time - gpo.parameters.maintenance_interval) >= fund_obj.datetime_end) {
          fund_obj.finish(*this);
       }

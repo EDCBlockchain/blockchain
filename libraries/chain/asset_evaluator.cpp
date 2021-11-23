@@ -151,6 +151,7 @@ void_result allow_create_asset_evaluator::do_apply( const allow_create_asset_ope
 
 void_result asset_issue_evaluator::do_evaluate( const asset_issue_operation& o )
 { try {
+
    const database& d = db();
 
    const asset_object& a = o.asset_to_issue.asset_id(d);
@@ -805,8 +806,6 @@ void_result denominate_evaluator::do_apply( const denominate_operation& o )
 
    if (d.head_block_time() > HARDFORK_635_TIME)
    {
-      database& d = db();
-
       const settings_object* settings_ptr = &(*d.find(settings_id_type(0)));
 
       d.modify(*settings_ptr, [&](settings_object& obj)

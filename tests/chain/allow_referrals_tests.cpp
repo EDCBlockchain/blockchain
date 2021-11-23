@@ -159,9 +159,9 @@ BOOST_AUTO_TEST_CASE( disallow_creation_after_fork )
       //Creating EDC asset for bonuses maturity issuing, starting from HARDFORK_617_TIME
       //For correctly work generate_blocks(..) after HARDFORK_617_TIME
       create_edc();
+      db.set_registrar_mode(false);
 
-      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME));
-      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME));
+      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME) + fc::days(1));
 
       transfer(committee_account, alice_id, asset(30000000, asset_id_type()));
 
@@ -188,11 +188,11 @@ BOOST_AUTO_TEST_CASE( allow_creation_after_fork_with_canceled_permission )
       //For correctly work generate_blocks(..) after HARDFORK_617_TIME
       create_edc();
 
+      db.set_registrar_mode(false);
+
       generate_block();
 
-      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME));
-      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME));
-
+      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME) + fc::days(1));
 
       transfer(committee_account, alice_id, asset(30000000, asset_id_type()));
 
@@ -202,7 +202,6 @@ BOOST_AUTO_TEST_CASE( allow_creation_after_fork_with_canceled_permission )
       account_allow_registrar_operation ref_op;
       ref_op.target = alice_id;
       ref_op.action = account_allow_registrar_operation::allow;
-
 
       db.apply_operation(evalState, ref_op);
 

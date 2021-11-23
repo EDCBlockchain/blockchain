@@ -292,7 +292,8 @@ public:
    signed_transaction set_desired_witness_and_committee_member_count(string account_to_modify,
       uint16_t desired_number_of_witnesses, uint16_t desired_number_of_committee_members,
       bool broadcast );
-   
+   std::string dump_current_active_witnesses(bool only_nicknames);
+   std::vector<witnesses_with_missed_blocks_info> get_witnesses_with_missed_blocks(bool only_nicknames, uint16_t limit) const;
    signed_transaction sign_transaction(signed_transaction tx, bool broadcast = false);
    
    signed_transaction sell_asset(string seller_account, string amount_to_sell, string symbol_to_sell,

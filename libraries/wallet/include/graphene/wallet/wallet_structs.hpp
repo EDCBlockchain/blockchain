@@ -272,6 +272,15 @@ struct last_transfer_info
 
 };
 
+struct witnesses_with_missed_blocks_info
+{
+   object_id_type witness_id;
+   object_id_type account_id;
+   std::string    login;
+   vote_id_type   vote_id;
+   int64_t        daily_missed = 0;
+};
+
 }} // namespace graphene::wallet
 
 FC_REFLECT( graphene::wallet::key_label, (label)(key) )
@@ -330,3 +339,6 @@ FC_REFLECT_DERIVED( graphene::wallet::vesting_balance_object_with_info, (graphen
 
 FC_REFLECT( graphene::wallet::operation_detail,
             (memo)(description)(op) )
+
+FC_REFLECT( graphene::wallet::witnesses_with_missed_blocks_info,
+            (witness_id)(account_id)(login)(vote_id)(daily_missed) )

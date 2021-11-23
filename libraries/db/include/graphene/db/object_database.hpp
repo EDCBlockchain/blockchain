@@ -132,8 +132,19 @@ namespace graphene { namespace db {
 
          fc::path get_data_dir()const { return _data_dir; }
 
+         bool replay_in_process() const { return _is_replay_process; }
+         void enable_replay_process_status(bool enabled) { _is_replay_process = enabled; }
+
+         bool mt_times_file_created() const { return _mt_times_file_created; }
+         void enable_mt_times_file_created(bool enabled) { _mt_times_file_created = enabled; }
+
          /** public for testing purposes only... should be private in practice. */
-         undo_database                          _undo_db;
+         undo_database _undo_db;
+         bool          _is_replay_process = false;
+         int64_t       _mt_seconds = -1;
+         bool          _mt_times_file_created = false;
+         uint32_t      _mt_times_seconds_counter = 0;
+
      protected:
          template<typename IndexType>
          IndexType&    get_mutable_index_type() {

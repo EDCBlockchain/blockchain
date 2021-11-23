@@ -30,22 +30,24 @@ namespace graphene { namespace chain {
          return asset(amount_remaining, asset_id);
       }
 
-      // cheque activation code
+      // activation code
       std::string code;
 
-      // cheque object: date and time
       fc::time_point_sec datetime_creation;
 
-      // cheque expiration date and time
+      // date and time from which the check can be used
+      fc::time_point_sec datetime_valid_from;
+
+      // date and time of cheque expiration
       fc::time_point_sec datetime_expiration;
 
-      // cheque date and time, when it was used
+      // date and time when cheque was used
       fc::time_point_sec datetime_used;
 
-      // account which has created cheque
+      // account which has been created cheque
       account_id_type drawer;
 
-      // amount of subcheque (payment for each user)
+      // amount of each subcheque (payment for each user)
       share_type amount_payee;
 
       // remaining amount after payments

@@ -142,11 +142,11 @@ BOOST_AUTO_TEST_CASE( test_daily_bonus )
    }
 }
 
-BOOST_AUTO_TEST_CASE( test_bonus_balances )
+BOOST_AUTO_TEST_CASE( test_asset_bonus_balances )
 {
    try {
 
-      BOOST_TEST_MESSAGE( "=== test_bonus_balances ===" );
+      BOOST_TEST_MESSAGE( "=== test_asset_bonus_balances ===" );
 
       ACTOR( abcde1 );
       ACTOR( abcde2 );
@@ -175,8 +175,7 @@ BOOST_AUTO_TEST_CASE( test_bonus_balances )
       issue_uia( alice_id, asset( 300000, asset2.id ) );
       issue_uia( alice_id, asset( 300000, asset3.id ) );
 
-      while( db.head_block_time() < HARDFORK_620_TIME + fc::days( 3 ) ) 
-      {
+      while( db.head_block_time() < HARDFORK_620_TIME + fc::days( 3 ) ) {
          generate_block();
       }
 

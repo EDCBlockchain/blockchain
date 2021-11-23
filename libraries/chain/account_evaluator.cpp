@@ -143,12 +143,10 @@ void_result account_create_evaluator::do_evaluate( const account_create_operatio
       accs.insert(va.begin(), va.end());
       keys.insert(vk.begin(), vk.end());
 
-      if (!db().registrar_mode_is_enabled()) {
-         check_accounts_usage(d, accs, keys);
-      }
-
       if (!db().registrar_mode_is_enabled())
       {
+         check_accounts_usage(d, accs, keys);
+
          auto& p = d.get_account_properties();
          auto prop_itr = p.accounts_properties.find(op.registrar);
 
@@ -231,6 +229,10 @@ object_id_type account_create_evaluator::do_apply( const account_create_operatio
          if (!is_market_account) {
             obj.verification_is_required = true;
          }
+      }
+
+      if (d.head_block_time() >= HARDFORK_642_TIME) {
+         obj.deposits_autorenewal_enabled = false;
       }
 
       obj.is_market_account = is_market_account;

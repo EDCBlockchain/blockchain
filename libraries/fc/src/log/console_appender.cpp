@@ -49,9 +49,9 @@ namespace fc {
 #endif
       my->cfg = console_appender_config;
 #ifdef WIN32
-         if (my->cfg.stream = stream::std_error)
+         if (my->cfg.stream == stream::std_error)
            my->console_handle = GetStdHandle(STD_ERROR_HANDLE);
-         else if (my->cfg.stream = stream::std_out)
+         else if (my->cfg.stream == stream::std_out)
            my->console_handle = GetStdHandle(STD_OUTPUT_HANDLE);
 #endif
 

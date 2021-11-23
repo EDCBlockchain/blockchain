@@ -40,7 +40,7 @@ namespace graphene { namespace net {
    class node_delegate
    {
       public:
-         virtual ~node_delegate(){}
+         virtual ~node_delegate() = default;
 
          /**
           *  If delegate has the item, the network has no need to fetch it.
@@ -56,8 +56,8 @@ namespace graphene { namespace net {
           *  @throws exception if error validating the item, otherwise the item is
           *          safe to broadcast on.
           */
-         virtual bool handle_block( const graphene::net::block_message& blk_msg, bool sync_mode, 
-                                    std::vector<fc::uint160_t>& contained_transaction_message_ids ) = 0;
+         virtual bool handle_block( const graphene::net::block_message& blk_msg, bool sync_mode,
+                                    std::vector<message_hash_type>& contained_transaction_msg_ids ) = 0;
          
          /**
           *  @brief Called when a new transaction comes in from the network
@@ -176,7 +176,7 @@ namespace graphene { namespace net {
 
         void close();
 
-        void      set_node_delegate( node_delegate* del );
+        void      set_node_delegate( std::shared_ptr<node_delegate> del );
 
         void      load_configuration( const fc::path& configuration_directory );
 
@@ -275,31 +275,7 @@ namespace graphene { namespace net {
         std::unique_ptr<detail::node_impl, detail::node_impl_deleter> my;
    };
 
-    class simulated_network : public node
-    {
-    public:
-      ~simulated_network();
-      simulated_network(const std::string& user_agent) : node(user_agent) {}
-      void      listen_to_p2p_network() override {}
-      void      connect_to_p2p_network() override {}
-      void      connect_to_endpoint(const fc::ip::endpoint& ep) override {}
-
-      fc::ip::endpoint get_actual_listening_endpoint() const override { return fc::ip::endpoint(); }
-
-      void      sync_from(const item_id& current_head_block, const std::vector<uint32_t>& hard_fork_block_numbers) override {}
-      void      broadcast(const message& item_to_broadcast) override;
-      void      add_node_delegate(node_delegate* node_delegate_to_add);
-
-      virtual uint32_t get_connection_count() const override { return 8; }
-    private:
-      struct node_info;
-      void message_sender(node_info* destination_node);
-      std::list<node_info*> network_nodes;
-    };
-
-
-   typedef std::shared_ptr<node> node_ptr;
-   typedef std::shared_ptr<simulated_network> simulated_network_ptr;
+   using node_ptr = std::shared_ptr<node>;
 
 } } // graphene::net
 

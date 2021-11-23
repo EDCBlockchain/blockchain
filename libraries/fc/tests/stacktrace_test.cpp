@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE(static_variant_depth_test)
       if( line.find("_svdt_visitor") != std::string::npos ) count++;
    BOOST_CHECK_LT( 1, count ); // test.visit(), static_variant::visit, function object, visitor.
                                // The actual count depends on compiler and optimization settings.
-   BOOST_CHECK_GT( 10, count ); // It *should* be less than the number of static variant components.
+   BOOST_CHECK_GT( 12, count ); // It *should* be less than the number of static variant components.
                                 // some is implementation-dependent
 }
 #endif

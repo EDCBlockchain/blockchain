@@ -182,7 +182,8 @@ bool database::_push_block(const signed_block& new_block)
       }
    }
 
-   try {
+   try
+   {
       undo_database::session session = _undo_db.start_undo_session();
       apply_block(new_block, skip);
       _block_id_to_block.store(new_block.id(), new_block);

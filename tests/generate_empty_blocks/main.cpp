@@ -99,7 +99,7 @@ int main( int argc, char** argv )
 
       database db;
       fc::path db_path = data_dir / "db";
-      db.enable_registrar_mode();
+      db.set_registrar_mode(true);
       db.open(db_path, [&]() { return genesis; } );
 
       uint32_t slot = 1;

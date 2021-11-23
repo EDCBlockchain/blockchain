@@ -1,4 +1,21 @@
 #pragma once
+
+#define P2P_IN_DEDICATED_THREAD
+
+//#define ENABLE_DEBUG_ULOGS
+
+#ifdef DEFAULT_LOGGER
+# undef DEFAULT_LOGGER
+#endif
+#define DEFAULT_LOGGER "p2p"
+
+//log these messages even at warn level when operating on the test network
+#ifdef GRAPHENE_TEST_NETWORK
+#define testnetlog wlog
+#else
+#define testnetlog(...) do {} while (0)
+#endif
+
 #include <memory>
 #include <fc/thread/thread.hpp>
 #include <fc/log/logger.hpp>
@@ -10,6 +27,113 @@
 #include <graphene/net/peer_connection.hpp>
 
 namespace graphene { namespace net { namespace detail {
+
+/*******
+ * A class to wrap std::unordered_set for multithreading
+ */
+template <class Key, class Hash = std::hash<Key>, class Pred = std::equal_to<Key> >
+class concurrent_unordered_set : private std::unordered_set<Key, Hash, Pred>
+{
+private:
+   mutable fc::mutex mux;
+
+public:
+   // iterations require a lock. This exposes the mutex. Use with care (i.e. lock_guard)
+   fc::mutex& get_mutex()const { return mux; }
+
+   // insertion
+   std::pair< typename std::unordered_set<Key, Hash, Pred>::iterator, bool> emplace( Key key)
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::emplace( key );
+   }
+   std::pair< typename std::unordered_set<Key, Hash, Pred>::iterator, bool> insert (const Key& val)
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::insert( val );
+   }
+   // size
+   size_t size() const
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::size();
+   }
+   bool empty() const noexcept
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::empty();
+   }
+   // removal
+   void clear() noexcept
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      std::unordered_set<Key, Hash, Pred>::clear();
+   }
+   typename std::unordered_set<Key, Hash, Pred>::iterator erase(
+   typename std::unordered_set<Key, Hash, Pred>::const_iterator itr)
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::erase( itr);
+   }
+   size_t erase( const Key& key)
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::erase( key );
+   }
+   // swap
+   void swap( typename std::unordered_set<Key, Hash, Pred>& other ) noexcept
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      std::unordered_set<Key, Hash, Pred>::swap( other );
+   }
+   // iteration
+   typename std::unordered_set<Key, Hash, Pred>::iterator begin() noexcept
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::begin();
+   }
+   typename std::unordered_set<Key, Hash, Pred>::const_iterator begin() const noexcept
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::begin();
+   }
+   typename std::unordered_set<Key, Hash, Pred>::local_iterator begin(size_t n)
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::begin(n);
+   }
+   typename std::unordered_set<Key, Hash, Pred>::const_local_iterator begin(size_t n) const
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::begin(n);
+   }
+   typename std::unordered_set<Key, Hash, Pred>::iterator end() noexcept
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::end();
+   }
+   typename std::unordered_set<Key, Hash, Pred>::const_iterator end() const noexcept
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::end();
+   }
+   typename std::unordered_set<Key, Hash, Pred>::local_iterator end(size_t n)
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::end(n);
+   }
+   typename std::unordered_set<Key, Hash, Pred>::const_local_iterator end(size_t n) const
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::end(n);
+   }
+   // search
+   typename std::unordered_set<Key, Hash, Pred>::const_iterator find(Key key)
+   {
+      fc::scoped_lock<fc::mutex> lock(mux);
+      return std::unordered_set<Key, Hash, Pred>::find(key);
+   }
+};
 
 // when requesting items from peers, we want to prioritize any blocks before
 // transactions, but otherwise request items in the order we heard about them
@@ -37,14 +161,17 @@ struct prioritized_item_id
 class statistics_gathering_node_delegate_wrapper : public node_delegate
 {
 private:
-  node_delegate *_node_delegate;
+  std::shared_ptr<node_delegate> _node_delegate;
   fc::thread *_thread;
 
-  typedef boost::accumulators::accumulator_set<int64_t, boost::accumulators::stats<boost::accumulators::tag::min,
-                                                                                   boost::accumulators::tag::rolling_mean,
-                                                                                   boost::accumulators::tag::max,
-                                                                                   boost::accumulators::tag::sum,
-                                                                                   boost::accumulators::tag::count> > call_stats_accumulator;
+   using call_stats_accumulator =
+      boost::accumulators::accumulator_set< int64_t,
+      boost::accumulators::stats< boost::accumulators::tag::min,
+      boost::accumulators::tag::rolling_mean,
+      boost::accumulators::tag::max,
+      boost::accumulators::tag::sum,
+      boost::accumulators::tag::count> >;
+
 #define NODE_DELEGATE_METHOD_NAMES (has_item) \
                                (handle_message) \
                                (handle_block) \
@@ -86,7 +213,7 @@ private:
         {
           std::shared_ptr<call_statistics_collector> _collector;
         public:
-          actual_execution_measurement_helper(std::shared_ptr<call_statistics_collector> collector) :
+           explicit actual_execution_measurement_helper(std::shared_ptr<call_statistics_collector> collector) :
             _collector(collector)
           {
             _collector->starting_execution();
@@ -138,13 +265,14 @@ private:
         }
       };
     public:
-      statistics_gathering_node_delegate_wrapper(node_delegate* delegate, fc::thread* thread_for_delegate_calls);
+      statistics_gathering_node_delegate_wrapper(std::shared_ptr<node_delegate> delegate, fc::thread* thread_for_delegate_calls);
 
       fc::variant_object get_call_statistics();
 
       bool has_item( const graphene::net::item_id& id ) override;
       void handle_message( const message& ) override;
-      bool handle_block( const graphene::net::block_message& block_message, bool sync_mode, std::vector<fc::uint160_t>& contained_transaction_message_ids ) override;
+      bool handle_block( const graphene::net::block_message& block_message, bool sync_mode,
+                         std::vector<message_hash_type>& contained_transaction_msg_ids ) override;
       void handle_transaction( const graphene::net::trx_message& transaction_message ) override;
       std::vector<item_hash_t> get_block_ids(const std::vector<item_hash_t>& blockchain_synopsis,
                                              uint32_t& remaining_item_count,
@@ -170,7 +298,7 @@ class node_impl : public peer_connection_delegate
       std::shared_ptr<fc::thread> _thread;
 #endif // P2P_IN_DEDICATED_THREAD
       std::unique_ptr<statistics_gathering_node_delegate_wrapper> _delegate;
-      fc::sha256           _chain_id;
+      fc::sha256 _chain_id;
 
 #define NODE_CONFIGURATION_FILENAME      "node_config.json"
 #define POTENTIAL_PEER_DATABASE_FILENAME "peers.json"
@@ -234,9 +362,10 @@ class node_impl : public peer_connection_delegate
 
       /// used by the task that advertises inventory during normal operation
       // @{
-      fc::promise<void>::ptr        _retrigger_advertise_inventory_loop_promise;
-      fc::future<void>              _advertise_inventory_loop_done;
-      std::unordered_set<item_id>   _new_inventory; /// list of items we have received but not yet advertised to our peers
+      fc::promise<void>::ptr _retrigger_advertise_inventory_loop_promise;
+      fc::future<void>       _advertise_inventory_loop_done;
+      /// list of items we have received but not yet advertised to our peers
+      concurrent_unordered_set<item_id> _new_inventory;
       // @}
 
       fc::future<void>     _terminate_inactive_connections_loop_done;
@@ -430,21 +559,15 @@ class node_impl : public peer_connection_delegate
       void on_check_firewall_reply_message(peer_connection* originating_peer,
                                            const check_firewall_reply_message& check_firewall_reply_message_received);
 
-      void on_get_current_connections_request_message(peer_connection* originating_peer,
-                                                      const get_current_connections_request_message& get_current_connections_request_message_received);
-
-      void on_get_current_connections_reply_message(peer_connection* originating_peer,
-                                                    const get_current_connections_reply_message& get_current_connections_reply_message_received);
-
       void on_connection_closed(peer_connection* originating_peer) override;
 
       void send_sync_block_to_node_delegate(const graphene::net::block_message& block_message_to_send);
       void process_backlog_of_sync_blocks();
       void trigger_process_backlog_of_sync_blocks();
-      void process_block_during_sync(peer_connection* originating_peer, const graphene::net::block_message& block_message, const message_hash_type& message_hash);
+
+      void process_block_during_syncing( peer_connection* originating_peer, const graphene::net::block_message& block_message_to_process, const message_hash_type& );
       void process_block_during_normal_operation(peer_connection* originating_peer, const graphene::net::block_message& block_message, const message_hash_type& message_hash);
       void process_block_message(peer_connection* originating_peer, const message& message_to_process, const message_hash_type& message_hash);
-
       void process_ordinary_message(peer_connection* originating_peer, const message& message_to_process, const message_hash_type& message_hash);
 
       void start_synchronizing();
@@ -477,7 +600,7 @@ class node_impl : public peer_connection_delegate
                                const fc::oexception& additional_data = fc::oexception() );
 
       // methods implementing node's public interface
-      void set_node_delegate(node_delegate* del, fc::thread* thread_for_delegate_calls);
+      void set_node_delegate(std::shared_ptr<node_delegate> del, fc::thread* thread_for_delegate_calls);
       void load_configuration( const fc::path& configuration_directory );
       void listen_to_p2p_network();
       void connect_to_p2p_network();

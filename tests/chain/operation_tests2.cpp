@@ -1707,7 +1707,7 @@ BOOST_AUTO_TEST_CASE( hf629_test )
       generate_block();
    }
 
-   db.enable_registrar_mode();
+   db.set_registrar_mode(true);
 
    ACTOR(eva)
 

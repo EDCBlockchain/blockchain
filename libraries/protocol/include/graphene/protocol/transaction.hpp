@@ -150,6 +150,9 @@ namespace graphene { namespace protocol {
 
       /// Removes all operations and signatures
       void clear() { operations.clear(); signatures.clear(); }
+
+      /** Removes all signatures */
+      void clear_signatures() { signatures.clear(); }
    };
 
    void verify_authority( const vector<operation>& ops, const flat_set<public_key_type>& sigs,

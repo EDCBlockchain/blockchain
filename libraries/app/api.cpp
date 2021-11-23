@@ -134,11 +134,10 @@ namespace graphene { namespace app {
 
     void network_broadcast_api::broadcast_block( const signed_block& b )
     {
-       _app.chain_database()->push_block(b);
+       FC_ASSERT( _app.p2p_node() != nullptr, "Not connected to P2P network, can't broadcast!" );
 
-       if (_app.p2p_node() != nullptr) {
-          _app.p2p_node()->broadcast(net::block_message(b));
-       }
+       _app.chain_database()->push_block(b);
+       _app.p2p_node()->broadcast( net::block_message( b ));
     }
 
     signed_transaction network_broadcast_api::broadcast_bonus(string account_name, string amount)
@@ -209,21 +208,19 @@ namespace graphene { namespace app {
 
     void network_broadcast_api::broadcast_transaction_with_callback_new(confirmation_callback cb, const signed_transaction& trx)
     {
+       FC_ASSERT( _app.p2p_node() != nullptr, "Not connected to P2P network, can't broadcast!" );
+
        trx.validate();
        _callbacks[trx.id()] = cb;
        _app.chain_database()->push_transaction(trx);
-
-       if (_app.p2p_node() != nullptr) {
-          _app.p2p_node()->broadcast_transaction(trx);
-       }
+       _app.p2p_node()->broadcast_transaction(trx);
     }
 
-    network_node_api::network_node_api( application& a ) : _app( a )
-    {
-    }
+    network_node_api::network_node_api( application& a ) : _app( a ) { }
 
     fc::variant_object network_node_api::get_info() const
     {
+       FC_ASSERT( _app.p2p_node() != nullptr, "No P2P network!" );
        fc::mutable_variant_object result = _app.p2p_node()->network_get_info();
        result["connection_count"] = _app.p2p_node()->get_connection_count();
        return result;
@@ -236,21 +233,27 @@ namespace graphene { namespace app {
 
     std::vector<net::peer_status> network_node_api::get_connected_peers() const
     {
-       return _app.p2p_node()->get_connected_peers();
+       if( _app.p2p_node() != nullptr )
+          return _app.p2p_node()->get_connected_peers();
+       return {};
     }
 
     std::vector<net::potential_peer_record> network_node_api::get_potential_peers() const
     {
-       return _app.p2p_node()->get_potential_peers();
+       if( _app.p2p_node() != nullptr )
+          return _app.p2p_node()->get_potential_peers();
+       return {};
     }
 
     fc::variant_object network_node_api::get_advanced_node_parameters() const
     {
+       FC_ASSERT( _app.p2p_node() != nullptr, "No P2P network!" );
        return _app.p2p_node()->get_advanced_node_parameters();
     }
 
     void network_node_api::set_advanced_node_parameters(const fc::variant_object& params)
     {
+       FC_ASSERT( _app.p2p_node() != nullptr, "No P2P network!" );
        return _app.p2p_node()->set_advanced_node_parameters(params);
     }
 
@@ -544,7 +547,7 @@ namespace graphene { namespace app {
                 operation_history_object op_h = node->operation_id(db);
                 reserve_op(op_h);
                 result.push_back(std::move(op_h));
-             } catch(fc::exception e) { break; }
+             } catch(const fc::exception& e) { break; }
           }
           if (node->next == account_transaction_history_id_type()) {
              node = nullptr;
@@ -594,7 +597,7 @@ namespace graphene { namespace app {
             {
                result.push_back(listtransactions_result{op_hist.op.get<transfer_operation>(),
                                                         (int)(current_block - op_hist.block_num)});
-            } catch (fc::exception e)
+            } catch (const fc::exception& e)
             { break; }
          }
          if (node->next == account_transaction_history_id_type()) {
@@ -641,7 +644,7 @@ namespace graphene { namespace app {
              operation_history_object op_h = itr->operation_id(db);
              reserve_op(op_h);
              result.push_back(std::move(op_h));
-          } catch(fc::exception e) { break; }
+          } catch(const fc::exception& e) { break; }
           --itr;
        }
        
@@ -676,7 +679,7 @@ namespace graphene { namespace app {
              result.push_back(std::move(op_h));
           }
         }
-        catch(fc::exception e) { break; }
+        catch(const fc::exception& e) { break; }
         if ( node->next == account_transaction_history_id_type() ) {
            node = nullptr;
         }
@@ -734,7 +737,7 @@ namespace graphene { namespace app {
              }
           }
         }
-        catch(fc::exception e) { break; }
+        catch(const fc::exception& e) { break; }
         if (node->next == account_transaction_history_id_type()) {
            node = nullptr;
         }
@@ -804,7 +807,7 @@ namespace graphene { namespace app {
                });
             }
          }
-         catch(fc::exception e) { break; }
+         catch(const fc::exception& e) { break; }
          if (node->next == account_transaction_history_id_type()) {
             node = nullptr;
          }
@@ -980,7 +983,7 @@ namespace graphene { namespace app {
                }
             }
          }
-         catch(fc::exception e) { break; }
+         catch(const fc::exception& e) { break; }
 
          if (node->next == account_transaction_history_id_type()) {
             node = nullptr;
@@ -1038,7 +1041,7 @@ namespace graphene { namespace app {
                });
             }
          }
-         catch(fc::exception e) { break; }
+         catch(const fc::exception& e) { break; }
          if (node->next == fund_transaction_history_id_type()) {
             node = nullptr;
          }

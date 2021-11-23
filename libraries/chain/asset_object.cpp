@@ -149,6 +149,7 @@ FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::asset_dynamic_data_object, (gra
                   )
 
 FC_REFLECT_DERIVED_NO_TYPENAME( graphene::chain::asset_bitasset_data_object, (graphene::db::object),
+                    //(asset_id)
                     (options)
                     (feeds)
                     (current_feed)

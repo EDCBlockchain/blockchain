@@ -15,6 +15,9 @@ namespace graphene { namespace protocol {
    /**
     * @ingroup operations
     */
+
+   typedef static_variant<void_t, /* valid from */ fc::time_point_sec>::flat_set_type cheque_ext_type;
+
    struct cheque_create_operation: public base_operation
    {
       struct fee_parameters_type { uint64_t fee = 0; };
@@ -27,7 +30,7 @@ namespace graphene { namespace protocol {
       uint32_t           payee_count;
       fc::time_point_sec expiration_datetime;
 
-      extensions_type extensions;
+      cheque_ext_type extensions;
       account_id_type fee_payer() const { return account_id; }
       void            validate() const;
       share_type      calculate_fee(const fee_parameters_type& params) const { return 0; }

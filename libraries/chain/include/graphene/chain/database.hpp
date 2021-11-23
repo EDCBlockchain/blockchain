@@ -90,6 +90,10 @@ namespace graphene { namespace chain {
           */
          void reindex(fc::path data_dir, const genesis_state_type& initial_allocation = genesis_state_type());
 
+         void mt_times_create_file(const fc::path& data_dir);
+         void mt_times_add(uint32_t seconds);
+         void mt_times_read();
+
          /**
           * @brief wipe Delete database from disk, and potentially the raw chain as well.
           * @param include_blocks If true, delete the raw chain as well as the database.
@@ -100,7 +104,7 @@ namespace graphene { namespace chain {
          void close(bool rewind = true);
          void set_history_size(int _history_size) { history_size = _history_size; }
 
-         void enable_registrar_mode() { _registrar_mode_enabled = true; }
+         void set_registrar_mode(bool enabled) { _registrar_mode_enabled = enabled; }
          bool registrar_mode_is_enabled() { return _registrar_mode_enabled; }
 
          //////////////////// db_block.cpp ////////////////////
@@ -448,7 +452,7 @@ namespace graphene { namespace chain {
          /**
           * @}
           */
-   protected:
+      protected:
          //Mark pop_undo() as protected -- we do not want outside calling pop_undo(); it should call pop_block() instead
          void pop_undo() { object_database::pop_undo(); }
          void notify_changed_objects();
@@ -462,7 +466,7 @@ namespace graphene { namespace chain {
 
          //////////////////// db_block.cpp ////////////////////
 
-       public:
+      public:
          // these were formerly private, but they have a fairly well-defined API, so let's make them public
          void                  apply_block( const signed_block& next_block, uint32_t skip = skip_nothing );
          processed_transaction apply_transaction( const signed_transaction& trx, uint32_t skip = skip_nothing );
@@ -536,7 +540,7 @@ namespace graphene { namespace chain {
          std::unordered_map<account_id_type, tree<leaf_info2>::iterator> referral_map_v2;
 
          int history_size = 0;
-         // any LTM-member can create accounts
+         // any LTM-member can create accounts if true
          bool _registrar_mode_enabled = false;
 
          vector< processed_transaction >        _pending_tx;

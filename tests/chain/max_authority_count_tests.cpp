@@ -58,8 +58,9 @@ BOOST_AUTO_TEST_CASE( disallow_more_than_3 )
       //For correctly work generate_blocks(..) after HARDFORK_617_TIME
       create_edc();
 
-      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME));
-      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME));
+      db.set_registrar_mode(false);
+
+      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME) + fc::days(1));
 
       transfer(committee_account, alice_id, asset(30000000, asset_id_type()));
 
@@ -98,6 +99,8 @@ BOOST_AUTO_TEST_CASE( disallow_more_than_3_keys_on_update )
       //For correctly work generate_blocks(..) after HARDFORK_617_TIME
       create_edc();
 
+      db.set_registrar_mode(false);
+
       transfer(committee_account, alice_id, asset(30000000, asset_id_type()));
 
       upgrade_to_lifetime_member(alice_id);
@@ -116,8 +119,7 @@ BOOST_AUTO_TEST_CASE( disallow_more_than_3_keys_on_update )
       auto acc2 = get_account_by_name("stub1");
       auto acc3 = get_account_by_name("stub2");
 
-      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME));
-      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME));
+      generate_blocks(fc::time_point_sec(HARDFORK_617_TIME) + fc::days(1));
 
       set_expiration(db, this->trx);
       transaction_evaluation_state evalState(&db);

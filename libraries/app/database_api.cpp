@@ -1331,6 +1331,10 @@ vector<optional<asset_object>> database_api_impl::lookup_asset_symbols(const vec
    result.reserve(symbols_or_ids.size());
    std::transform(symbols_or_ids.begin(), symbols_or_ids.end(), std::back_inserter(result),
                   [this, &assets_by_symbol](const string& symbol_or_id) -> optional<asset_object> {
+      /**
+       * if asset symbol begins from digit then it looks like beginning of ID (for example, 1.12.111)
+       * So, asset symbol must not start with a digit
+       */
       if( !symbol_or_id.empty() && std::isdigit(symbol_or_id[0]) )
       {
          auto ptr = _db.find(variant(symbol_or_id, 1).as<asset_id_type>(1));
@@ -1929,8 +1933,7 @@ vector<market_trade> database_api_impl::get_trade_history( const string& base,
 //                                                                  //
 //////////////////////////////////////////////////////////////////////
 
-vector<optional<witness_object>> database_api::get_witnesses(const vector<witness_id_type>& witness_ids)const
-{
+vector<optional<witness_object>> database_api::get_witnesses(const vector<witness_id_type>& witness_ids) const {
    return my->get_witnesses( witness_ids );
 }
 
@@ -1948,7 +1951,6 @@ vector<worker_object> database_api::get_workers_by_account(account_id_type accou
 
     return result;
 }
-
 
 vector<optional<witness_object>> database_api_impl::get_witnesses(const vector<witness_id_type>& witness_ids)const
 {
@@ -2004,13 +2006,11 @@ map<string, witness_id_type> database_api_impl::lookup_witness_accounts(const st
    return witnesses_by_account_name;
 }
 
-uint64_t database_api::get_witness_count()const
-{
+uint64_t database_api::get_witness_count() const {
    return my->get_witness_count();
 }
 
-uint64_t database_api_impl::get_witness_count()const
-{
+uint64_t database_api_impl::get_witness_count() const {
    return _db.get_index_type<witness_index>().indices().size();
 }
 

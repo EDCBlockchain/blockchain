@@ -5,6 +5,8 @@
 #include <graphene/witness/witness.hpp>
 #include <graphene/history/history_plugin.hpp>
 #include <graphene/market_history/market_history_plugin.hpp>
+#include <graphene/delayed_node/delayed_node_plugin.hpp>
+#include <graphene/debug_witness/debug_witness.hpp>
 
 #include <fc/exception/exception.hpp>
 #include <fc/thread/thread.hpp>
@@ -38,23 +40,32 @@ void write_default_logging_config_to_stream(std::ostream& out);
 fc::optional<fc::logging_config> load_logging_config_from_ini_file(const fc::path& config_ini_filename);
 
 int main(int argc, char** argv) {
-   app::application* node = new app::application();
+   auto node = std::make_unique<graphene::app::application>();
    fc::oexception unhandled_exception;
    try {
       bpo::options_description app_options("Graphene Witness Node");
       bpo::options_description cfg_options("Graphene Witness Node");
+      std::string default_plugins = "witness history";
       app_options.add_options()
             ("help,h", "Print this help message and exit.")
             ("data-dir,d", bpo::value<boost::filesystem::path>()->default_value("witness_node_data_dir"), "Directory containing databases, configuration file, etc.")
-            ("key-path,K", bpo::value<boost::filesystem::path>()->default_value(""), "Path to file with EDC owner key")
             ("history-days",  bpo::value<int>(0), "Size of history in days")
+            ("plugins", bpo::value<std::string>()->default_value(default_plugins),
+               "Space-separated list of plugins to activate")
             ;
 
-      bpo::variables_map options;
+      auto sharable_options = std::make_shared<bpo::variables_map>();
+      auto& options = *sharable_options;
 
-      auto witness_plug = node->register_plugin<witness_plugin::witness_plugin>();
-      auto history_plug = node->register_plugin<history::history_plugin>();
-      auto market_history_plug = node->register_plugin<market_history::market_history_plugin>();
+      cfg_options.add_options()
+         ("plugins", bpo::value<std::string>()->default_value(default_plugins),
+          "Space-separated list of plugins to activate");
+
+      node->register_plugin<witness_plugin::witness_plugin>();
+      node->register_plugin<delayed_node::delayed_node_plugin>();
+      node->register_plugin<debug_witness_plugin::debug_witness_plugin>();
+      node->register_plugin<history::history_plugin>();
+      node->register_plugin<market_history::market_history_plugin>();
 
       try
       {
@@ -67,13 +78,13 @@ int main(int argc, char** argv) {
       catch (const boost::program_options::error& e)
       {
         std::cerr << "Error parsing command line: " << e.what() << "\n";
-        return 1;
+        return EXIT_FAILURE;
       }
 
       if( options.count("help") > 0 )
       {
          std::cout << app_options << "\n";
-         return 0;
+         return EXIT_SUCCESS;
       }
 
       fc::path data_dir;
@@ -89,20 +100,6 @@ int main(int argc, char** argv) {
       {
          // get the basic options
          bpo::store(bpo::parse_config_file<char>(config_ini_path.preferred_string().c_str(), cfg_options, true), options);
-
-//         // try to get logging options from the config file.
-//         try
-//         {
-//            fc::optional<fc::logging_config> logging_config = load_logging_config_from_ini_file(config_ini_path);
-//            if (logging_config)
-//               fc::configure_logging(*logging_config);
-//         }
-//         catch (const fc::exception& ex)
-//         {
-//            wlog("Error parsing logging config from config file ${config}, using default config. Exception: ${ex}"
-//                 , ("config", config_ini_path.preferred_string())
-//                   ("ex", ex.what()) );
-//         }
       }
       else 
       {
@@ -111,7 +108,7 @@ int main(int argc, char** argv) {
             fc::create_directories(data_dir);
 
          std::ofstream out_cfg(config_ini_path.preferred_string());
-         for( const boost::shared_ptr<bpo::option_description> od : cfg_options.options() )
+         for( const boost::shared_ptr<bpo::option_description>& od : cfg_options.options() )
          {
             if( !od->description().empty() )
                out_cfg << "# " << od->description() << "\n";
@@ -140,20 +137,27 @@ int main(int argc, char** argv) {
             fc::configure_logging(*logging_config);
       }
 
-      if ( options.count("key-path") > 0 )
+      std::set<std::string> plugins;
+      boost::split(plugins, options.at("plugins").as<std::string>(), [](char c){return c == ' ';});
+
+      if (plugins.count("witness") > 0 && plugins.count("delayed_node") > 0)
       {
-         auto key_path = options["key-path"].as<boost::filesystem::path>();
-         auto kek = options["key-path"];
-         node->set_key_from_file(key_path);
+         std::cerr << "Plugin conflict: Cannot load both witness plugin and delayed plugin" << '\n';
+         return EXIT_FAILURE;
       }
+
+      std::for_each(plugins.begin(), plugins.end(), [&node](const std::string& plug) mutable
+      {
+         if (!plug.empty()) {
+            node->enable_plugin(plug);
+         }
+      });
 
       bpo::notify(options);
 
-      node->initialize(data_dir, options);
-      node->initialize_plugins( options );
+      node->initialize(data_dir, sharable_options);
 
       node->startup();
-      node->startup_plugins();
 
       fc::promise<int>::ptr exit_promise = fc::promise<int>::create("UNIX Signal Handler");
 
@@ -170,12 +174,9 @@ int main(int argc, char** argv) {
       ilog("Started witness node on a chain with ${h} blocks.", ("h", node->chain_database()->head_block_num()));
       ilog("Chain ID is ${id}", ("id", node->chain_database()->get_chain_id()) );
 
-      int signal = exit_promise->wait();
-      ilog("Exiting from signal ${n}", ("n", signal));
-      node->shutdown_plugins();
-      node->shutdown();
-      delete node;
-      return 0;
+      int caught_signal = exit_promise->wait();
+      ilog("Exiting from signal ${n}", ("n", caught_signal));
+      return EXIT_SUCCESS;
    } catch( const fc::exception& e ) {
       // deleting the node can yield, so do this outside the exception handler
       unhandled_exception = e;
@@ -184,9 +185,7 @@ int main(int argc, char** argv) {
    if (unhandled_exception)
    {
       elog("Exiting with error:\n${e}", ("e", unhandled_exception->to_detail_string()));
-      node->shutdown();
-      delete node;
-      return 1;
+      return EXIT_FAILURE;
    }
 }
 
@@ -210,11 +209,11 @@ void write_default_logging_config_to_stream(std::ostream& out)
           "# declared above, if they are info level are higher\n"
           "[logger.default]\n"
           "level=info\n"
-          "appenders=stderr\n\n"
+          "additions=stderr\n\n"
           "# route messages sent to the \"p2p\" logger to the p2p appender declared above\n"
           "[logger.p2p]\n"
           "level=debug\n"
-          "appenders=p2p\n\n";
+          "additions=p2p\n\n";
 }
 
 fc::optional<fc::logging_config> load_logging_config_from_ini_file(const fc::path& config_ini_filename)
@@ -279,10 +278,10 @@ fc::optional<fc::logging_config> load_logging_config_from_ini_file(const fc::pat
          {
             std::string logger_name = section_name.substr(logger_section_prefix.length());
             std::string level_string = section_tree.get<std::string>("level");
-            std::string appenders_string = section_tree.get<std::string>("appenders");
+            std::string additions_string = section_tree.get<std::string>("additions");
             fc::logger_config logger_config(logger_name);
             logger_config.level = fc::variant(level_string).as<fc::log_level>(5);
-            boost::split(logger_config.appenders, appenders_string, 
+            boost::split(logger_config.appenders, additions_string,
                          boost::is_any_of(" ,"), 
                          boost::token_compress_on);
             logging_config.loggers.push_back(logger_config);

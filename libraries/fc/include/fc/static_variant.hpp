@@ -1,4 +1,4 @@
-/** This source adapted from https://github.com/kmicklas/variadic-static_variant. Now available at https://github.com/kmicklas/variadic-variant.
+/* This source is adapted from https://github.com/kmicklas/variadic-variant .
  *
  * Copyright (C) 2013 Kenneth Micklas
  *

@@ -48,17 +48,17 @@ BOOST_AUTO_TEST_CASE( broadcast_transaction_with_callback_test ) {
 
       fc::ecc::private_key cid_key = fc::ecc::private_key::regenerate( fc::digest("key") );
       const account_id_type cid_id = create_account( "cid", cid_key.get_public_key() ).id;
-      fund(cid_id(db));
+      fund( cid_id(db) );
 
       auto nb_api = std::make_shared< graphene::app::network_broadcast_api >( app );
 
-      set_expiration(db, trx);
-      transfer_operation tr;
-      tr.from = cid_id;
-      tr.to   = account_id_type();
-      tr.amount = asset(1);
-      trx.operations.push_back(tr);
-      sign(trx, cid_key);
+      set_expiration( db, trx );
+      transfer_operation trans;
+      trans.from = cid_id;
+      trans.to   = account_id_type();
+      trans.amount = asset(1);
+      trx.operations.push_back( trans );
+      sign( trx, cid_key );
 
       nb_api->broadcast_transaction_with_callback_new( callback, trx );
 

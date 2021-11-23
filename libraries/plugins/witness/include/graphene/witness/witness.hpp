@@ -21,7 +21,8 @@ namespace block_production_condition
       low_participation = 5,
       lag = 6,
       exception_producing_block = 7,
-      shutdown = 8
+      shutdown = 8,
+      no_network = 9
    };
 }
 

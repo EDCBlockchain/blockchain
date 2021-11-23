@@ -210,10 +210,10 @@ BOOST_AUTO_TEST_CASE(cheque_fee_test)
       issue_uia(bob_id, asset(10000, EDC_ASSET));
       const settings_object& settings = *db.find(settings_id_type(0));
 
-      db.set_history_size(1);
-
       fc::time_point_sec h_time = HARDFORK_627_TIME;
       generate_blocks(h_time);
+
+      db.set_history_size(1);
 
       fc::time_point_sec exp_date = db.head_block_time() + fc::days(5);
       const std::string& bob_cheque_code = "bobcode111111111";
@@ -224,7 +224,7 @@ BOOST_AUTO_TEST_CASE(cheque_fee_test)
 
       {
          update_settings_operation op;
-         op.fee = asset();
+         //op.fee = asset();
          op.transfer_fees = settings.transfer_fees;
          op.blind_transfer_fees = settings.blind_transfer_fees;
          op.blind_transfer_default_fee = settings.blind_transfer_default_fee;

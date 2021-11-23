@@ -31,8 +31,10 @@ delayed_node_plugin::~delayed_node_plugin() { }
 
 void delayed_node_plugin::plugin_set_program_options(bpo::options_description& cli, bpo::options_description& cfg)
 {
-   (void)cli; (void)cfg;
-   // for "trusted-node" see delayed_node/main.cpp
+   cli.add_options()
+      ("trusted-node", boost::program_options::value<std::string>(),
+      "RPC endpoint of a trusted validating node (required for delayed_node)");
+   cfg.add(cli);
 }
 
 void delayed_node_plugin::connect()
@@ -40,8 +42,7 @@ void delayed_node_plugin::connect()
    try
    {
       my->client_connection = std::make_shared<fc::rpc::websocket_api_connection>(
-      my->client.connect(my->remote_endpoint),
-      GRAPHENE_NET_MAX_NESTED_OBJECTS );
+      my->client.connect(my->remote_endpoint), GRAPHENE_NET_MAX_NESTED_OBJECTS );
       my->database_api = my->client_connection->get_remote_api<graphene::app::database_api>(0);
       my->client_connection_closed = my->client_connection->closed.connect([this] {
          connection_failed();

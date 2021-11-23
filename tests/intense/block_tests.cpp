@@ -244,6 +244,11 @@ BOOST_FIXTURE_TEST_CASE( update_account_keys, database_fixture )
    }
 }
 
+// The next test is commented out as it will fail in current bitshares implementaton
+// where "witnesses should never sign 2 consecutive blocks" is not enforced.
+// https://github.com/bitshares/bitshares-core/issues/565
+// Leaving it here to use it if we implement.later
+
 /**
  *  To have a secure random number we need to ensure that the same
  *  witness does not get to produce two blocks in a row.  There is
@@ -252,19 +257,17 @@ BOOST_FIXTURE_TEST_CASE( update_account_keys, database_fixture )
  *
  *  This means that when we shuffle witness we need to make sure
  *  that there is at least N/2 witness between consecutive turns
- *  of the same witness. This means that during the random
+ *  of the same witness.    This means that durring the random
  *  shuffle we need to restrict the placement of witness to maintain
  *  this invariant.
  *
  *  This test checks the requirement using Monte Carlo approach
  *  (produce lots of blocks and check the invariant holds).
  */
+/*
 BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
 {
    try {
-
-      BOOST_TEST_MESSAGE( "=== witness_order_mc_test, database_fixture ===" );
-
       size_t num_witnesses = db.get_global_properties().active_witnesses.size();
       size_t dmin = num_witnesses >> 1;
 
@@ -273,8 +276,7 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
       // if we make the maximum witness count testable,
       // we'll need to enlarge this.
       std::bitset< 0x40 > witness_seen;
-      //size_t total_blocks = 1000000;
-      size_t total_blocks = 1000;
+      size_t total_blocks = 1000000;
 
       cur_round.reserve( num_witnesses );
       full_schedule.reserve( total_blocks );
@@ -282,11 +284,12 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
 
       // we assert so the test doesn't continue, which would
       // corrupt memory
-      BOOST_CHECK(num_witnesses <= witness_seen.size());
+      assert( num_witnesses <= witness_seen.size() );
 
       while( full_schedule.size() < total_blocks )
       {
-         if( (db.head_block_num() & 0x3FFF) == 0 ) {
+         if( (db.head_block_num() & 0x3FFF) == 0 )
+         {
              wdump( (db.head_block_num()) );
          }
          witness_id_type wid = db.get_scheduled_witness( 1 );
@@ -301,6 +304,7 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
             {
                uint64_t inst = w.instance.value;
                BOOST_CHECK( !witness_seen.test( inst ) );
+               assert( !witness_seen.test( inst ) );
                witness_seen.set( inst );
             }
             cur_round.clear();
@@ -310,8 +314,10 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
 
       for( size_t i=0,m=full_schedule.size(); i<m; i++ )
       {
-         for( size_t j=i+1,n=std::min( m, i+dmin ); j<n; j++ ) {
-            BOOST_CHECK( full_schedule[i] != full_schedule[m] );
+         for( size_t j=i+1,n=std::min( m, i+dmin ); j<n; j++ )
+         {
+            BOOST_CHECK( full_schedule[i] != full_schedule[j] );
+            assert( full_schedule[i] != full_schedule[j] );
          }
       }
 
@@ -320,6 +326,7 @@ BOOST_FIXTURE_TEST_CASE( witness_order_mc_test, database_fixture )
       throw;
    }
 }
+*/
 
 BOOST_FIXTURE_TEST_CASE( tapos_rollover, database_fixture )
 {

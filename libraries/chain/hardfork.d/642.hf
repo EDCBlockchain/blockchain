@@ -1,0 +1,4 @@
+// 25-nov-2021 08:00:00 (UTC)
+#ifndef HARDFORK_642_TIME
+#define HARDFORK_642_TIME (fc::time_point_sec( 1637827200 ))
+#endif

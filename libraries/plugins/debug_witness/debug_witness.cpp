@@ -26,14 +26,13 @@ void debug_witness_plugin::plugin_set_program_options(
 {
    auto default_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(std::string("nathan")));
    command_line_options.add_options()
-         ("private-key", bpo::value<vector<string>>()->composing()->multitoken()->
+         ("debug-private-key", bpo::value<vector<string>>()->composing()->multitoken()->
           DEFAULT_VALUE_VECTOR(std::make_pair(chain::public_key_type(default_priv_key.get_public_key()), graphene::utilities::key_to_wif(default_priv_key))),
           "Tuple of [PublicKey, WIF private key] (may specify multiple times)");
    config_file_options.add(command_line_options);
 }
 
-std::string debug_witness_plugin::plugin_name()const
-{
+std::string debug_witness_plugin::plugin_name() const {
    return "debug_witness";
 }
 
@@ -42,9 +41,9 @@ void debug_witness_plugin::plugin_initialize(const boost::program_options::varia
    ilog("debug_witness plugin:  plugin_initialize() begin");
    _options = &options;
 
-   if( options.count("private-key") )
+   if( options.count("debug-private-key") )
    {
-      const std::vector<std::string> key_id_to_wif_pair_strings = options["private-key"].as<std::vector<std::string>>();
+      const std::vector<std::string> key_id_to_wif_pair_strings = options["debug-private-key"].as<std::vector<std::string>>();
       for (const std::string& key_id_to_wif_pair_string : key_id_to_wif_pair_strings)
       {
          auto key_id_to_wif_pair = graphene::app::dejsonify<std::pair<chain::public_key_type, std::string> >(key_id_to_wif_pair_string, GRAPHENE_MAX_NESTED_OBJECTS);
@@ -54,12 +53,10 @@ void debug_witness_plugin::plugin_initialize(const boost::program_options::varia
          {
             // the key isn't in WIF format; see if they are still passing the old native private key format.  This is
             // just here to ease the transition, can be removed soon
-            try
-            {
+            try {
                private_key = fc::variant( key_id_to_wif_pair.second, GRAPHENE_MAX_NESTED_OBJECTS ).as<fc::ecc::private_key>( GRAPHENE_MAX_NESTED_OBJECTS );
             }
-            catch (const fc::exception&)
-            {
+            catch (const fc::exception&) {
                FC_THROW("Invalid WIF-format private key ${key_string}", ("key_string", key_id_to_wif_pair.second));
             }
          }
@@ -85,18 +82,16 @@ void debug_witness_plugin::plugin_startup()
 
 void debug_witness_plugin::on_changed_objects( const std::vector<graphene::db::object_id_type>& ids )
 {
-   if( _json_object_stream && (ids.size() > 0) )
+   if (_json_object_stream && (ids.size() > 0))
    {
       const chain::database& db = database();
       for( const graphene::db::object_id_type& oid : ids )
       {
          const graphene::db::object* obj = db.find_object( oid );
-         if( obj == nullptr )
-         {
+         if (obj == nullptr) {
             (*_json_object_stream) << "{\"id\":" << fc::json::to_string( oid ) << "}\n";
          }
-         else
-         {
+         else {
             (*_json_object_stream) << fc::json::to_string( obj->to_variant() ) << '\n';
          }
       }

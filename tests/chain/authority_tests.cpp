@@ -381,9 +381,6 @@ BOOST_AUTO_TEST_CASE( proposed_single_account )
 /// Verify that committee authority cannot be invoked in a normal transaction
 BOOST_AUTO_TEST_CASE( committee_authority )
 { try {
-
-   BOOST_TEST_MESSAGE( "=== committee_authority ===" );
-
    fc::ecc::private_key nathan_key = fc::ecc::private_key::generate();
    fc::ecc::private_key committee_key = init_account_priv_key;
    const account_object nathan = create_account("nathan", nathan_key.get_public_key());
@@ -403,11 +400,9 @@ BOOST_AUTO_TEST_CASE( committee_authority )
    top.amount = asset(100000);
    trx.operations.push_back(top);
    sign(trx, committee_key);
-   GRAPHENE_CHECK_THROW(PUSH_TX( db, trx ), graphene::protocol::invalid_committee_approval );
-//   BOOST_REQUIRE_THROW(db.push_transaction(trx, ~0), graphene::chain::invalid_committee_approval);
-//   trx.clear();
+   GRAPHENE_CHECK_THROW(PUSH_TX( db, trx ), graphene::chain::invalid_committee_approval );
 
-   auto _sign = [&] { trx.signatures.clear(); sign( trx, nathan_key ); };
+   auto _sign = [&] { trx.clear_signatures(); sign( trx, nathan_key ); };
 
    proposal_create_operation pop;
    pop.proposed_ops.push_back({trx.operations.front()});
@@ -421,7 +416,6 @@ BOOST_AUTO_TEST_CASE( committee_authority )
    pop.review_period_seconds = global_params.committee_proposal_review_period / 2;
    trx.operations.back() = pop;
    _sign();
-
    // The review period is too short. Make sure it throws.
    GRAPHENE_REQUIRE_THROW( PUSH_TX( db, trx ), proposal_create_review_period_insufficient );
    pop.review_period_seconds = global_params.committee_proposal_review_period;
@@ -442,8 +436,7 @@ BOOST_AUTO_TEST_CASE( committee_authority )
 
    BOOST_TEST_MESSAGE( "Checking that the proposal is not authorized to execute" );
    BOOST_REQUIRE(!db.get<proposal_object>(prop.id).is_authorized_to_execute(db));
-   trx.operations.clear();
-   trx.signatures.clear();
+   trx.clear();
    proposal_update_operation uop;
    uop.fee_paying_account = GRAPHENE_TEMP_ACCOUNT;
    uop.proposal = prop.id;
@@ -459,11 +452,11 @@ BOOST_AUTO_TEST_CASE( committee_authority )
    */
    trx.operations.push_back(uop);
    sign( trx, committee_key );
-   db.push_transaction(trx);
+   PUSH_TX(db, trx);
    BOOST_CHECK_EQUAL(get_balance(nathan, asset_id_type()(db)), 0);
    BOOST_CHECK(db.get<proposal_object>(prop.id).is_authorized_to_execute(db));
 
-   trx.signatures.clear();
+   trx.clear_signatures();
    generate_blocks(*prop.review_period_time);
    uop.key_approvals_to_add.clear();
    uop.key_approvals_to_add.insert(committee_key.get_public_key()); // was 7
@@ -474,6 +467,8 @@ BOOST_AUTO_TEST_CASE( committee_authority )
 
    generate_blocks(prop.expiration_time);
    BOOST_CHECK_EQUAL(get_balance(nathan, asset_id_type()(db)), 100000);
+   // proposal deleted
+   BOOST_CHECK_THROW( db.get<proposal_object>(prop.id), fc::exception );
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE( fired_committee_members, database_fixture )

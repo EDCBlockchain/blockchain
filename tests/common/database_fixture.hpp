@@ -2,12 +2,15 @@
 
 #pragma once
 
-#include <graphene/app/application.hpp>
-#include <graphene/chain/database.hpp>
+#include <boost/filesystem/path.hpp>
+
 #include <fc/io/json.hpp>
 
+#include <graphene/app/application.hpp>
+#include <graphene/chain/database.hpp>
 #include <graphene/chain/operation_history_object.hpp>
 #include <graphene/chain/committee_member_object.hpp>
+#include <graphene/utilities/tempdir.hpp>
 
 #include <iostream>
 
@@ -129,6 +132,9 @@ extern uint32_t GRAPHENE_TESTING_GENESIS_TIMESTAMP;
 #define ACTORS_IMPL(r, data, elem) ACTOR(elem)
 #define ACTORS(names) BOOST_PP_SEQ_FOR_EACH(ACTORS_IMPL, ~, names)
 
+#define INITIAL_WITNESS_COUNT (11u)
+#define INITIAL_COMMITTEE_MEMBER_COUNT INITIAL_WITNESS_COUNT
+
 #define ISSUE_BY_NAME(z, n, data) issue_uia(BOOST_PP_CAT(BOOST_PP_TUPLE_ELEM(2, 0, data), n), BOOST_PP_TUPLE_ELEM(2, 1, data));
 #define ISSUES_BY_NAMES(name_prefix, suf_from, suf_to, asset) \
 BOOST_PP_REPEAT_FROM_TO(suf_from, suf_to, ISSUE_BY_NAME, (name_prefix, asset))
@@ -164,33 +170,58 @@ BOOST_PP_REPEAT_FROM_TO(suf_from, suf_to, MAKE_DEPOSIT_PAYMENT_BY_NAME, (name_pr
    trx.clear(); \
 }
 
+namespace fc {
+
+   /**
+    * Set value of a named variable in the program options map if the variable has not been set.
+    */
+   template<typename T>
+   static void set_option( boost::program_options::variables_map& options, const std::string& name, const T& value ) {
+      options.emplace( name, boost::program_options::variable_value( value, false ) );
+   }
+
+} // namespace fc
+
 namespace graphene { namespace chain {
 
-struct database_fixture {
-   // the reason we use an app is to exercise the indexes of built-in
-   //   plugins
+namespace test {
+   /// set a reasonable expiration time for the transaction
+   void set_expiration( const database& db, transaction& tx );
+
+   bool _push_block( database& db, const signed_block& b, uint32_t skip_flags = 0 );
+      processed_transaction _push_transaction( database& db, const signed_transaction& tx, uint32_t skip_flags = 0 );
+
+} // ns test
+
+struct database_fixture_base {
+   // the reason we use an app is to exercise the indexes of built-in plugins
    graphene::app::application app;
    genesis_state_type genesis_state;
    chain::database &db;
    signed_transaction trx;
    public_key_type committee_key;
    account_id_type committee_account;
-   fc::ecc::private_key private_key = fc::ecc::private_key::generate();
-   fc::ecc::private_key init_account_priv_key = fc::ecc::private_key::regenerate(fc::sha256::hash(string("null_key")) );
+   fc::ecc::private_key private_key;
+   fc::ecc::private_key init_account_priv_key;
    public_key_type init_account_pub_key;
 
-   fc::optional<fc::temp_directory> data_dir;
+   fc::temp_directory data_dir;
    bool skip_key_index_test = false;
    uint32_t anon_acct_count;
 
-   database_fixture();
-   ~database_fixture();
+   const std::string current_test_name;
+   const std::string current_suite_name;
+
+   database_fixture_base();
+   virtual ~database_fixture_base();
+
+   static void init_genesis( database_fixture_base& fixture );
+   static std::shared_ptr<boost::program_options::variables_map> init_options( database_fixture_base& fixture );
 
    static fc::ecc::private_key generate_private_key(string seed);
    string generate_anon_acct_name();
    static void verify_asset_supplies( const database& db );
    void verify_history_plugin_index( )const;
-   void open_database();
    signed_block generate_block(uint32_t skip = ~0,
                                const fc::ecc::private_key& key = generate_private_key("null_key"),
                                int miss_blocks = 0);
@@ -332,14 +363,39 @@ struct database_fixture {
    const string& rcp_code,
    account_id_type to_account);
 
+}; // struct database_fixture_base
+
+template<typename F>
+struct database_fixture_init : database_fixture_base
+{
+   database_fixture_init()
+   {
+      F::init( *this );
+
+//      asset_id_type mpa1_id(1);
+//      BOOST_REQUIRE( mpa1_id(db).is_market_issued() );
+//      BOOST_CHECK( mpa1_id(db).bitasset_data(db).asset_id == mpa1_id );
+   }
+
+   static void init( database_fixture_init<F>& fixture )
+   { try {
+      fixture.data_dir = fc::temp_directory( graphene::utilities::temp_directory_path() );
+      fc::create_directories( fixture.data_dir.path() );
+      F::init_genesis( fixture );
+      fc::json::save_to_file( fixture.genesis_state, fixture.data_dir.path() / "genesis.json" );
+      auto options = F::init_options( fixture );
+      fc::set_option( *options, "genesis-json", boost::filesystem::path(fixture.data_dir.path() / "genesis.json") );
+      fixture.app.initialize( fixture.data_dir.path(), options );
+      fixture.app.startup();
+
+      fixture.generate_block();
+
+      test::set_expiration( fixture.db, fixture.trx );
+   } FC_LOG_AND_RETHROW() }
 };
 
-namespace test {
-/// set a reasonable expiration time for the transaction
-void set_expiration( const database& db, transaction& tx );
-
-bool _push_block( database& db, const signed_block& b, uint32_t skip_flags = 0 );
-processed_transaction _push_transaction( database& db, const signed_transaction& tx, uint32_t skip_flags = 0 );
-}
+struct database_fixture : database_fixture_init<database_fixture>
+{
+};
 
 } }
